@@ -1,7 +1,7 @@
 #include "intermediate_result.hpp"
 #include "geometry_utils.hpp"
 
-#include "storage/country_info.hpp"
+#include "storage/country_info_getter.hpp"
 
 #include "indexer/ftypes_matcher.hpp"
 #include "indexer/classificator.hpp"
@@ -16,10 +16,7 @@
 #include "base/string_utils.hpp"
 #include "base/logging.hpp"
 
-#ifndef OMIM_OS_LINUX
-// Lib opening_hours is not built for Linux since stdlib doesn't have required functions.
-#include "3party/opening_hours/osm_time_range.hpp"
-#endif
+#include "3party/opening_hours/opening_hours.hpp"
 
 
 namespace search
@@ -37,12 +34,18 @@ void ProcessMetadata(FeatureType const & ft, Result::Metadata & meta)
 
   meta.m_cuisine = src.Get(feature::Metadata::FMD_CUISINE);
 
-#ifndef OMIM_OS_LINUX
-  // Lib opening_hours is not built for Linux since stdlib doesn't have required functions.
   string const openHours = src.Get(feature::Metadata::FMD_OPEN_HOURS);
   if (!openHours.empty())
-    meta.m_isClosed = OSMTimeRange(openHours)(time(nullptr)).IsClosed();
-#endif
+  {
+    osmoh::OpeningHours oh(openHours);
+
+    // TODO(mgsergio): Switch to three-stated model instead of two-staed
+    // I.e. set unknown if we can't parse or can't answer whether it's open.
+    if (oh.IsValid())
+     meta.m_isClosed = oh.IsClosed(time(nullptr));
+    else
+      meta.m_isClosed = false;
+  }
 
   meta.m_stars = 0;
   (void) strings::to_int(src.Get(feature::Metadata::FMD_STARS), meta.m_stars);
@@ -201,23 +204,24 @@ namespace
   };
 }
 
-string PreResult2::GetRegionName(storage::CountryInfoGetter const * pInfo, uint32_t fType) const
+string PreResult2::GetRegionName(storage::CountryInfoGetter const & infoGetter,
+                                 uint32_t fType) const
 {
   static SkipRegionInfo const checker;
   if (checker.IsSkip(fType))
     return string();
 
   storage::CountryInfo info;
-  m_region.GetRegion(pInfo, info);
+  m_region.GetRegion(infoGetter, info);
   return info.m_name;
 }
 
-Result PreResult2::GenerateFinalResult(storage::CountryInfoGetter const * pInfo,
+Result PreResult2::GenerateFinalResult(storage::CountryInfoGetter const & infoGetter,
                                        CategoriesHolder const * pCat,
                                        set<uint32_t> const * pTypes, int8_t locale) const
 {
   uint32_t const type = GetBestType(pTypes);
-  string const regionName = GetRegionName(pInfo, type);
+  string const regionName = GetRegionName(infoGetter, type);
 
   switch (m_resultType)
   {
@@ -237,13 +241,11 @@ Result PreResult2::GenerateFinalResult(storage::CountryInfoGetter const * pInfo,
   }
 }
 
-Result PreResult2::GeneratePointResult(storage::CountryInfoGetter const * pInfo,
-                                     CategoriesHolder const * pCat,
-                                     set<uint32_t> const * pTypes, int8_t locale) const
+Result PreResult2::GeneratePointResult(CategoriesHolder const * pCat, set<uint32_t> const * pTypes,
+                                       int8_t locale) const
 {
   uint32_t const type = GetBestType(pTypes);
-  return Result(m_id, GetCenter(), m_str, GetRegionName(pInfo, type),
-                ReadableFeatureType(pCat, type, locale));
+  return Result(m_id, GetCenter(), m_str, ReadableFeatureType(pCat, type, locale));
 }
 
 bool PreResult2::LessRank(PreResult2 const & r1, PreResult2 const & r2)
@@ -319,27 +321,19 @@ string PreResult2::DebugPrint() const
 
 uint32_t PreResult2::GetBestType(set<uint32_t> const * pPrefferedTypes) const
 {
-  uint32_t type = 0;
-
   if (pPrefferedTypes)
   {
-    for (uint32_t t : m_types)
-      if (pPrefferedTypes->count(t) > 0)
-      {
-        type = t;
-        break;
-      }
+    for (uint32_t type : m_types)
+    {
+      if (pPrefferedTypes->count(type) > 0)
+        return type;
+    }
   }
 
-  if (type == 0)
-  {
-    type = m_types.GetBestType();
-
-    // Do type truncate (2-level is enough for search results) only for
-    // non-preffered types (types from categories leave original).
-    ftype::TruncValue(type, 2);
-  }
-
+  // Do type truncate (2-level is enough for search results) only for
+  // non-preffered types (types from categories leave original).
+  uint32_t type = m_types.GetBestType();
+  ftype::TruncValue(type, 2);
   return type;
 }
 
@@ -357,14 +351,13 @@ string PreResult2::ReadableFeatureType(CategoriesHolder const * pCat,
   return classif().GetReadableObjectName(type);
 }
 
-void PreResult2::RegionInfo::GetRegion(storage::CountryInfoGetter const * pInfo,
+void PreResult2::RegionInfo::GetRegion(storage::CountryInfoGetter const & infoGetter,
                                        storage::CountryInfo & info) const
 {
   if (!m_file.empty())
-    pInfo->GetRegionInfo(m_file, info);
+    infoGetter.GetRegionInfo(m_file, info);
   else
-    pInfo->GetRegionInfo(m_point, info);
+    infoGetter.GetRegionInfo(m_point, info);
 }
-
 }  // namespace search::impl
 }  // namespace search

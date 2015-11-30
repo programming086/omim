@@ -294,10 +294,23 @@
 	<!-- Length of track in cell that describes route -->
 	<string name="length">距離</string>
 	<string name="share_my_location">位置情報を共有する</string>
-	<string name="become_a_pro">アップグレード</string>
 	<string name="menu_search">検索</string>
+	<!-- Settings screen: "Map" category title -->
+	<string name="prefs_group_map">地図</string>
+	<!-- Settings screen: "Miscellaneous" category title -->
+	<string name="prefs_group_misc">その他</string>
+	<string name="prefs_group_route">ナビゲーション</string>
 	<string name="pref_zoom_title">ズームボタン</string>
 	<string name="pref_zoom_summary">画面上に表示</string>
+	<!-- Settings «Route» category: «Tts enabled» title -->
+	<string name="pref_tts_enable_title">音声指示</string>
+	<!-- Settings «Route» category: «Tts language» title -->
+	<string name="pref_tts_language_title">音声言語</string>
+	<!-- Settings «Route» category: «Tts unavailable» subtitle -->
+	<string name="pref_tts_unavailable">利用不可</string>
+	<!-- Title for "Other" section in TTS settings. -->
+	<string name="pref_tts_other_section_title">その他</string>
+	<string name="pref_tts_how_to_set_up_voice">音声設定の仕方</string>
 	<string name="placepage_distance">距離</string>
 	<string name="placepage_coordinates">コーディネート</string>
 	<string name="placepage_unsorted">未分類</string>
@@ -322,10 +335,6 @@
 	<string name="route">経路</string>
 	<!-- category title -->
 	<string name="routes">ルート</string>
-	<!-- button in the interface -->
-	<string name="choose_starting_point">出発地を入力…</string>
-	<!-- button in the interface -->
-	<string name="choose_destination">目的地を入力…</string>
 	<!-- Show on first launch. -->
 	<string name="maps_licence_info">このアプリケーションはOpenStreetMapプロジェクトから取得された地理的データ（地図、ビジネスリスト、興味のある場所、国境と地域など）を使います。OpenStreetMapのデータの整合性、正確さ、完全性や適合性に関して弊社は保証致しかねます。</string>
 	<!-- Show on first launch. -->
@@ -421,11 +430,11 @@
 	<!-- Context menu item for downloader. -->
 	<string name="downloader_download_routing">ルートをダウンロード</string>
 	<!-- Context menu item for downloader. -->
-	<string name="downloader_delete_routing">るーどを削除</string>
+	<string name="downloader_delete_routing">ルートを削除</string>
 	<!-- Context menu item for downloader. -->
 	<string name="downloader_download_map">地図をダウンロード</string>
 	<string name="downloader_download_map_no_routing">ルートなしで地図をダウンロード</string>
-	<!-- Button for routing PP. -->
+	<!-- Button for routing. -->
 	<string name="routing_go">開始！</string>
 	<!-- Item status in downloader. -->
 	<string name="downloader_retry">再試行</string>
@@ -755,35 +764,9 @@
 	<!-- Failed planning route message in navigation view -->
 	<string name="routing_planning_error">ルート検索に失敗</string>
 	<!-- Arrive routing message in navigation view -->
-	<string name="routing_arrive">到着予定</string>
-	<!-- Routing Start button title -->
-	<string name="routing_start">スタート</string>
-	<!-- Planning route message in navigation view -->
-	<string name="routing_planning">ルートを計画中</string>
+	<string name="routing_arrive">到着予定: %s</string>
 	<!-- Text for routing::IRouter::FileTooOld dialog. -->
 	<string name="dialog_routing_download_and_update_maps">ルートを作成するには、ルートの通過する地図を全てダウンロード・アップデートしてください。</string>
-	<!-- Text for facebook sharing news about walking routes -->
-	<string name="share_walking_routes_facebook">MAPS.MEは歩行時間を短縮します。200万キロの歩行ルート、歩道、散歩道が徒歩ルートに利用できるようになりました。</string>
-	<!-- Text for messenger sharing news about walking routes -->
-	<string name="share_walking_routes_messenger">MAPS.MEは世界中の最短徒歩ルートを提供します！要チェック：http://maps.me/get?walk_im</string>
-	<!-- Text for sms sharing news about walking routes -->
-	<string name="share_walking_routes_sms">MAPS.MEは最短徒歩ルートを提供します：http://maps.me/get?walk</string>
-	<!-- Subject for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_subject">最短の徒歩ルートがあります</string>
-	<!-- Text for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_body">MAPS.MEが世界で最も詳細な地図に基づいた徒歩ルート機能をリリースしました！どんな目的地にでも最短のルートを表示します。お試しください：http://maps.me/get?walk_em</string>
-	<!-- Title for walking routes dialog, notifications etc. -->
-	<string name="title_walking_available">MAPS.MEで徒歩ルートが利用できます！</string>
-	<!-- Text for walking routes dialog -->
-	<string name="share_walking_routes_first_launch">どんな目的地にでも最短のルートを表示します。お友達の歩行時間の短縮にも役立ててください！</string>
-	<!-- Title for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_congratulations">おめでとうございます！</string>
-	<!-- Text for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_mastering">徒歩ルート機能をマスターしました。お友達の歩行時間の短縮にも役立ててください。MAPS.MEについて教えてあげてください。</string>
-	<!-- Android notification about walking directions for update users -->
-	<string name="walking_notification_text">試してみますか？</string>
-	<!-- Android notification with picture (rich) about walking directions for update users -->
-	<string name="walking_rich_notification_text">どんな目的地にでも最短のルートを表示します。ご自身でお試しいただき、お友達の移動時間の短縮にも役立ててください。</string>
 	<string name="rate_alert_title">このアプリが好きですか?</string>
 	<string name="rate_alert_default_message">MAPS.MEをご使用いただきありがとうございます。アプリの評価をお願いいたします。皆様からのフィードバックはアプリの改善に役立つものです。</string>
 	<string name="rate_alert_five_star_message">やったー! 相思相愛!</string>
@@ -800,8 +783,22 @@
 	<string name="search_not_found_location">現在地の地図をダウンロードしてください。</string>
 	<string name="search_history_title">検索履歴</string>
 	<string name="search_history_text">最近の検索クエリに素早くアクセス。</string>
-	<string name="update_maps_alert_title">地図の閲覧がより簡単に</string>
-	<string name="update_maps_alert_message">地図のスタイルを改善しました：全てのオブジェクトがわかりやすくはっきりとなりました。新しいデザインを最大限に活用するには、地図をアップデートしてください。</string>
-	<string name="update_maps_alert_button_title">地図をアップデート</string>
 	<string name="clear_search">検索履歴を消去</string>
+	<!-- Title for settings to enable/disable showcase menu button -->
+	<string name="showcase_settings_title">広告を表示</string>
+	<string name="p2p_route_planning">ルート作成</string>
+	<string name="p2p_your_location">現在位置</string>
+	<string name="p2p_from">出発地</string>
+	<string name="p2p_to">目的地</string>
+	<string name="p2p_start">開始</string>
+	<string name="p2p_planning">作成中…</string>
+	<string name="p2p_from_here">出発地</string>
+	<string name="p2p_to_here">目的地</string>
+	<string name="p2p_only_from_current">ナビゲーションは現在位置からのみ利用できます。</string>
+	<string name="p2p_reroute_from_current">現在位置からのルートを作成しますか？</string>
+	<string name="whats_new_where_to_turn">MAPS.MEが道順をご案内します</string>
+	<string name="whats_new_voice_instructions">お友達の皆様へ。皆様が長い間待ち望んでいたナビゲーションの音声案内を、ついに実現しました！ナビゲーターがリアルタイムで次の道順をご案内します。</string>
+	<string name="whats_new_between_any_points">出発地から目的時までのルートを作成</string>
+	<string name="whats_new_happy_day">実にすがすがしい日ですね！MAPS.MEで旅程を立てましょう。</string>
+	<string name="whats_new_next">次へ</string>
 </resources>

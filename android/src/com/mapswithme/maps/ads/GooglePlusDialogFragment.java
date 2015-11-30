@@ -5,16 +5,17 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v4.app.DialogFragment;
 import android.support.v7.app.AlertDialog;
 import android.view.LayoutInflater;
 
 import com.google.android.gms.plus.PlusOneButton;
 import com.mapswithme.maps.R;
+import com.mapswithme.maps.base.BaseMwmDialogFragment;
+import com.mapswithme.util.Config;
 import com.mapswithme.util.Constants;
 import com.mapswithme.util.statistics.Statistics;
 
-public class GooglePlusDialogFragment extends DialogFragment
+public class GooglePlusDialogFragment extends BaseMwmDialogFragment
 {
 
   @Override
@@ -30,7 +31,7 @@ public class GooglePlusDialogFragment extends DialogFragment
         @Override
         public void onPlusOneClick(Intent intent)
         {
-          LikesManager.setRatingApplied(GooglePlusDialogFragment.class, true);
+          Config.setRatingApplied(GooglePlusDialogFragment.class);
           dismiss();
           startActivityForResult(intent, 0);
         }
@@ -51,7 +52,7 @@ public class GooglePlusDialogFragment extends DialogFragment
           @Override
           public void onClick(DialogInterface dialog, int which)
           {
-            Statistics.INSTANCE.trackSimpleNamedEvent(Statistics.EventName.PLUS_DIALOG_LATER);
+            Statistics.INSTANCE.trackEvent(Statistics.EventName.PLUS_DIALOG_LATER);
           }
         });
 
@@ -62,6 +63,6 @@ public class GooglePlusDialogFragment extends DialogFragment
   public void onCancel(DialogInterface dialog)
   {
     super.onCancel(dialog);
-    Statistics.INSTANCE.trackSimpleNamedEvent(Statistics.EventName.PLUS_DIALOG_LATER);
+    Statistics.INSTANCE.trackEvent(Statistics.EventName.PLUS_DIALOG_LATER);
   }
 }

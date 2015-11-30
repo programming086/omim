@@ -202,6 +202,8 @@ CustomIOSPlatform::CustomIOSPlatform()
 {
   NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
 
+  m_isTablet = (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad);
+
   NSBundle * bundle = [NSBundle mainBundle];
   NSString * path = [bundle resourcePath];
   m_resourcesDir = [path UTF8String];
@@ -229,8 +231,6 @@ CustomIOSPlatform::CustomIOSPlatform()
     m_tmpDir = [NSHomeDirectory() UTF8String];
     m_tmpDir += "/tmp/";
   }
-
-  NSString * appID = [[bundle infoDictionary] objectForKey:@"CFBundleIdentifier"];
 
   UIDevice * device = [UIDevice currentDevice];
   NSLog(@"Device: %@, SystemName: %@, SystemVersion: %@", device.model, device.systemName, device.systemVersion);

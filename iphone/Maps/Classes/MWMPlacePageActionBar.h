@@ -5,6 +5,9 @@
 @interface MWMPlacePageActionBar : UIView
 
 @property (nonatomic) BOOL isBookmark;
+@property (nonatomic) BOOL isPrepareRouteMode;
+
+@property (weak, nonatomic) IBOutlet UIButton * shareButton;
 
 + (MWMPlacePageActionBar *)actionBarForPlacePage:(MWMPlacePage *)placePage;
 - (void)configureWithPlacePage:(MWMPlacePage *)placePage;

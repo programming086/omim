@@ -1,5 +1,6 @@
 #import "MWMPlacePageEntity.h"
 #import "MWMPlacePageInfoCell.h"
+#import "Statistics.h"
 #import "UIFont+MapsMeFonts.h"
 
 #include "platform/settings.hpp"
@@ -21,37 +22,37 @@ extern NSString * const kUserDefaultsLatLonAsDMSKey;
 
 - (void)configureWithType:(MWMPlacePageMetadataType)type info:(NSString *)info;
 {
-  NSMutableString * imageName = [@"ic_" mutableCopy];
+  NSString * typeName;
   switch (type)
   {
     case MWMPlacePageMetadataTypeURL:
     case MWMPlacePageMetadataTypeWebsite:
-      [imageName appendString:@"Website"];
+      typeName = @"website";
       break;
     case MWMPlacePageMetadataTypeEmail:
-      [imageName appendString:@"Email"];
+      typeName = @"email";
       break;
     case MWMPlacePageMetadataTypePhoneNumber:
-      [imageName appendString:@"PhoneNumber"];
+      typeName = @"phone_number";
       break;
     case MWMPlacePageMetadataTypeCoordinate:
-      [imageName appendString:@"Coordinate"];
+      typeName = @"coordinate";
       break;
     case MWMPlacePageMetadataTypePostcode:
-      [imageName appendString:@"Postcode"];
+      typeName = @"postcode";
       break;
     case MWMPlacePageMetadataTypeOpenHours:
-      [imageName appendString:@"OpenHours"];
+      typeName = @"open_hours";
       break;
     case MWMPlacePageMetadataTypeWiFi:
-      [imageName appendFormat:@"WiFi"];
+      typeName = @"wifi";
       break;
     case MWMPlacePageMetadataTypeBookmark:
       NSAssert(false, @"Incorrect type!");
       break;
   }
   
-  UIImage * image = [UIImage imageNamed:imageName];
+  UIImage * image = [UIImage imageNamed:[NSString stringWithFormat:@"%@%@", @"ic_placepage_", typeName]];
   self.type = type;
   self.icon.image = image;
 
@@ -80,9 +81,26 @@ extern NSString * const kUserDefaultsLatLonAsDMSKey;
 
 - (IBAction)cellTap
 {
+  switch (self.type)
+  {
+    case MWMPlacePageMetadataTypeURL:
+    case MWMPlacePageMetadataTypeWebsite:
+      [[Statistics instance] logEvent:kStatEventName(kStatPlacePage, kStatOpenSite)];
+      break;
+    case MWMPlacePageMetadataTypeEmail:
+      [[Statistics instance] logEvent:kStatEventName(kStatPlacePage, kStatSendEmail)];
+      break;
+    case MWMPlacePageMetadataTypePhoneNumber:
+      [[Statistics instance] logEvent:kStatEventName(kStatPlacePage, kStatCallPhoneNumber)];
+      break;
+    case MWMPlacePageMetadataTypeCoordinate:
+      [[Statistics instance] logEvent:kStatEventName(kStatPlacePage, kStatToggleCoordinates)];
+      break;
+    default:
+      break;
+  }
   if (self.type != MWMPlacePageMetadataTypeCoordinate)
     return;
-
   NSUserDefaults * defaults = [NSUserDefaults standardUserDefaults];
   BOOL const showLatLonAsDMS = [defaults boolForKey:kUserDefaultsLatLonAsDMSKey];
   m2::PointD const point = self.currentEntity.point;

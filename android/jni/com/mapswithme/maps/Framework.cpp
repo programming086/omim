@@ -150,6 +150,7 @@ namespace android
     }
 
     params.m_density = dens[bestRangeIndex].second;
+    params.m_exactDensityDPI = densityDpi;
   }
 
   bool Framework::InitRenderPolicyImpl(int densityDpi, int screenWidth, int screenHeight)
@@ -158,6 +159,7 @@ namespace android
 
     rmParams.m_videoMemoryLimit = 30 * 1024 * 1024;
     rmParams.m_texFormat = graphics::Data4Bpp;
+    rmParams.m_exactDensityDPI = densityDpi;
 
     RenderPolicy::Params rpParams;
 
@@ -233,6 +235,11 @@ namespace android
       // Just set the flag, a new render policy will be initialized with this flag.
       m_work.SetMapStyle(mapStyle);
     }
+  }
+
+  MapStyle Framework::GetMapStyle() const
+  {
+    return m_work.GetMapStyle();
   }
 
   Storage & Framework::Storage()
@@ -734,15 +741,21 @@ namespace android
   // Fills mapobject's metadata from UserMark
   void Framework::InjectMetadata(JNIEnv * env, jclass const clazz, jobject const mapObject, UserMark const * userMark)
   {
-    feature::Metadata metadata;
+    using feature::Metadata;
+
+    Metadata metadata;
     frm()->FindClosestPOIMetadata(userMark->GetOrg(), metadata);
 
     static jmethodID const addId = env->GetMethodID(clazz, "addMetadata", "(ILjava/lang/String;)V");
     ASSERT ( addId, () );
 
-    for (feature::Metadata::EType t : metadata.GetPresentTypes())
+    for (auto const t : metadata.GetPresentTypes())
     {
-      jstring metaString = jni::ToJavaString(env, metadata.Get(t));
+      // TODO: It is not a good idea to pass raw strings to UI. Calling separate getters should be a better way.
+      // Upcoming change: how to pass opening hours (parsed) into Editor's UI? How to get edited changes back?
+      jstring metaString = t == Metadata::FMD_WIKIPEDIA ?
+                           jni::ToJavaString(env, metadata.GetWikiURL()) :
+                           jni::ToJavaString(env, metadata.Get(t));
       env->CallVoidMethod(mapObject, addId, t, metaString);
       // TODO use unique_ptrs for autoallocation of local refs
       env->DeleteLocalRef(metaString);
@@ -770,7 +783,9 @@ namespace
 {
 pair<jintArray, jobjectArray> NativeMetadataToJavaMetadata(JNIEnv * env, feature::Metadata const & metadata)
 {
-  vector<feature::Metadata::EType> const metaTypes = metadata.GetPresentTypes();
+  using feature::Metadata;
+
+  vector<Metadata::EType> const metaTypes = metadata.GetPresentTypes();
   // FIXME arrays, allocated through New<Type>Array should be deleted manually in the method.
   // refactor that to delete refs locally or pass arrays from outside context
   const jintArray j_metaTypes = env->NewIntArray(metadata.Size());
@@ -779,8 +794,12 @@ pair<jintArray, jobjectArray> NativeMetadataToJavaMetadata(JNIEnv * env, feature
 
   for (size_t i = 0; i < metaTypes.size(); i++)
   {
-    arr[i] = metaTypes[i];
-    jstring metaString = jni::ToJavaString(env, metadata.Get(metaTypes[i]));
+    auto const type = metaTypes[i];
+    arr[i] = type;
+    // TODO: Refactor code to use separate getters for each metadata.
+    jstring metaString = type == Metadata::FMD_WIKIPEDIA ?
+                         jni::ToJavaString(env, metadata.GetWikiURL()) :
+                         jni::ToJavaString(env, metadata.Get(type));
     env->SetObjectArrayElement(j_metaValues, i, metaString);
     env->DeleteLocalRef(metaString);
   }
@@ -1157,12 +1176,6 @@ extern "C"
   }
 
   JNIEXPORT void JNICALL
-  Java_com_mapswithme_maps_Framework_cleanSearchLayerOnMap(JNIEnv * env, jclass clazz)
-  {
-    android::Platform::RunOnGuiThreadImpl(bind(&::Framework::CancelInteractiveSearch, frm()));
-  }
-
-  JNIEXPORT void JNICALL
   Java_com_mapswithme_maps_Framework_invalidate(JNIEnv * env, jclass clazz)
   {
     g_framework->Invalidate();
@@ -1262,15 +1275,24 @@ extern "C"
     android::Platform::RunOnGuiThreadImpl(bind(&::Framework::FollowRoute, frm()));
   }
 
+  JNIEXPORT void JNICALL
+  Java_com_mapswithme_maps_Framework_nativeDisableFollowing(JNIEnv * env, jclass thiz)
+  {
+    android::Platform::RunOnGuiThreadImpl([]()
+    {
+      (void)g_framework->NativeFramework()->DisableFollowMode();
+    });
+  }
+
   JNIEXPORT jobjectArray JNICALL
-  Java_com_mapswithme_maps_Framework_nativeGenerateTurnSound(JNIEnv * env, jclass thiz)
+  Java_com_mapswithme_maps_Framework_nativeGenerateTurnNotifications(JNIEnv * env, jclass thiz)
   {
     ::Framework * fr = frm();
     if (!fr->IsRoutingActive())
       return nullptr;
 
     vector<string> turnNotifications;
-    fr->GenerateTurnSound(turnNotifications);
+    fr->GenerateTurnNotifications(turnNotifications);
     if (turnNotifications.empty())
       return nullptr;
 
@@ -1459,23 +1481,47 @@ extern "C"
     android::Platform::RunOnGuiThreadImpl(bind(&android::Framework::SetMapStyle, g_framework, val));
   }
 
+  JNIEXPORT jint JNICALL
+  Java_com_mapswithme_maps_Framework_getMapStyle(JNIEnv * env, jclass thiz)
+  {
+    return static_cast<jint>(g_framework->GetMapStyle());
+  }
+
   JNIEXPORT void JNICALL
-  Java_com_mapswithme_maps_Framework_setRouter(JNIEnv * env, jclass thiz, jint routerType)
+  Java_com_mapswithme_maps_Framework_nativeSetRouter(JNIEnv * env, jclass thiz, jint routerType)
   {
     routing::RouterType const val = static_cast<routing::RouterType>(routerType);
     android::Platform::RunOnGuiThreadImpl(bind(&android::Framework::SetRouter, g_framework, val));
   }
 
   JNIEXPORT jint JNICALL
-  Java_com_mapswithme_maps_Framework_getRouter(JNIEnv * env, jclass thiz)
+  Java_com_mapswithme_maps_Framework_nativeGetRouter(JNIEnv * env, jclass thiz)
   {
     return static_cast<jint>(g_framework->GetRouter());
+  }
+
+  JNIEXPORT jint JNICALL
+  Java_com_mapswithme_maps_Framework_nativeGetLastUsedRouter(JNIEnv * env, jclass thiz)
+  {
+    return static_cast<jint>(g_framework->GetLastUsedRouter());
   }
 
   JNIEXPORT jint JNICALL
   Java_com_mapswithme_maps_Framework_nativeGetBestRouter(JNIEnv * env, jclass thiz, jdouble srcLat, jdouble srcLon, jdouble dstLat, jdouble dstLon)
   {
     return static_cast<jint>(frm()->GetBestRouter(MercatorBounds::FromLatLon(srcLat, srcLon), MercatorBounds::FromLatLon(dstLat, dstLon)));
+  }
+
+  JNIEXPORT void JNICALL
+  Java_com_mapswithme_maps_Framework_nativeSetRouteStartPoint(JNIEnv * env, jclass thiz, jdouble lat, jdouble lon, jboolean valid)
+  {
+    frm()->SetRouteStartPoint(m2::PointD(MercatorBounds::FromLatLon(lat, lon)), static_cast<bool>(valid));
+  }
+
+  JNIEXPORT void JNICALL
+  Java_com_mapswithme_maps_Framework_nativeSetRouteEndPoint(JNIEnv * env, jclass thiz, jdouble lat, jdouble lon, jboolean valid)
+  {
+    frm()->SetRouteFinishPoint(m2::PointD(MercatorBounds::FromLatLon(lat, lon)), static_cast<bool>(valid));
   }
 
   JNIEXPORT void JNICALL

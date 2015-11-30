@@ -230,7 +230,7 @@
 	<!-- String in search result list, when nothing found -->
 	<string name="no_search_results_found">Результатів не знайдено</string>
 	<!-- Notes field in Bookmarks view -->
-	<string name="description">Додати примітку</string>
+	<string name="description">Примітка</string>
 	<!-- Button text -->
 	<string name="share_by_email">Подiлитися по електронній пошті</string>
 	<!-- Email Subject when sharing bookmarks category -->
@@ -308,10 +308,23 @@
 	<!-- Length of track in cell that describes route -->
 	<string name="length">Довжина</string>
 	<string name="share_my_location">Поділитися моїм місцезнаходженням</string>
-	<string name="become_a_pro">Купити PRO</string>
 	<string name="menu_search">Пошук</string>
+	<!-- Settings screen: "Map" category title -->
+	<string name="prefs_group_map">Карта</string>
+	<!-- Settings screen: "Miscellaneous" category title -->
+	<string name="prefs_group_misc">Інше</string>
+	<string name="prefs_group_route">Навігація</string>
 	<string name="pref_zoom_title">Кнопки трансфокації</string>
 	<string name="pref_zoom_summary">Відображення на екрані</string>
+	<!-- Settings «Route» category: «Tts enabled» title -->
+	<string name="pref_tts_enable_title">Голосові інструкції</string>
+	<!-- Settings «Route» category: «Tts language» title -->
+	<string name="pref_tts_language_title">Мова підказок</string>
+	<!-- Settings «Route» category: «Tts unavailable» subtitle -->
+	<string name="pref_tts_unavailable">Не доступнi</string>
+	<!-- Title for "Other" section in TTS settings. -->
+	<string name="pref_tts_other_section_title">Інша</string>
+	<string name="pref_tts_how_to_set_up_voice">Як налаштувати голосовий контроль</string>
 	<string name="placepage_distance">Відстань</string>
 	<string name="placepage_coordinates">Координати</string>
 	<string name="placepage_unsorted">Без категорії</string>
@@ -334,10 +347,6 @@
 	<string name="route">Маршрут</string>
 	<!-- category title -->
 	<string name="routes">Маршрути</string>
-	<!-- button in the interface -->
-	<string name="choose_starting_point">Виберіть початкову точку…</string>
-	<!-- button in the interface -->
-	<string name="choose_destination">Виберіть місце призначення…</string>
 	<!-- text of notification -->
 	<string name="download_map_notification">Завантажуйте карту тієї місцевості, де ви знаходитесь</string>
 	<!-- text of notification -->
@@ -431,7 +440,7 @@
 	<!-- Context menu item for downloader. -->
 	<string name="downloader_download_map">Завантажити карту</string>
 	<string name="downloader_download_map_no_routing">Завантажити карту без маршрутів</string>
-	<!-- Button for routing PP. -->
+	<!-- Button for routing. -->
 	<string name="routing_go">Поїхали!</string>
 	<!-- Item status in downloader. -->
 	<string name="downloader_retry">Спробуйте знову</string>
@@ -761,35 +770,9 @@
 	<!-- Failed planning route message in navigation view -->
 	<string name="routing_planning_error">Збій планування маршруту</string>
 	<!-- Arrive routing message in navigation view -->
-	<string name="routing_arrive">Прибуття</string>
-	<!-- Routing Start button title -->
-	<string name="routing_start">Почати</string>
-	<!-- Planning route message in navigation view -->
-	<string name="routing_planning">Планування маршруту</string>
+	<string name="routing_arrive">Прибуття в %s</string>
 	<!-- Text for routing::IRouter::FileTooOld dialog. -->
 	<string name="dialog_routing_download_and_update_maps">Для створення маршруту, будь ласка, скачайте та обновіть всі карти за ним.</string>
-	<!-- Text for facebook sharing news about walking routes -->
-	<string name="share_walking_routes_facebook">MAPS.ME економить час при ходьбі. Більше 2 мільйонів кілометрів пішохідних маршрутів, доріг і стежок доступні для пішохідних маршрутів зараз.</string>
-	<!-- Text for messenger sharing news about walking routes -->
-	<string name="share_walking_routes_messenger">MAPS.ME пропонує найкоротші пішохідні маршрути по всьому світу! Зацініть out: http://maps.me/get?walk_im</string>
-	<!-- Text for sms sharing news about walking routes -->
-	<string name="share_walking_routes_sms">MAPS.ME - найкоротші пішохідні маршрути: http://maps.me/get?walk</string>
-	<!-- Subject for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_subject">Доступні найкоротші пішохідні маршрути</string>
-	<!-- Text for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_body">MAPS.ME щойно випустили пішохідні маршрути в основі яких лежить найбільш детальна карта світу! Вони пропонують найкоротші маршрути до будь-якого місця призначення. Спробуйте: http://maps.me/get?walk_em</string>
-	<!-- Title for walking routes dialog, notifications etc. -->
-	<string name="title_walking_available">Пішохідні маршрути доступні в MAPS.ME!</string>
-	<!-- Text for walking routes dialog -->
-	<string name="share_walking_routes_first_launch">Вони пропонують найкоротший шлях до точки призначення. Допоможіть друзям зекономити час при ходьбі також!</string>
-	<!-- Title for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_congratulations">Вітання!</string>
-	<!-- Text for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_mastering">Ви освоїли функцію пішохідні маршрути. Допоможіть друзям зекономити час при ходьбі також. Розкажіть їм про MAPS.ME.</string>
-	<!-- Android notification about walking directions for update users -->
-	<string name="walking_notification_text">Хочете спробувати їх?</string>
-	<!-- Android notification with picture (rich) about walking directions for update users -->
-	<string name="walking_rich_notification_text">Вони пропонують найкоротший шлях до точки призначення. Спробуйте самі і допоможіть друзям зекономити час у подорожі.</string>
 	<string name="rate_alert_title">Подобається програма?</string>
 	<string name="rate_alert_default_message">Дякуємо за використання MAPS.ME. Будь ласка, дайте їй оцінку. Ваш відгук допоможе нам стати краще.</string>
 	<string name="rate_alert_five_star_message">Ура! Ми теж вас любимо!</string>
@@ -806,8 +789,22 @@
 	<string name="search_not_found_location">Завантажте карту вашого місцезнаходження.</string>
 	<string name="search_history_title">Історія пошуку</string>
 	<string name="search_history_text">Швидкий доступ до недавніх результатів пошуку.</string>
-	<string name="update_maps_alert_title">Орієнтуватись стало легше</string>
-	<string name="update_maps_alert_message">Ми покращили стилі карт: тепер усі об\&#39;єкти виглядають більш дружніми та зрозумілими. Оновіть карти, щоб використати усі переваги нового дизайну.</string>
-	<string name="update_maps_alert_button_title">Оновити карти</string>
 	<string name="clear_search">Очистити історію пошуку</string>
+	<!-- Title for settings to enable/disable showcase menu button -->
+	<string name="showcase_settings_title">Показувати рекламу</string>
+	<string name="p2p_route_planning">Планування маршруту</string>
+	<string name="p2p_your_location">Ваше місцезнаходження</string>
+	<string name="p2p_from">Пункт відправлення</string>
+	<string name="p2p_to">Пункт призначення</string>
+	<string name="p2p_start">Почати рух</string>
+	<string name="p2p_planning">Плануємо…</string>
+	<string name="p2p_from_here">Звідси</string>
+	<string name="p2p_to_here">Сюди</string>
+	<string name="p2p_only_from_current">Маршрут можна прокласти лише з поточного місцезнаходження.</string>
+	<string name="p2p_reroute_from_current">Хочете спланувати маршрут із поточного місцезнаходження?</string>
+	<string name="whats_new_where_to_turn">MAPS.ME підкаже, куди повернути</string>
+	<string name="whats_new_voice_instructions">Любі друзі, Ви давно просили додати голосові підказки під час навігації - і ми це зробили! Ваш новий штурман вчасно попередить про маневр.</string>
+	<string name="whats_new_between_any_points">Прокладіть маршрут між будь-якими об\&#39;єктами</string>
+	<string name="whats_new_happy_day">Так, це насправді! Сьогодні щасливий день і ще одне покращення. Заздалегідь заплануйте свої подорожі разом з MAPS.ME.</string>
+	<string name="whats_new_next">Далі</string>
 </resources>

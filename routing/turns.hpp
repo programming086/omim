@@ -36,7 +36,8 @@ enum class TurnDirection
   TurnSharpLeft,
   TurnSlightLeft,
 
-  UTurn,
+  UTurnLeft,
+  UTurnRight,
 
   TakeTheExit,
 
@@ -93,9 +94,10 @@ typedef vector<LaneWay> TSingleLane;
 struct SingleLaneInfo
 {
   TSingleLane m_lane;
-  bool m_isRecommended;
+  bool m_isRecommended = false;
 
-  SingleLaneInfo(initializer_list<LaneWay> const & l = {}) : m_lane(l), m_isRecommended(false) {}
+  SingleLaneInfo() = default;
+  SingleLaneInfo(initializer_list<LaneWay> const & l) : m_lane(l) {}
   bool operator==(SingleLaneInfo const & other) const;
 };
 
@@ -151,6 +153,14 @@ struct TurnItem
 };
 
 string DebugPrint(TurnItem const & turnItem);
+
+struct TurnItemDist
+{
+  TurnItem m_turnItem;
+  double m_distMeters;
+};
+
+string DebugPrint(TurnItemDist const & turnItemDist);
 
 string const GetTurnString(TurnDirection turn);
 

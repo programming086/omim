@@ -103,9 +103,11 @@ namespace android
     void DeleteRenderPolicy();
 
     void SetMapStyle(MapStyle mapStyle);
+    MapStyle GetMapStyle() const;
 
     void SetRouter(routing::RouterType type) { m_work.SetRouter(type); }
     routing::RouterType GetRouter() const { return m_work.GetRouter(); }
+    routing::RouterType GetLastUsedRouter() const { return m_work.GetLastUsedRouter(); }
 
     void Resize(int w, int h);
 

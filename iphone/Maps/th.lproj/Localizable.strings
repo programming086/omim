@@ -478,13 +478,48 @@
 
 "share_my_location" = "แชร์ตำแหน่งที่ตั้งของฉัน";
 
-"become_a_pro" = "อัปเกรด";
-
 "menu_search" = "ค้นหา";
+
+/* Settings screen: "Map" category title */
+"prefs_group_map" = "แผนที่";
+
+/* Settings screen: "Miscellaneous" category title */
+"prefs_group_misc" = "เบ็ดเตล็ด";
+
+"prefs_group_route" = "การนำทาง";
 
 "pref_zoom_title" = "ปุ่มซูม";
 
 "pref_zoom_summary" = "แสดงบนหน้าจอ";
+
+/* Settings «Map» category: «Map style» title */
+"pref_map_style_title" = "Map style";
+
+/* Settings «Map» category: «Map style» summary */
+"pref_map_style_summary" = "Change map presentation";
+
+/* «Map style» entry value */
+"pref_map_style_classic_light" = "Classic light";
+
+/* «Map style» entry value */
+"pref_map_style_classic_dark" = "Classic dark";
+
+/* «Map style» entry value */
+"pref_map_style_modern_light" = "Modern light";
+
+/* Settings «Route» category: «Tts enabled» title */
+"pref_tts_enable_title" = "คำแนะนำด้วยเสียง";
+
+/* Settings «Route» category: «Tts language» title */
+"pref_tts_language_title" = "ภาษาสำหรับเสียง";
+
+/* Settings «Route» category: «Tts unavailable» subtitle */
+"pref_tts_unavailable" = "ไม่สามารถใช้ได้";
+
+/* Title for "Other" section in TTS settings. */
+"pref_tts_other_section_title" = "อื่น ๆ";
+
+"pref_tts_how_to_set_up_voice" = "วิธีตั้งค่าเสียง";
 
 "placepage_distance" = "ระยะห่าง";
 
@@ -524,12 +559,6 @@
 /* category title */
 "routes" = "เส้นทาง";
 
-/* button in the interface */
-"choose_starting_point" = "เลือกจุดเริ่มต้น…";
-
-/* button in the interface */
-"choose_destination" = "เลือกจุดหมาย…";
-
 /* Show on first launch. */
 "maps_licence_info" = "This applications uses geographical data (including maps, business listings, points of interest, borders of countries and regions, etc.) taken from the OpenStreetMap project. We do not warrant any consistency, accuracy, completeness or applicability of the OpenStreetMap data.";
 
@@ -558,6 +587,12 @@
 "settings_and_more" = "การตั้งค่า & อื่น ๆ";
 
 /* Text in menu */
+"website" = "Website";
+
+/* Text in menu */
+"blog" = "Blog";
+
+/* Text in menu */
 "maps_me_community" = "ชุมชน MAPS.ME";
 
 /* Text in menu */
@@ -569,11 +604,26 @@
 /* Text in menu */
 "contact_us" = "ติดต่อเรา";
 
+/* Settings: Send feedback button and dialog title */
+"feedback" = "Feedback";
+
+/* Settings: "Send general feedback" button */
+"feedback_general" = "General feedback";
+
 /* Text in menu */
 "subscribe_to_news" = "สมัครรับข่าวของเรา";
 
 /* Text in menu */
 "rate_the_app" = "ให้คะแนนแอป";
+
+/* Rate in Google Play (Android only) */
+"rate_gp" = "Rate on Google Play";
+
+/* Share with friends: menu item title */
+"tell_friends" = "Tell a Friend";
+
+/* Share with friends: sharing text */
+"tell_friends_text" = "Hi! Install Maps.me!";
 
 /* Text in menu */
 "help" = "ความช่วยเหลือ";
@@ -589,6 +639,9 @@
 
 /* Email body */
 "subscribe_me_body" = "ฉันอยากเป็นคนแรกที่รู้เกี่ยวกับข่าว อัปเดตและโปรโมชั่นล่าสุด ฉันสามารถยกเลิกการเป็นสมาชิกของฉันได้ตลอดเวลา";
+
+/* About short text (below logo) */
+"about_description" = "Joined efforts of Mail.Ru Group and OpenStreetMap make the most useful application for travelers!";
 
 /* About text */
 "about_text" = "MAPS.ME ขอเสนอแผนที่ออฟไลน์ของทุกเมือง ทุกประเทศในโลกที่รวดเร็วที่สุด เดินทางด้วยความมั่นใจ: ไม่ว่าคุณจะอยู่ที่ไหน MAPS.ME จะช่วยระบุตำแหน่งที่ตั้งของตัวคุณบนแผนที่ ค้นหาร้านอาหาร โรงแรม ธนาคาร ปั๊มน้ำมัน และอื่น ๆ ที่ใกล้ที่สุด โดยไม่จำเป็นต้องใช้การเชื่อมต่ออินเทอร์เน็ต\n\nเราทำงานเพื่อพัฒนาฟีเจอร์ใหม่ ๆ อยู่เสมอและยินดีรับฟังว่าคุณมีความคิดเห็นว่าเราจะพัฒนา MAPS.ME ได้อย่างไร หากคุณมีปัญหาใด ๆ กับแอป อย่าลังเลที่จะติดต่อเราที่ support@maps.me โดยเราจะตอบรับทุกคำขอ!\n\nคุณชอบ MAPS.ME และต้องการสนับสนุนเราหรือไม่? มีวิธีง่าย ๆ และฟรีอยู่บ้าง:\n\n- โพสต์คำวิจารณ์ของคุณที่ ตลาดแอป (App Market)\n- ถูกใจเพจ Facebook ของเรา http://www.facebook.com/mapswithme\n- หรือเพียงแค่บอกแม่ เพื่อน ๆ และเพื่อนร่วมงานของคุณเกี่ยวกับ MAPS.ME :)\n\nขอบคุณที่ใช้บริการของเรา เราซาบซึ้งในการสนับสนุนของคุณมาก!\n\nป.ล. เรานำข้อมูลแผนที่มาจาก OpenStreetMap ซึ่งเป็นโครงการจัดทำแผนที่ที่เหมือนกับ Wikipedia ที่ช่วยให้ผู้ใช้สามารถสร้างและแก้ไขแผนที่ได้ หากคุณเห็นว่ามีสิ่งใดที่ขาดหายหรือไม่ถูกต้องบนแผนที่ คุณสามารถแก้ไขแผนที่ได้โดยตรงที่ http://openstreetmap.org และการเปลี่ยนแปลงของคุณจะปรากฏในแอป MAPS.ME ในการปล่อยเวอร์ชันถัดไป";
@@ -679,7 +732,7 @@
 
 "downloader_download_map_no_routing" = "ดาวน์โหลดแผนที่โดยไม่กำหนดเส้นทาง";
 
-/* Button for routing PP. */
+/* Button for routing. */
 "routing_go" = "ไป!";
 
 /* Item status in downloader. */
@@ -1193,49 +1246,10 @@
 "routing_planning_error" = "การวางแผนเส้นทางล้มเหลว";
 
 /* Arrive routing message in navigation view */
-"routing_arrive" = "มาถึง";
-
-/* Routing Start button title */
-"routing_start" = "เริ่มต้น";
-
-/* Planning route message in navigation view */
-"routing_planning" = "กำลังวางแผนเส้นทาง";
+"routing_arrive" = "มาถึง: %s";
 
 /* Text for routing::IRouter::FileTooOld dialog. */
 "dialog_routing_download_and_update_maps" = "เพื่อสร้างเส้นทาง โปรดดาวน์โหลดและอัปเดตแผนที่ทั้งหมดตลอดเส้นทาง";
-
-/* Text for facebook sharing news about walking routes */
-"share_walking_routes_facebook" = "MAPS.ME ช่วยคุณประหยัดเวลาเดิน มีเส้นทางเดินเท้า ทางเดินเท้าและทางเดินอยู่มากกว่า 2 ล้านกิโลเมตรสำหรับการแนะนำเส้นทางเดินในตอนนี้";
-
-/* Text for messenger sharing news about walking routes */
-"share_walking_routes_messenger" = "MAPS.ME บอกเส้นทางเดินที่สั้นที่สุดทั่วโลก! ลองดูที่: http://maps.me/get?walk_im";
-
-/* Text for sms sharing news about walking routes */
-"share_walking_routes_sms" = "MAPS.ME บอกเส้นทางเดินที่สั้นที่สุด: http://maps.me/get?walk";
-
-/* Subject for email sharing news about walking routes */
-"share_walking_routes_email_subject" = "มีเส้นทางเดินที่สั้นที่สุดให้คุณแล้ว";
-
-/* Text for email sharing news about walking routes */
-"share_walking_routes_email_body" = "MAPS.ME เพิ่งเปิดตัวการแนะนำเส้นทางเดินตามเส้นทางในแผนที่ที่ละเอียดที่สุดในโลก! มันบอกเส้นทางเดินที่สั้นที่สุดไปยังจุดหมายปลายทางต่าง ๆ ทดลองใช้มันที่: http://maps.me/get?walk_em";
-
-/* Title for walking routes dialog, notifications etc. */
-"title_walking_available" = "มีการแนะนำเส้นทางเดินให้ใช้แล้วใน MAPS.ME!";
-
-/* Text for walking routes dialog */
-"share_walking_routes_first_launch" = "มันบอกเส้นทางที่สั้นที่สุดไปยังจุดหมายปลายทาง ทดลองมันด้วยตัวคุณเอง ช่วยเพื่อนของคุณประหยัดเวลาเดินด้วย!";
-
-/* Title for walking routes dialog after 3 built routes */
-"share_walking_routes_congratulations" = "ขอแสดงความยินดี!";
-
-/* Text for walking routes dialog after 3 built routes */
-"share_walking_routes_mastering" = "คุณใช้ฟังก์ชันการแนะนำเส้นทางเดินเป็นแล้ว ช่วยเพื่อนของคุณประหยัดเวลาเดินด้วย! บอกพวกเขาเกี่ยวกับ MAPS.ME!";
-
-/* Android notification about walking directions for update users */
-"walking_notification_text" = "ต้องการทดลองใช้มันหรือไม่?";
-
-/* Android notification with picture (rich) about walking directions for update users */
-"walking_rich_notification_text" = "มันบอกเส้นทางที่สั้นที่สุดไปยังจุดหมายปลายทาง ทดลองมันด้วยตัวคุณเองและช่วยเพื่อน ๆ ประหยัดเวลาเดินทาง";
 
 "rate_alert_title" = "ชอบแอปหรือไม่?";
 
@@ -1269,10 +1283,40 @@
 
 "search_history_text" = "เข้าถึงคำถามที่ใช้ในการค้นหาเมื่อเร็ว ๆ นี้ได้อย่างรวดเร็ว";
 
-"update_maps_alert_title" = "การสำรวจแผนที่ง่ายขึ้นในตอนนี้";
-
-"update_maps_alert_message" = "เราได้ปรับปรุงรูปแบบของแผนที่: ตอนนี้วัตถุทั้งหมดดูเป็นมิตรและชัดเจนยิ่งขึ้น อัปเดตแผนที่เพื่อรับประโยชน์สูงสุดจากการออกแบบใหม่";
-
-"update_maps_alert_button_title" = "อัปเดตแผนที่";
-
 "clear_search" = "ล้างการค้นหาประวัติ";
+
+/* Title for settings to enable/disable showcase menu button */
+"showcase_settings_title" = "แสดงโฆษณา";
+
+/* Place Page link to Wikipedia article (if map object has it). */
+"read_in_wikipedia" = "Wikipedia";
+
+"p2p_route_planning" = "การวางแผนเส้นทาง";
+
+"p2p_your_location" = "ตำแหน่งที่ตั้งของคุณ";
+
+"p2p_from" = "จุดที่ออกเดินทาง";
+
+"p2p_to" = "จุดที่เป็นปลายทาง";
+
+"p2p_start" = "เริ่มต้น";
+
+"p2p_planning" = "กำลังวางแผน…";
+
+"p2p_from_here" = "จาก";
+
+"p2p_to_here" = "ถึง";
+
+"p2p_only_from_current" = "สามารถใช้การนำทางได้เฉพาะจากตำแหน่งที่ตั้งปัจจุบันของคุณเท่านั้น";
+
+"p2p_reroute_from_current" = "คุณต้องการให้เราาวงแผนเส้นทางจากสถานที่ตั้งปัจจุบันของคุณหรือไม่?";
+
+"whats_new_where_to_turn" = "MAPS.ME จะแจ้งให้คุณทราบถึงจุดเลี้ยว";
+
+"whats_new_voice_instructions" = "เรียน เพื่อน ๆ จากที่คุณได้ร้องขอในเรื่องคำแนะนำด้วยเสียงพูดในระหว่างการนำทาง - เราได้ทำมันแล้ว! ต่อไปนี้ตัวนำทางของเราจะเตือนเกี่ยวกับการเลี้ยวครั้งถัดไปของคุณได้ทันเวลา";
+
+"whats_new_between_any_points" = "สร้างเส้นทางระหว่างทุกจุด";
+
+"whats_new_happy_day" = "เป็นวันที่แสนสุขจริง ๆ! วางแผนทริปของคุณล่วงหน้าด้วย MAPS.ME";
+
+"whats_new_next" = "ถัดไป";

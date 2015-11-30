@@ -12,20 +12,38 @@ namespace turns
 {
 namespace sound
 {
+void Settings::SetState(uint32_t notificationTimeSeconds, uint32_t minNotificationDistanceUnits,
+                        uint32_t maxNotificationDistanceUnits,
+                        vector<uint32_t> const & soundedDistancesUnits,
+                        ::Settings::Units lengthUnits)
+{
+  m_timeSeconds = notificationTimeSeconds;
+  m_minDistanceUnits = minNotificationDistanceUnits;
+  m_maxDistanceUnits = maxNotificationDistanceUnits;
+  m_soundedDistancesUnits = soundedDistancesUnits;
+  m_lengthUnits = lengthUnits;
+}
+
 bool Settings::IsValid() const
 {
-  return m_lengthUnits != LengthUnits::Undefined &&
-         m_minDistanceUnits <= m_maxDistanceUnits &&
+  return m_minDistanceUnits <= m_maxDistanceUnits &&
          !m_soundedDistancesUnits.empty() &&
          is_sorted(m_soundedDistancesUnits.cbegin(), m_soundedDistancesUnits.cend());
 }
 
-double Settings::ComputeTurnDistance(double speedUnitsPerSecond) const
+uint32_t Settings::ComputeTurnDistanceM(double speedMetersPerSecond) const
 {
   ASSERT(IsValid(), ());
 
-  double const turnNotificationDistance = m_timeSeconds * speedUnitsPerSecond;
-  return my::clamp(turnNotificationDistance, m_minDistanceUnits, m_maxDistanceUnits);
+  double const turnNotificationDistanceM = m_timeSeconds * speedMetersPerSecond;
+  return static_cast<uint32_t>(my::clamp(turnNotificationDistanceM,
+                                         ConvertUnitsToMeters(m_minDistanceUnits),
+                                         ConvertUnitsToMeters(m_maxDistanceUnits)));
+}
+
+bool Settings::TooCloseForFisrtNotification(double distToTurnMeters) const
+{
+  return m_minDistToSayNotificationMeters >= distToTurnMeters;
 }
 
 uint32_t Settings::RoundByPresetSoundedDistancesUnits(uint32_t turnNotificationUnits) const
@@ -46,16 +64,12 @@ double Settings::ConvertMetersPerSecondToUnitsPerSecond(double speedInMetersPerS
 {
   switch (m_lengthUnits)
   {
-    case LengthUnits::Undefined:
-      ASSERT(false, ());
-      return 0.;
-    case LengthUnits::Meters:
+    case ::Settings::Metric:
       return speedInMetersPerSecond;
-    case LengthUnits::Feet:
+    case ::Settings::Foot:
       return MeasurementUtils::MetersToFeet(speedInMetersPerSecond);
   }
 
-  // m_lengthUnits is equal to LengthUnits::Undefined or to unknown value.
   ASSERT(false, ("m_lengthUnits is equal to unknown value."));
   return 0.;
 }
@@ -64,35 +78,36 @@ double Settings::ConvertUnitsToMeters(double distanceInUnits) const
 {
   switch (m_lengthUnits)
   {
-    case LengthUnits::Undefined:
-      ASSERT(false, ());
-      return 0.;
-    case LengthUnits::Meters:
+    case ::Settings::Metric:
       return distanceInUnits;
-    case LengthUnits::Feet:
+    case ::Settings::Foot:
       return MeasurementUtils::FeetToMeters(distanceInUnits);
   }
 
-  // m_lengthUnits is equal to LengthUnits::Undefined or to unknown value.
   ASSERT(false, ());
   return 0.;
 }
 
-string DebugPrint(LengthUnits const & lengthUnits)
+double Settings::ConvertMetersToUnits(double distanceInMeters) const
 {
-  switch (lengthUnits)
+  switch (m_lengthUnits)
   {
-    case LengthUnits::Undefined:
-      return "LengthUnits::Undefined";
-    case LengthUnits::Meters:
-      return "LengthUnits::Meters";
-    case LengthUnits::Feet:
-      return "LengthUnits::Feet";
+    case ::Settings::Metric:
+      return distanceInMeters;
+    case ::Settings::Foot:
+      return MeasurementUtils::MetersToFeet(distanceInMeters);
   }
 
-  stringstream out;
-  out << "Unknown LengthUnits value: " << static_cast<int>(lengthUnits);
-  return out.str();
+  ASSERT(false, ());
+  return 0.;
+}
+
+uint32_t Settings::ComputeDistToPronounceDistM(double speedMetersPerSecond) const
+{
+  ASSERT_LESS_OR_EQUAL(0, speedMetersPerSecond, ());
+  uint32_t const startBeforeMeters =
+      static_cast<uint32_t>(speedMetersPerSecond * m_startBeforeSeconds);
+  return my::clamp(startBeforeMeters, m_minStartBeforeMeters, m_maxStartBeforeMeters);
 }
 
 string DebugPrint(Notification const & notification)
@@ -102,7 +117,7 @@ string DebugPrint(Notification const & notification)
       << ", m_exitNum == " << notification.m_exitNum
       << ", m_useThenInsteadOfDistance == " << notification.m_useThenInsteadOfDistance
       << ", m_turnDir == " << DebugPrint(notification.m_turnDir)
-      << ", m_lengthUnits == " << DebugPrint(notification.m_lengthUnits) << " ]" << endl;
+      << ", m_lengthUnits == " << notification.m_lengthUnits << " ]" << endl;
   return out.str();
 }
 

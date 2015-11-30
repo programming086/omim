@@ -432,7 +432,7 @@
 "message" = "Správa";
 
 /* Share by email button text */
-"email" = "E-Mail";
+"email" = "E-mail";
 
 /* Copy Link */
 "copy_link" = "Skopírovať odkaz";
@@ -478,13 +478,48 @@
 
 "share_my_location" = "Zdielať moje umiestnenie";
 
-"become_a_pro" = "Vykonať upgrade";
-
 "menu_search" = "Vyhľadávanie";
+
+/* Settings screen: "Map" category title */
+"prefs_group_map" = "Mapa";
+
+/* Settings screen: "Miscellaneous" category title */
+"prefs_group_misc" = "Ostatné nastavenia";
+
+"prefs_group_route" = "Navigácia";
 
 "pref_zoom_title" = "Tlačítka priblíženia/oddialenia";
 
 "pref_zoom_summary" = "Zobraziť na obrazovke";
+
+/* Settings «Map» category: «Map style» title */
+"pref_map_style_title" = "Map style";
+
+/* Settings «Map» category: «Map style» summary */
+"pref_map_style_summary" = "Change map presentation";
+
+/* «Map style» entry value */
+"pref_map_style_classic_light" = "Classic light";
+
+/* «Map style» entry value */
+"pref_map_style_classic_dark" = "Classic dark";
+
+/* «Map style» entry value */
+"pref_map_style_modern_light" = "Modern light";
+
+/* Settings «Route» category: «Tts enabled» title */
+"pref_tts_enable_title" = "Hlasové povely";
+
+/* Settings «Route» category: «Tts language» title */
+"pref_tts_language_title" = "Nastavenia jazyka povelov";
+
+/* Settings «Route» category: «Tts unavailable» subtitle */
+"pref_tts_unavailable" = "Nie je k dispozícii";
+
+/* Title for "Other" section in TTS settings. */
+"pref_tts_other_section_title" = "Iný";
+
+"pref_tts_how_to_set_up_voice" = "Ako nastaviť hlas";
 
 "placepage_distance" = "Vzdialenosť";
 
@@ -524,12 +559,6 @@
 /* category title */
 "routes" = "Trasy";
 
-/* button in the interface */
-"choose_starting_point" = "Zvoliť východisko…";
-
-/* button in the interface */
-"choose_destination" = "Zvoliť cieľ…";
-
 /* Show on first launch. */
 "maps_licence_info" = "Táto aplikácia používa geografické dáta (zahrňujúce mapy, obchodné zoznamy, body záujmov, hranice krajín a regiónov, atď.) prevzaté z OpenStreetMap projektu. Negarantujeme žiadnu jednotnosť, presnosť, úplnosť alebo použiteľnosť dát OpenStreetMap.";
 
@@ -558,6 +587,12 @@
 "settings_and_more" = "Nastavenia a viac";
 
 /* Text in menu */
+"website" = "Website";
+
+/* Text in menu */
+"blog" = "Blog";
+
+/* Text in menu */
 "maps_me_community" = "Komunita MAPS.ME";
 
 /* Text in menu */
@@ -569,11 +604,26 @@
 /* Text in menu */
 "contact_us" = "Kontaktovať nás";
 
+/* Settings: Send feedback button and dialog title */
+"feedback" = "Feedback";
+
+/* Settings: "Send general feedback" button */
+"feedback_general" = "General feedback";
+
 /* Text in menu */
 "subscribe_to_news" = "Prihlásiť sa k našim novinkám";
 
 /* Text in menu */
 "rate_the_app" = "Ohodnotiť aplikáciu";
+
+/* Rate in Google Play (Android only) */
+"rate_gp" = "Rate on Google Play";
+
+/* Share with friends: menu item title */
+"tell_friends" = "Tell a Friend";
+
+/* Share with friends: sharing text */
+"tell_friends_text" = "Hi! Install Maps.me!";
 
 /* Text in menu */
 "help" = "Nápoveda";
@@ -589,6 +639,9 @@
 
 /* Email body */
 "subscribe_me_body" = "Chcem sa vždy ako prvý dozvedať o najnovších správach, aktualizáciách a akčných ponukách. Svoje prihlásenie k odberu môžem kedykoľvek zrušiť.";
+
+/* About short text (below logo) */
+"about_description" = "Joined efforts of Mail.Ru Group and OpenStreetMap make the most useful application for travelers!";
 
 /* About text */
 "about_text" = "MAPS.ME ponúka najrýchlejšie offline mapy všetkých miest a krajín po celom svete. Cestujte s úplnou dôverou: kdekoľvek ste, MAPS.ME vám pomôže sa nájsť na mape, nájsť najbližšiu reštauráciu, hotel, banku, benzínovú pumpu atď. Nevyžaduje pripojenie k internetu.\n\nNeustále pracujeme na nových funkciách a radi by sme počuli váš názor, ako môžeme vylepšiť MAPS.ME. Pokiaľ máte s touto aplikáciou akékoľvek problémy, tak nás neváhajte kontaktovať na support@maps.me. Odpovedáme na každú požiadavku!\n\nPáči sa vám MAPS.ME a chceli by ste nás podporiť? Existuje niekoľko ľahkých spôsobov celkom zadarmo:\n\n-napíšte recenziu vo svojom obchode s aplikáciami\n-označte našu stránku http://www.facebook.com/mapswithme pomocou Páči sa mi to\n- alebo len povedzte o MAPS.ME svojej mame, priateľom a kolegom :)\n\nĎakujeme, že ste s nami. Veľmi oceňujeme vašu podporu!\n\nP.S. Mapové dáta získavame z OpenStreetMaps, čo je mapový projekt podobný Wikipédii, ktorý umožňuje užívateľom vytvárať a upravovať mapy. Pokiaľ zistíte, že na mape niečo chýba alebo je nesprávné, môžete to opraviť priamo na http://openstreetmap.org, a vaše zmeny sa objavia v budúcej verzii MAPS.ME.";
@@ -679,7 +732,7 @@
 
 "downloader_download_map_no_routing" = "Stiahnite si mapu bez smerovania";
 
-/* Button for routing PP. */
+/* Button for routing. */
 "routing_go" = "Štart!";
 
 /* Item status in downloader. */
@@ -1193,49 +1246,10 @@
 "routing_planning_error" = "Plánovanie trasy zlyhalo";
 
 /* Arrive routing message in navigation view */
-"routing_arrive" = "Pricestovať";
-
-/* Routing Start button title */
-"routing_start" = "Spustiť";
-
-/* Planning route message in navigation view */
-"routing_planning" = "Plánovanie trasy";
+"routing_arrive" = "Pricestovať: %s";
 
 /* Text for routing::IRouter::FileTooOld dialog. */
 "dialog_routing_download_and_update_maps" = "Prosím, pre vytvorenie trasy si stiahnite a aktualizujte všetky mapy pozdĺž trasy.";
-
-/* Text for facebook sharing news about walking routes */
-"share_walking_routes_facebook" = "MAPS.ME vám ušetrí čas pri chôdzi. Viac ako 2 milióny kilometrov peších trás, tratí a chodníkov je teraz k dispozícii peším smerom.";
-
-/* Text for messenger sharing news about walking routes */
-"share_walking_routes_messenger" = "MAPS.ME udáva najkratšie pešie trasy po celom svete! Pozrite sa na: http://maps.me/get?walk_im";
-
-/* Text for sms sharing news about walking routes */
-"share_walking_routes_sms" = "MAPS.ME udáva najkratšie pešie trasy: http://maps.me/get?walk";
-
-/* Subject for email sharing news about walking routes */
-"share_walking_routes_email_subject" = "K dispozícii sú najkratšie pešie trasy";
-
-/* Text for email sharing news about walking routes */
-"share_walking_routes_email_body" = "MAPS.ME práve vydala Pešie smery, na základe najpodrobnejšej mapy na svete! Udávajú najkratšiu trasu na akékoľvek miesto. Vyskúšajte si ich: http://maps.me/get?walk_em";
-
-/* Title for walking routes dialog, notifications etc. */
-"title_walking_available" = "Pešie smery sú k dispozícii na MAPS.ME!";
-
-/* Text for walking routes dialog */
-"share_walking_routes_first_launch" = "Udávajú najkratšiu trasu na akékoľvek miesto. Pomôžte aj svojim priateľom ušetriť čas pri chôdzi!";
-
-/* Title for walking routes dialog after 3 built routes */
-"share_walking_routes_congratulations" = "Blahoželáme!";
-
-/* Text for walking routes dialog after 3 built routes */
-"share_walking_routes_mastering" = "Zvládli ste funkciu Pešie smery. Pomôžte aj svojim priateľom ušetriť čas pri chôdzi. Povedzte im o MAPS.ME.";
-
-/* Android notification about walking directions for update users */
-"walking_notification_text" = "Chcete si ich vyskúšať?";
-
-/* Android notification with picture (rich) about walking directions for update users */
-"walking_rich_notification_text" = "Udávajú najkratšiu trasu do ľubovoľného cieľového bodu. Vyskúšajte si ich sami a pomôžte svojim priateľom ušetriť čas pri cestovaní.";
 
 "rate_alert_title" = "Páči sa vám aplikácia?";
 
@@ -1269,10 +1283,40 @@
 
 "search_history_text" = "Rýchlo pristupujte k nedávnym hľadaným výrazom.";
 
-"update_maps_alert_title" = "Prehliadanie máp je teraz jednoduchšie";
-
-"update_maps_alert_message" = "Zlepšili sme štýl máp: Teraz všetky objekty vyzerajú priateľskejšie a jasnejšie. Aktualizujte si mapy, aby ste z nového dizajnu získali čo najviac.";
-
-"update_maps_alert_button_title" = "Aktualizácia máp";
-
 "clear_search" = "Vymazať históriu vyhľadávania";
+
+/* Title for settings to enable/disable showcase menu button */
+"showcase_settings_title" = "Ukázať reklamu";
+
+/* Place Page link to Wikipedia article (if map object has it). */
+"read_in_wikipedia" = "Wikipedia";
+
+"p2p_route_planning" = "Plánovanie trasy";
+
+"p2p_your_location" = "Vaša poloha";
+
+"p2p_from" = "Východiskový bod";
+
+"p2p_to" = "Cieľový bod";
+
+"p2p_start" = "Štart";
+
+"p2p_planning" = "Plánovanie…";
+
+"p2p_from_here" = "Z";
+
+"p2p_to_here" = "Do";
+
+"p2p_only_from_current" = "Navigácia je dostupná iba z vašej aktuálnej polohy.";
+
+"p2p_reroute_from_current" = "Doriți să vă planificăm o rută având ca punct de pornire locația actuală?";
+
+"whats_new_where_to_turn" = "MAPS.ME vám dá vedieť, kde sa obrátiť";
+
+"whats_new_voice_instructions" = "Vážení priatelia, už dlhší čas požadujete hlasové pokyny počas navigácie - ma sme vám vyhoveli! Teraz vás náš navigátor včas upozorní na váš ďalší obrat.";
+
+"whats_new_between_any_points" = "Vytvorte si trasy medzi ľubovoľnými bodmi";
+
+"whats_new_happy_day" = "Naozaj šťastný deň! Plánujte si výlety napred s MAPS.ME.";
+
+"whats_new_next" = "Nasledujúca";

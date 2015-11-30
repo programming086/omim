@@ -310,8 +310,10 @@ void BookmarkManager::DrawItems(Drawer * drawer) const
   pScreen->beginFrame();
 
   PaintOverlayEvent event(drawer, screen);
-  for_each(m_userMarkLayers.begin(), m_userMarkLayers.end(), bind(&UserMarkContainer::Draw, _1, event, m_cache));
-  for_each(m_categories.begin(), m_categories.end(), bind(&BookmarkManager::DrawCategory, this, _1, event));
+  for (auto const & layer : m_userMarkLayers)
+    layer->Draw(event, m_cache);
+  for (auto const & category : m_categories)
+    DrawCategory(category, event);
   m_routeRenderer->Render(pScreen, screen);
   m_selection.Draw(event, m_cache);
 
@@ -482,6 +484,16 @@ void BookmarkManager::ResetRouteTrack()
 void BookmarkManager::UpdateRouteDistanceFromBegin(double distance)
 {
   m_routeRenderer->UpdateDistanceFromBegin(distance);
+}
+
+void BookmarkManager::SetRouteStartPoint(m2::PointD const & pt, bool isValid)
+{
+  m_routeRenderer->SetRoutePoint(pt, true /* start */, isValid);
+}
+
+void BookmarkManager::SetRouteFinishPoint(m2::PointD const & pt, bool isValid)
+{
+  m_routeRenderer->SetRoutePoint(pt, false /* start */, isValid);
 }
 
 UserMarkContainer const * BookmarkManager::FindUserMarksContainer(UserMarkContainer::Type type) const

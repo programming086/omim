@@ -1,24 +1,28 @@
+#import "MWMBottomMenuViewController.h"
 #import "MWMNavigationDashboardManager.h"
-#import "MWMSideMenuManager.h"
+#import "MWMRoutingProtocol.h"
 
 #include "map/user_mark.hpp"
 #include "platform/location.hpp"
 
 @class MapViewController;
 
-@interface MWMMapViewControlsManager : NSObject
+@interface MWMMapViewControlsManager : NSObject <MWMRoutingProtocol>
 
 @property (nonatomic) BOOL hidden;
 @property (nonatomic) BOOL zoomHidden;
-@property (nonatomic) BOOL locationHidden;
-@property (nonatomic) MWMSideMenuState menuState;
+@property (nonatomic) MWMBottomMenuState menuState;
 @property (nonatomic, readonly) MWMNavigationDashboardState navigationState;
 @property (nonatomic) BOOL searchHidden;
 
 - (instancetype)init __attribute__((unavailable("init is not available")));
 - (instancetype)initWithParentController:(MapViewController *)controller;
 
+- (void)onEnterForeground;
+
 #pragma mark - Layout
+
+- (void)refreshLayout;
 
 - (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation
                                 duration:(NSTimeInterval)duration;
@@ -35,8 +39,9 @@
 #pragma mark - MWMNavigationDashboardManager
 
 - (void)setupRoutingDashboard:(location::FollowingInfo const &)info;
-- (void)playTurnNotifications;
+- (void)routingHidden;
 - (void)routingReady;
+- (void)routingPrepare;
 - (void)routingNavigation;
 - (void)handleRoutingError;
 - (void)setRouteBuildingProgress:(CGFloat)progress;

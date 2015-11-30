@@ -12,19 +12,22 @@ import android.os.Build;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.text.TextUtils;
-import android.util.Log;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.mapswithme.maps.LocationState;
 import com.mapswithme.maps.MwmApplication;
 import com.mapswithme.maps.R;
+import com.mapswithme.maps.bookmarks.data.MapObject;
 import com.mapswithme.util.LocationUtils;
 import com.mapswithme.util.concurrency.UiThread;
 import com.mapswithme.util.log.Logger;
 import com.mapswithme.util.log.SimpleLogger;
-
-import java.util.HashSet;
 
 public enum LocationHelper implements SensorEventListener
 {
@@ -49,12 +52,13 @@ public enum LocationHelper implements SensorEventListener
     void onLocationError(int errorCode);
   }
 
-  private final HashSet<LocationListener> mListeners = new HashSet<>();
+  private final Set<LocationListener> mListeners = new HashSet<>();
 
   private Location mLastLocation;
+  private MapObject.MyPosition mMyPosition;
   private long mLastLocationTime;
 
-  private SensorManager mSensorManager;
+  private final SensorManager mSensorManager;
   private Sensor mAccelerometer;
   private Sensor mMagnetometer;
   private GeomagneticField mMagneticField;
@@ -66,7 +70,7 @@ public enum LocationHelper implements SensorEventListener
   private final float[] mI = new float[9];
   private final float[] mOrientation = new float[3];
 
-  private Runnable mStopLocationTask = new Runnable() {
+  private final Runnable mStopLocationTask = new Runnable() {
     @Override
     public void run()
     {
@@ -133,6 +137,23 @@ public enum LocationHelper implements SensorEventListener
       mLocationProvider.startUpdates();
   }
 
+  public @Nullable MapObject.MyPosition getMyPosition()
+  {
+    if (!LocationState.isTurnedOn())
+    {
+      mMyPosition = null;
+      return null;
+    }
+
+    if (mLastLocation == null)
+      return null;
+
+    if (mMyPosition == null)
+      mMyPosition = new MapObject.MyPosition(mLastLocation.getLatitude(), mLastLocation.getLongitude());
+
+    return mMyPosition;
+  }
+
   public Location getLastLocation() { return mLastLocation; }
 
   public long getLastLocationTime() { return mLastLocationTime; }
@@ -140,6 +161,7 @@ public enum LocationHelper implements SensorEventListener
   public void setLastLocation(@NonNull Location loc)
   {
     mLastLocation = loc;
+    mMyPosition = null;
     mLastLocationTime = System.currentTimeMillis();
     notifyLocationUpdated();
   }

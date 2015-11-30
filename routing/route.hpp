@@ -60,6 +60,8 @@ public:
   uint32_t GetTotalTimeSec() const;
   uint32_t GetCurrentTimeToEndSec() const;
 
+  FollowedPolyline const & GetFollowedPolyline() const { return m_poly; }
+
   string const & GetRouterId() const { return m_router; }
   m2::PolylineD const & GetPoly() const { return m_poly.GetPolyline(); }
   TTurns const & GetTurns() const { return m_turns; }
@@ -72,20 +74,26 @@ public:
   double GetCurrentDistanceToEndMeters() const;
   double GetMercatorDistanceFromBegin() const;
 
-  void GetCurrentTurn(double & distanceToTurnMeters, turns::TurnItem & turn) const;
+  /// \brief GetCurrentTurn returns information about the nearest turn.
+  /// \param distanceToTurnMeters is a distance from current position to the nearest turn.
+  /// \param turn is information about the nearest turn.
+  bool GetCurrentTurn(double & distanceToTurnMeters, turns::TurnItem & turn) const;
+
   /// @return true if GetNextTurn() returns a valid result in parameters, false otherwise.
-  /// \param distanceToTurnMeters is a distance from current possition to the second turn.
+  /// \param distanceToTurnMeters is a distance from current position to the second turn.
   /// \param turn is information about the second turn.
+  /// @return true if its parameters are filled with correct result.
   /// \note All parameters are filled while a GetNextTurn function call.
   bool GetNextTurn(double & distanceToTurnMeters, turns::TurnItem & turn) const;
+  /// \brief Extract information about zero, one or two nearest turns depending on current position.
+  /// @return true if its parameter is filled with correct result. (At least with one element.)
+  bool GetNextTurns(vector<turns::TurnItemDist> & turns) const;
 
   void GetCurrentDirectionPoint(m2::PointD & pt) const;
 
   /// @return true  If position was updated successfully (projection within gps error radius).
   bool MoveIterator(location::GpsInfo const & info) const;
 
-  /// Square distance to current projection in mercator.
-  double GetCurrentSqDistance(m2::PointD const & pt) const;
   void MatchLocationToRoute(location::GpsInfo & location, location::RouteMatchingInfo & routeMatchingInfo) const;
 
   bool IsCurrentOnEnd() const;

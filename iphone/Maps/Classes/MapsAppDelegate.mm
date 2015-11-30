@@ -5,10 +5,14 @@
 #import "MapsAppDelegate.h"
 #import "MapViewController.h"
 #import "MWMAlertViewController.h"
+#import "MWMTextToSpeech.h"
 #import "MWMWatchEventInfo.h"
 #import "Preferences.h"
 #import "RouteState.h"
 #import "Statistics.h"
+#import "UIColor+MapsMeColor.h"
+#import "UIFont+MapsMeFonts.h"
+#import <CoreTelephony/CTTelephonyNetworkInfo.h>
 #import <FBSDKCoreKit/FBSDKCoreKit.h>
 #import <Parse/Parse.h>
 #import <ParseFacebookUtilsV4/PFFacebookUtils.h>
@@ -46,6 +50,10 @@ static NSString * const kBundleVersion = @"BundleVersion";
 extern string const kCountryCodeKey;
 extern string const kUniqueIdKey;
 extern string const kLanguageKey;
+extern NSString * const kUserDefaultsTTSLanguage;
+extern NSString * const kUserDafaultsNeedToEnableTTS;
+
+extern char const * kAdServerForbiddenKey;
 
 /// Adds needed localized strings to C++ code
 /// @TODO Refactor localization mechanism to make it simpler
@@ -77,6 +85,8 @@ void InitLocalizedStrings()
 @interface MapsAppDelegate ()
 
 @property (nonatomic) NSInteger standbyCounter;
+
+@property (weak, nonatomic) NSTimer * checkAdServerForbiddenTimer;
 
 @end
 
@@ -137,7 +147,7 @@ void InitLocalizedStrings()
 
 - (void)application:(UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo fetchCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler
 {
-  [Statistics.instance logEvent:@"Push received" withParameters:userInfo];
+  [[Statistics instance] logEvent:kStatEventName(kStatApplication, kStatPushReceived) withParameters:userInfo];
   if (![self handleURLPush:userInfo])
     [PFPush handlePush:userInfo];
   completionHandler(UIBackgroundFetchResultNoData);
@@ -158,8 +168,7 @@ void InitLocalizedStrings()
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
   // Initialize all 3party engines.
-  BOOL returnValue = [[Statistics instance] application:application
-                          didFinishLaunchingWithOptions:launchOptions];
+  BOOL returnValue = [self initStatistics:application didFinishLaunchingWithOptions:launchOptions];
 
   NSURL * urlUsedToLaunchMaps = launchOptions[UIApplicationLaunchOptionsURLKey];
   if (urlUsedToLaunchMaps != nil)
@@ -167,11 +176,9 @@ void InitLocalizedStrings()
   else
     returnValue = YES;
 
-  [HttpThread setDownloadIndicatorProtocol:[MapsAppDelegate theApp]];
+  [HttpThread setDownloadIndicatorProtocol:self];
 
   [self trackWatchUser];
-
-  [[Statistics instance] logEvent:@"Device Info" withParameters:@{@"Country" : [AppInfo sharedInfo].countryCode}];
 
   InitLocalizedStrings();
   
@@ -204,12 +211,25 @@ void InitLocalizedStrings()
     [self incrementSessionCount];
     [self showAlertIfRequired];
   }
-  
+
+  [self startAdServerForbiddenCheckTimer];
+
   Framework & f = GetFramework();
   application.applicationIconBadgeNumber = f.GetCountryTree().GetActiveMapLayout().GetOutOfDateCount();
   f.GetLocationState()->InvalidatePosition();
 
+  [self enableTTSForTheFirstTime];
+  [MWMTextToSpeech activateAudioSession];
+
   return returnValue;
+}
+
+- (void)application:(UIApplication *)application
+    performActionForShortcutItem:(UIApplicationShortcutItem *)shortcutItem
+               completionHandler:(void (^)(BOOL))completionHandler
+{
+  [self.mapViewController performAction:shortcutItem.type];
+  completionHandler(YES);
 }
 
 - (void)application:(UIApplication *)application performFetchWithCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler
@@ -232,14 +252,15 @@ void InitLocalizedStrings()
   if (m_activeDownloadsCounter)
   {
     m_backgroundTask = [application beginBackgroundTaskWithExpirationHandler:^{
-      [application endBackgroundTask:m_backgroundTask];
-      m_backgroundTask = UIBackgroundTaskInvalid;
+      [application endBackgroundTask:self->m_backgroundTask];
+      self->m_backgroundTask = UIBackgroundTaskInvalid;
     }];
   }
 }
 
 - (void)applicationWillResignActive:(UIApplication *)application
 {
+  [self.mapViewController.appWallAd close];
   [RouteState save];
 }
 
@@ -247,6 +268,7 @@ void InitLocalizedStrings()
 {
   [self.m_locationManager orientationChanged];
   [self.mapViewController onEnterForeground];
+  [MWMTextToSpeech activateAudioSession];
 }
 
 - (void)applicationDidBecomeActive:(UIApplication *)application
@@ -256,11 +278,8 @@ void InitLocalizedStrings()
   {
     if (f.ShowMapForURL([m_geoURL UTF8String]))
     {
-      if ([m_scheme isEqualToString:@"geo"])
-        [[Statistics instance] logEvent:@"geo Import"];
-      if ([m_scheme isEqualToString:@"ge0"])
-        [[Statistics instance] logEvent:@"ge0(zero) Import"];
-
+      [[Statistics instance] logEvent:kStatEventName(kStatApplication, kStatImport)
+                       withParameters:@{kStatValue : m_scheme}];
       [self showMap];
     }
   }
@@ -280,7 +299,8 @@ void InitLocalizedStrings()
 
     [[NSNotificationCenter defaultCenter] postNotificationName:@"KML file added" object:nil];
     [self showLoadFileAlertIsSuccessful:YES];
-    [[Statistics instance] logEvent:@"KML Import"];
+    [[Statistics instance] logEvent:kStatEventName(kStatApplication, kStatImport)
+                     withParameters:@{kStatValue : kStatKML}];
   }
   else
   {
@@ -300,7 +320,7 @@ void InitLocalizedStrings()
 
   [self restoreRouteState];
 
-  [Statistics.instance applicationDidBecomeActive];
+  [[Statistics instance] applicationDidBecomeActive];
 }
 
 - (void)dealloc
@@ -308,6 +328,32 @@ void InitLocalizedStrings()
   [[NSNotificationCenter defaultCenter] removeObserver:self];
   // Global cleanup
   DeleteFramework();
+}
+
+- (BOOL)initStatistics:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
+{
+  Statistics * statistics = [Statistics instance];
+  BOOL returnValue = [statistics application:application didFinishLaunchingWithOptions:launchOptions];
+
+  NSString * connectionType;
+  switch (Platform::ConnectionStatus())
+  {
+    case Platform::EConnectionType::CONNECTION_NONE:
+      break;
+    case Platform::EConnectionType::CONNECTION_WIFI:
+      connectionType = @"Wi-Fi";
+      break;
+    case Platform::EConnectionType::CONNECTION_WWAN:
+      connectionType = [[CTTelephonyNetworkInfo alloc] init].currentRadioAccessTechnology;
+      break;
+  }
+  if (!connectionType)
+    connectionType = @"Offline";
+  [statistics logEvent:kStatDeviceInfo
+        withParameters:
+            @{kStatCountry : [AppInfo sharedInfo].countryCode, kStatConnection : connectionType}];
+
+  return returnValue;
 }
 
 - (void)disableDownloadIndicator
@@ -339,18 +385,23 @@ void InitLocalizedStrings()
 
 - (void)customizeAppearance
 {
-  NSMutableDictionary * attributes = [[NSMutableDictionary alloc] init];
-  attributes[NSForegroundColorAttributeName] = [UIColor whiteColor];
+  NSDictionary * attributes = @{
+    NSForegroundColorAttributeName : [UIColor whiteColor],
+    NSFontAttributeName : [UIFont regular18]
+  };
 
-  Class const navigationControllerClass = [NavigationController class];
-  [[UINavigationBar appearanceWhenContainedIn:navigationControllerClass, nil] setTintColor:[UIColor whiteColor]];
-  [[UIBarButtonItem appearance] setTitleTextAttributes:attributes forState:UIControlStateNormal];
-  [[UINavigationBar appearanceWhenContainedIn:navigationControllerClass, nil] setBarTintColor:[UIColor colorWithColorCode:@"0e8639"]];
-  attributes[NSFontAttributeName] = [UIFont fontWithName:@"HelveticaNeue" size:17.5];
-
-  UINavigationBar * navBar = [UINavigationBar appearanceWhenContainedIn:navigationControllerClass, nil];
-  navBar.shadowImage = [[UIImage alloc] init];
+  UINavigationBar * navBar = [UINavigationBar appearance];
+  navBar.tintColor = [UIColor primary];
+  navBar.barTintColor = [UIColor primary];
+  navBar.shadowImage = [UIImage imageWithColor:[UIColor fadeBackground]];
   navBar.titleTextAttributes = attributes;
+
+  [[UIBarButtonItem appearance] setTitleTextAttributes:attributes forState:UIControlStateNormal];
+
+  UIPageControl * pageControl = [UIPageControl appearance];
+  pageControl.pageIndicatorTintColor = [UIColor lightGrayColor];
+  pageControl.currentPageIndicatorTintColor = [UIColor blackColor];
+  pageControl.backgroundColor = [UIColor whiteColor];
 }
 
 - (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification
@@ -480,6 +531,12 @@ void InitLocalizedStrings()
   }
 }
 
+- (void)setRoutingPlaneMode:(MWMRoutingPlaneMode)routingPlaneMode
+{
+  _routingPlaneMode = routingPlaneMode;
+  [self.mapViewController updateStatusBarStyle];
+}
+
 #pragma mark - Properties
 
 - (MapViewController *)mapViewController
@@ -498,6 +555,17 @@ void InitLocalizedStrings()
     self.mapViewController.restoreRouteDestination = state.endPoint;
   else
     [RouteState remove];
+}
+
+#pragma mark - TTS
+
+- (void)enableTTSForTheFirstTime
+{
+  NSUserDefaults * ud = [NSUserDefaults standardUserDefaults];
+  if ([ud stringForKey:kUserDefaultsTTSLanguage].length)
+    return;
+  [ud setBool:YES forKey:kUserDafaultsNeedToEnableTTS];
+  [ud synchronize];
 }
 
 #pragma mark - Standby
@@ -670,6 +738,35 @@ void InitLocalizedStrings()
   [calendar rangeOfUnit:NSCalendarUnitDay startDate:&now interval:NULL forDate:now];
   NSDateComponents *difference = [calendar components:NSCalendarUnitDay fromDate:fromDate toDate:now options:0];
   return difference.day;
+}
+
+#pragma mark - Showcase
+
+- (void)checkAdServerForbidden
+{
+  NSURLSession * session = [NSURLSession sharedSession];
+  NSURL * url = [NSURL URLWithString:@(AD_PERMISION_SERVER_URL)];
+  NSURLSessionDataTask * task = [session dataTaskWithURL:url
+                                       completionHandler:^(NSData * data, NSURLResponse * response,
+                                                           NSError * error)
+  {
+    bool adServerForbidden = (error || [(NSHTTPURLResponse *)response statusCode] != 200);
+    Settings::Set(kAdServerForbiddenKey, adServerForbidden);
+    dispatch_async(dispatch_get_main_queue(), ^{ [self.mapViewController refreshAd]; });
+  }];
+  [task resume];
+}
+
+- (void)startAdServerForbiddenCheckTimer
+{
+  [self checkAdServerForbidden];
+  [self.checkAdServerForbiddenTimer invalidate];
+  self.checkAdServerForbiddenTimer =
+      [NSTimer scheduledTimerWithTimeInterval:AD_PERMISION_CHECK_DURATION
+                                       target:self
+                                     selector:@selector(checkAdServerForbidden)
+                                     userInfo:nil
+                                      repeats:YES];
 }
 
 @end

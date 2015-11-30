@@ -123,7 +123,7 @@ PLANET="${PLANET:-$HOME/planet}"
 [ -d "$PLANET" ] && PLANET="$PLANET/planet-latest.o5m"
 [ ! -f "$PLANET" -a -z "$OPT_DOWNLOAD" ] && fail "Please put planet file into $PLANET, use -U, or specify correct PLANET variable"
 OMIM_PATH="${OMIM_PATH:-$(cd "$(dirname "$0")/../.."; pwd)}"
-DATA_PATH="$OMIM_PATH/data"
+DATA_PATH="${DATA_PATH:-$OMIM_PATH/data}"
 [ ! -r "${DATA_PATH}/types.txt" ] && fail "Cannot find classificators in $DATA_PATH, please set correct OMIM_PATH"
 [ -n "$OPT_ROUTING" -a ! -f "$HOME/.stxxl" ] && fail "For routing, you need ~/.stxxl file. Run this: echo 'disk=$HOME/stxxl_disk1,400G,syscall' > $HOME/.stxxl"
 TARGET="${TARGET:-$DATA_PATH}"
@@ -135,11 +135,17 @@ MERGE_INTERVAL=${MERGE_INTERVAL:-40}
 # set to "mem" if there is more than 64 GB of memory
 NODE_STORAGE=${NODE_STORAGE:-${NS:-mem}}
 ASYNC_PBF=${ASYNC_PBF-}
-NUM_PROCESSES=${NUM_PROCESSES:-$(($(nproc || echo 8) - 1))}
 KEEP_INTDIR=${KEEP_INTDIR-1}
+# nproc is linux-only
+if [ "$(uname -s)" == "Darwin" ]; then
+  CPUS="$(sysctl -n hw.ncpu)"
+else
+  CPUS="$(nproc || echo 8)"
+fi
+NUM_PROCESSES=${NUM_PROCESSES:-$(($CPUS - 1))}
 
 STATUS_FILE="$INTDIR/status"
-OSRM_FLAG="${OSRM_FLAG:-$INTDIR/osrm_done}"
+OSRM_FLAG="$INTDIR/osrm_done"
 SCRIPTS_PATH="$(dirname "$0")"
 ROUTING_SCRIPT="$SCRIPTS_PATH/generate_planet_routing.sh"
 TESTING_SCRIPT="$SCRIPTS_PATH/test_planet.sh"
@@ -147,9 +153,9 @@ UPDATE_DATE="$(date +%y%m%d)"
 LOG_PATH="${LOG_PATH:-$TARGET/logs}"
 mkdir -p "$LOG_PATH"
 PLANET_LOG="$LOG_PATH/generate_planet.log"
-[ -n "${MAIL-}" ] && trap "grep STATUS \"$PLANET_LOG\" | mailx -s \"Generate_planet: build failed\" \"$MAIL\"; exit 1" SIGINT SIGTERM
+[ -n "${MAIL-}" ] && trap "grep STATUS \"$PLANET_LOG\" | mailx -s \"Generate_planet: build failed at $(hostname)\" \"$MAIL\"; exit 1" SIGTERM ERR
 echo -e "\n\n----------------------------------------\n\n" >> "$PLANET_LOG"
-log "STATUS" "Start"
+log "STATUS" "Start ${DESC-}"
 
 # Run external script to find generator_tool
 source "$SCRIPTS_PATH/find_generator_tool.sh"
@@ -182,7 +188,6 @@ ULIMIT_REQ=$((3 * $(ls "$TARGET/borders" | { grep '\.poly' || true; } | wc -l)))
 export GENERATOR_TOOL
 export INTDIR
 export OMIM_PATH
-export OSRM_FLAG
 export PLANET
 export OSMCTOOLS
 export NUM_PROCESSES
@@ -194,6 +199,9 @@ export LC_ALL=en_US.UTF-8
 
 [ -n "$OPT_CLEAN" -a -d "$INTDIR" ] && rm -r "$INTDIR"
 mkdir -p "$INTDIR"
+if [ -z "${REGIONS+1}" -a "$(df -m "$INTDIR" | tail -n 1 | awk '{ printf "%d\n", $4 / 1024 }')" -lt "250" ]; then
+  echo "WARNING: You have less than 250 GB for intermediate data, that's not enough for the whole planet."
+fi
 
 if [ -r "$STATUS_FILE" ]; then
   # Read all control variables from file
@@ -254,7 +262,6 @@ if [ "$MODE" == "coast" ]; then
         log "STATUS" "Coastline merge failed"
         if [ -n "$OPT_UPDATE" ]; then
           [ -n "${MAIL-}" ] && tail -n 50 "$LOG_PATH/WorldCoasts.log" | mailx -s "Generate_planet: coastline merge failed, next try in $MERGE_INTERVAL minutes" "$MAIL"
-          date -u
           echo "Will try fresh coasts again in $MERGE_INTERVAL minutes, or press a key..."
           read -rs -n 1 -t $(($MERGE_INTERVAL * 60)) || true
           TRY_AGAIN=1
@@ -282,15 +289,28 @@ if [ -n "$OPT_ROUTING" -a -z "$NO_REGIONS" ]; then
     log "start_routing(): OSRM files have been already created, no need to repeat"
   else
     putmode "Step R: Starting OSRM files generation"
-    if [ -n "$ASYNC_PBF" ]; then
+    PBF_FLAG="${OSRM_FLAG}_pbf"
+    if [ -n "$ASYNC_PBF" -a ! -e "$PBF_FLAG" ]; then
       (
         bash "$ROUTING_SCRIPT" pbf >> "$PLANET_LOG" 2>&1
+        touch "$PBF_FLAG"
         bash "$ROUTING_SCRIPT" prepare >> "$PLANET_LOG" 2>&1
+        touch "$OSRM_FLAG"
+        rm "$PBF_FLAG"
       ) &
     else
       # Osmconvert takes too much memory: it makes sense to not extract pbfs asyncronously
-      bash "$ROUTING_SCRIPT" pbf >> "$PLANET_LOG" 2>&1
-      ( bash "$ROUTING_SCRIPT" prepare >> "$PLANET_LOG" 2>&1 ) &
+      if [ -e "$PBF_FLAG" ]; then
+        log "start_routing(): PBF files have been already created, skipping that step"
+      else
+        bash "$ROUTING_SCRIPT" pbf >> "$PLANET_LOG" 2>&1
+        touch "$PBF_FLAG"
+      fi
+      (
+        bash "$ROUTING_SCRIPT" prepare >> "$PLANET_LOG" 2>&1
+        touch "$OSRM_FLAG"
+        rm "$PBF_FLAG"
+      ) &
     fi
   fi
 fi
@@ -380,18 +400,23 @@ if [ "$MODE" == "routing" ]; then
   MODE=resources
 fi
 
+# Clean up temporary routing files
+[ -f "$OSRM_FLAG" ] && rm "$OSRM_FLAG"
+[ -n "$(ls "$TARGET" | grep '\.mwm\.osm2ft')" ] && mv "$TARGET"/*.mwm.osm2ft "$INTDIR"
+
 if [ "$MODE" == "resources" ]; then
   putmode "Step 7: Updating resource lists"
   # Update countries list
   [ ! -e "$TARGET/countries.txt" ] && cp "$DATA_PATH/countries.txt" "$TARGET/countries.txt"
-  "$GENERATOR_TOOL" --data_path="$TARGET" --planet_version="$UPDATE_DATE" --user_resource_path="$DATA_PATH/" -generate_update 2>> "$PLANET_LOG"
-  # We have no means of finding the resulting file, so let's assume it was magically placed in DATA_PATH
-  [ -e "$TARGET/countries.txt.updated" ] && mv "$TARGET/countries.txt.updated" "$TARGET/countries.txt"
-  # If we know the planet's version, update it in countries.txt
-  if [ -n "${UPDATE_DATE-}" ]; then
-    # In-place editing works differently on OS X and Linux, hence two steps
-    sed -e "s/\"v\":[0-9]\\{6\\}/\"v\":$UPDATE_DATE/" "$TARGET/countries.txt" > "$INTDIR/countries.txt"
-    mv "$INTDIR/countries.txt" "$TARGET"
+  if "$GENERATOR_TOOL" --data_path="$TARGET" --planet_version="$UPDATE_DATE" --user_resource_path="$DATA_PATH/" -generate_update 2>> "$PLANET_LOG"; then
+    # We have no means of finding the resulting file, so let's assume it was magically placed in DATA_PATH
+    [ -e "$TARGET/countries.txt.updated" ] && mv "$TARGET/countries.txt.updated" "$TARGET/countries.txt"
+    # If we know the planet's version, update it in countries.txt
+    if [ -n "${UPDATE_DATE-}" ]; then
+      # In-place editing works differently on OS X and Linux, hence two steps
+      sed -e "s/\"v\":[0-9]\\{6\\}/\"v\":$UPDATE_DATE/" "$TARGET/countries.txt" > "$INTDIR/countries.txt"
+      mv "$INTDIR/countries.txt" "$TARGET"
+    fi
   fi
   # A quick fix: chmodding to a+rw all generated files
   for file in "$TARGET"/*.mwm*; do
@@ -422,15 +447,15 @@ fi
 if [ "$MODE" == "test" ]; then
   putmode "Step 8: Testing data"
   TEST_LOG="$LOG_PATH/test_planet.log"
-  bash "$TESTING_SCRIPT" "$TARGET" > "$TEST_LOG"
+  bash "$TESTING_SCRIPT" "$TARGET" "${DELTA_WITH-}" > "$TEST_LOG"
   # Send both log files via e-mail
   if [ -n "${MAIL-}" ]; then
-    cat <(grep STATUS "$PLANET_LOG") <(echo ---------------) "$TEST_LOG" | mailx -s "Generate_planet: build completed" "$MAIL"
+    cat <(grep STATUS "$PLANET_LOG") <(echo ---------------) "$TEST_LOG" | mailx -s "Generate_planet: build completed at $(hostname)" "$MAIL"
   fi
 fi
 
 # Clean temporary indices
-if [ -n "$(ls "$TARGET" | grep '\.mwm')" ]; then
+if [ -n "$(ls "$TARGET" | grep '\.mwm$')" ]; then
   for mwm in "$TARGET"/*.mwm; do
     BASENAME="${mwm%.mwm}"
     [ -d "$BASENAME" ] && rm -r "$BASENAME"
@@ -438,7 +463,6 @@ if [ -n "$(ls "$TARGET" | grep '\.mwm')" ]; then
 fi
 # Cleaning up temporary directories
 rm "$STATUS_FILE"
-[ -f "$OSRM_FLAG" ] && rm "$OSRM_FLAG"
-[ -n "$(ls "$TARGET" | grep '\.mwm\.osm2ft')" ] && mv "$TARGET"/*.mwm.osm2ft "$INTDIR"
 [ -z "$KEEP_INTDIR" ] && rm -r "$INTDIR"
+trap - SIGTERM ERR
 log "STATUS" "Done"

@@ -850,6 +850,8 @@ line|z16[communication=line]
 }
 area|z16-[barrier=lift_gate],
 node|z16-[barrier=lift_gate]
+area|z16-[barrier=border_control],
+node|z16-[barrier=border_control]
 {
   icon-image: barrier.svg;
 }
@@ -1213,7 +1215,9 @@ node|z17-[tourism=information][office]
   icon-image: information-office.svg;
 }
 area|z17-[barrier=gate],
-node|z17-[barrier=gate]
+node|z17-[barrier=gate],
+area|z17-[barrier=entrance],
+node|z17-[barrier=entrance],
 {
   icon-image: gate.svg;
 }

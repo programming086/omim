@@ -1,24 +1,40 @@
 #import "Common.h"
-#import "MWMiPadPlacePage.h"
-#import "MWMPlacePageViewManager.h"
-#import "MWMPlacePageActionBar.h"
 #import "MWMBasePlacePageView.h"
 #import "MWMBookmarkColorViewController.h"
+#import "MWMBookmarkDescriptionViewController.h"
+#import "MWMiPadPlacePage.h"
+#import "MWMPlacePageActionBar.h"
+#import "MWMPlacePageViewManager.h"
 #import "SelectSetVC.h"
 #import "UIViewController+Navigation.h"
-#import "MWMBookmarkDescriptionViewController.h"
 #import "ViewController.h"
 
-extern CGFloat kBookmarkCellHeight;
 static CGFloat const kLeftOffset = 12.;
 static CGFloat const kTopOffset = 36.;
-static CGFloat const kBottomOffset = 12.;
+static CGFloat const kBottomOffset = 60.;
+static CGFloat const kKeyboardOffset = 12.;
 
 @interface MWMiPadPlacePageViewController : ViewController
+
+@property (nonatomic) UIView * placePageView;
+@property (nonatomic) UIView * actionBarView;
 
 @end
 
 @implementation MWMiPadPlacePageViewController
+
+- (instancetype)initWithPlacepageView:(UIView *)ppView actionBar:(UIView *)actionBar
+{
+  self = [super init];
+  if (self)
+  {
+    self.placePageView = ppView;
+    self.actionBarView = actionBar;
+    [self.view addSubview:ppView];
+    [self.view addSubview:actionBar];
+  }
+  return self;
+}
 
 - (void)viewWillAppear:(BOOL)animated
 {
@@ -31,25 +47,23 @@ static CGFloat const kBottomOffset = 12.;
 
 @interface MWMiPadNavigationController : UINavigationController
 
+@property (weak, nonatomic) MWMiPadPlacePage * placePage;
+@property (nonatomic) CGFloat height;
+
 @end
 
 @implementation MWMiPadNavigationController
 
-- (instancetype)initWithViews:(NSArray *)views
+- (instancetype)initWithViewController:(UIViewController *)viewController frame:(CGRect)frame
 {
-  MWMiPadPlacePageViewController * viewController = [[MWMiPadPlacePageViewController alloc] init];
-  if (!viewController)
-    return nil;
-  [views enumerateObjectsUsingBlock:^(UIView * view, NSUInteger idx, BOOL *stop)
-  {
-    [viewController.view addSubview:view];
-  }];
   self = [super initWithRootViewController:viewController];
-  if (!self)
-    return nil;
-  [self setNavigationBarHidden:YES];
-  [self.navigationBar setTranslucent:NO];
-  self.view.autoresizingMask = UIViewAutoresizingNone;
+  if (self)
+  {
+    self.view.frame = viewController.view.frame = frame;
+    [self setNavigationBarHidden:YES];
+    [self.navigationBar setTranslucent:NO];
+    self.view.autoresizingMask = UIViewAutoresizingNone;
+  }
   return self;
 }
 
@@ -66,18 +80,46 @@ static CGFloat const kBottomOffset = 12.;
 
 - (UIViewController *)popViewControllerAnimated:(BOOL)animated
 {
+  [self.view endEditing:YES];
   NSUInteger const count = self.viewControllers.count;
-  CGFloat const height = count > 1 ? ((UIViewController *)self.viewControllers[count - 2]).view.height : 0.0;
-
-  [UIView animateWithDuration:kDefaultAnimationDuration animations:^
-  {
-    self.view.height = height;
-  }
-  completion:^(BOOL finished)
+  UIViewController * viewController = self.viewControllers.lastObject;
+  if (count == 2)
   {
     [super popViewControllerAnimated:animated];
-  }];
-  return self.viewControllers.lastObject;
+    [self.placePage updatePlacePageLayoutAnimated:YES];
+  }
+  else
+  {
+    CGFloat const height = count > 1 ? ((UIViewController *)self.viewControllers[count - 2]).view.height : 0.0;
+
+    [UIView animateWithDuration:kDefaultAnimationDuration animations:^
+    {
+      self.height = height;
+    }
+    completion:^(BOOL finished)
+    {
+      [super popViewControllerAnimated:animated];
+    }];
+  }
+  return viewController;
+}
+
+- (void)setHeight:(CGFloat)height
+{
+  self.view.height = height;
+  UIViewController * vc = self.topViewController;
+  vc.view.height = height;
+  if ([vc isKindOfClass:[MWMiPadPlacePageViewController class]])
+  {
+    MWMiPadPlacePageViewController * ppVC = (MWMiPadPlacePageViewController *)vc;
+    ppVC.placePageView.height = height;
+    ppVC.actionBarView.origin = {0, height - ppVC.actionBarView.height};
+  }
+}
+
+- (CGFloat)height
+{
+  return self.view.height;
 }
 
 @end
@@ -85,7 +127,6 @@ static CGFloat const kBottomOffset = 12.;
 @interface MWMiPadPlacePage ()
 
 @property (nonatomic) MWMiPadNavigationController * navigationController;
-@property (nonatomic) CGFloat height;
 
 @end
 
@@ -96,15 +137,26 @@ static CGFloat const kBottomOffset = 12.;
   [super configure];
 
   CGFloat const defaultWidth = 360.;
-  [self updatePlacePageLayout];
-  [self addPlacePageShadowToView:self.navigationController.view offset:CGSizeMake(0.0, -2.0)];
+  CGFloat const actionBarHeight = self.actionBar.height;
+  self.height =
+      self.basePlacePageView.height + self.anchorImageView.height + actionBarHeight - 1;
+  self.extendedPlacePageView.frame = {{0, 0}, {defaultWidth, self.height}};
+  self.actionBar.frame = {{0, self.height - actionBarHeight},{defaultWidth, actionBarHeight}};
+  MWMiPadPlacePageViewController * viewController =
+      [[MWMiPadPlacePageViewController alloc] initWithPlacepageView:self.extendedPlacePageView
+                                                          actionBar:self.actionBar];
+  self.navigationController = [[MWMiPadNavigationController alloc]
+      initWithViewController:viewController
+                       frame:{{-defaultWidth, self.topBound + kTopOffset},
+                              {defaultWidth, self.height}}];
+  self.navigationController.placePage = self;
+  [self updatePlacePagePosition];
+  [self addPlacePageShadowToView:self.navigationController.view offset:{0, -2}];
 
-  [self.manager addSubviews:@[self.navigationController.view] withNavigationController:self.navigationController];
-  self.navigationController.view.frame = CGRectMake( -defaultWidth, self.topBound + kTopOffset, defaultWidth, self.height);
-  self.extendedPlacePageView.frame = CGRectMake(0., 0., defaultWidth, self.height);
+  [self.manager addSubviews:@[ self.navigationController.view ]
+      withNavigationController:self.navigationController];
   self.anchorImageView.image = nil;
   self.anchorImageView.backgroundColor = [UIColor whiteColor];
-  self.actionBar.width = defaultWidth;
   [self configureContentInset];
 }
 
@@ -117,6 +169,11 @@ static CGFloat const kBottomOffset = 12.;
     view.minX = self.leftBound + kLeftOffset;
     view.alpha = 1.0;
   }];
+}
+
+- (void)hide
+{
+  [self.manager dismissPlacePage];
 }
 
 - (void)dismiss
@@ -136,34 +193,34 @@ static CGFloat const kBottomOffset = 12.;
   }];
 }
 
-- (void)willStartEditingBookmarkTitle:(CGFloat)keyboardHeight
+- (void)willStartEditingBookmarkTitle
 {
-  [super willStartEditingBookmarkTitle:keyboardHeight];
+  [super willStartEditingBookmarkTitle];
   [self updatePlacePagePosition];
 }
 
 - (void)willFinishEditingBookmarkTitle:(NSString *)title
 {
   [super willFinishEditingBookmarkTitle:title];
-  [self updatePlacePageLayout];
+  [self updatePlacePageLayoutAnimated:NO];
 }
 
 - (void)addBookmark
 {
   [super addBookmark];
-  [UIView animateWithDuration:kDefaultAnimationDuration animations:^
-  {
-    [self updatePlacePageLayout];
-  }];
+  [self updatePlacePageLayoutAnimated:YES];
 }
 
 - (void)removeBookmark
 {
   [super removeBookmark];
-  [UIView animateWithDuration:kDefaultAnimationDuration animations:^
-  {
-    [self updatePlacePageLayout];
-  }];
+  [self updatePlacePageLayoutAnimated:YES];
+}
+
+- (void)reloadBookmark
+{
+  [super reloadBookmark];
+  [self updatePlacePageLayoutAnimated:YES];
 }
 
 - (void)changeBookmarkColor
@@ -186,6 +243,7 @@ static CGFloat const kBottomOffset = 12.;
   MWMBookmarkDescriptionViewController * controller = [[MWMBookmarkDescriptionViewController alloc] initWithPlacePageManager:self.manager];
   controller.iPadOwnerNavigationController = self.navigationController;
   [self.navigationController pushViewController:controller animated:YES];
+  [self updatePlacePageLayoutAnimated:NO];
 }
 
 - (IBAction)didPan:(UIPanGestureRecognizer *)sender
@@ -210,12 +268,16 @@ static CGFloat const kBottomOffset = 12.;
   }
 }
 
-- (void)updatePlacePageLayout
+- (void)updatePlacePageLayoutAnimated:(BOOL)animated
 {
-  CGFloat const actionBarHeight = self.actionBar.height;
-  self.height = self.basePlacePageView.height + self.anchorImageView.height + actionBarHeight - 1;
-  self.actionBar.origin = CGPointMake(0., self.height - actionBarHeight);
-  [self updatePlacePagePosition];
+  [UIView animateWithDuration:animated ? kDefaultAnimationDuration : 0.0 animations:^
+  {
+    CGFloat const ppHeight = self.basePlacePageView.height;
+    CGFloat const anchorHeight = self.anchorImageView.height;
+    CGFloat const actionBarHeight = self.actionBar.height;
+    self.height = ppHeight + anchorHeight + actionBarHeight - 1;
+    [self updatePlacePagePosition];
+  }];
 }
 
 - (void)updatePlacePagePosition
@@ -230,8 +292,10 @@ static CGFloat const kBottomOffset = 12.;
   UITableView * featureTable = self.basePlacePageView.featureTable;
   CGFloat const height = self.navigationController.view.height;
   CGFloat const tableContentHeight = featureTable.contentSize.height;
-  CGFloat const headerViewHeight = self.basePlacePageView.separatorView.maxY;
-  CGFloat const availableTableHeight = height - headerViewHeight - self.actionBar.height;
+  CGFloat const headerHeight = self.basePlacePageView.separatorView.maxY;
+  CGFloat const actionBarHeight = self.actionBar.height;
+  CGFloat const anchorHeight = self.anchorImageView.height;
+  CGFloat const availableTableHeight = height - headerHeight - actionBarHeight - anchorHeight;
   CGFloat const externalHeight = tableContentHeight - availableTableHeight;
   if (externalHeight > 0.)
   {
@@ -240,32 +304,35 @@ static CGFloat const kBottomOffset = 12.;
   }
   else
   {
-    [featureTable setContentOffset:CGPointZero animated:YES];
+    featureTable.contentInset = UIEdgeInsetsZero;
     featureTable.scrollEnabled = NO;
   }
 }
 
+- (void)keyboardWillShow:(NSNotification *)aNotification
+{
+  [super keyboardWillShow:aNotification];
+  [self updatePlacePageLayoutAnimated:YES];
+}
+
+- (void)keyboardWillHide
+{
+  [super keyboardWillHide];
+  [self updatePlacePageLayoutAnimated:YES];
+}
+
 - (CGFloat)getAvailableHeight
 {
-  return self.parentViewHeight - self.keyboardHeight - kTopOffset - kBottomOffset;
+  CGFloat const bottomOffset = self.keyboardHeight > 0.0 ? kKeyboardOffset : kBottomOffset;
+  CGFloat const availableHeight = self.parentViewHeight - self.keyboardHeight - kTopOffset - bottomOffset;
+  return availableHeight;
 }
 
 #pragma mark - Properties
 
 - (void)setHeight:(CGFloat)height
 {
-  _height = MIN(height, [self getAvailableHeight]);
-  self.navigationController.view.height = _height;
-  self.extendedPlacePageView.height = _height;
-}
-
-- (MWMiPadNavigationController *)navigationController
-{
-  if (!_navigationController)
-  {
-    _navigationController = [[MWMiPadNavigationController alloc] initWithViews:@[self.extendedPlacePageView, self.actionBar]];
-  }
-  return _navigationController;
+  _height = self.navigationController.height = MIN(height, [self getAvailableHeight]);
 }
 
 - (void)setTopBound:(CGFloat)topBound

@@ -6,6 +6,8 @@
 #include "storage/queued_country.hpp"
 #include "storage/storage_defines.hpp"
 
+#include "platform/local_country_file.hpp"
+
 #include "std/function.hpp"
 #include "std/list.hpp"
 #include "std/set.hpp"
@@ -13,7 +15,6 @@
 #include "std/string.hpp"
 #include "std/unique_ptr.hpp"
 #include "std/vector.hpp"
-
 
 namespace storage
 {
@@ -48,7 +49,9 @@ private:
 
   using TLocalFilePtr = shared_ptr<platform::LocalCountryFile>;
   map<TIndex, list<TLocalFilePtr>> m_localFiles;
-  // Our World.mwm and WorldCoasts.mwm are fake countries, together with any custom mwm in data folder.
+
+  // Our World.mwm and WorldCoasts.mwm are fake countries, together with any custom mwm in data
+  // folder.
   map<platform::CountryFile, TLocalFilePtr> m_localFilesForFakeCountries;
 
   /// used to correctly calculate total country download progress with more than 1 file
@@ -179,6 +182,7 @@ public:
   inline int64_t GetCurrentDataVersion() const { return m_currentVersion; }
 
   void SetDownloaderForTesting(unique_ptr<MapFilesDownloader> && downloader);
+  void SetCurrentDataVersionForTesting(int64_t currentVersion);
 
 private:
   friend void UnitTest_StorageTest_DeleteCountry();
@@ -189,11 +193,11 @@ private:
   // Modifies file set of requested files - always adds a map file
   // when routing file is requested for downloading, but drops all
   // already downloaded and up-to-date files.
-  MapOptions NormalizeDownloadFileSet(TIndex const & index, MapOptions opt) const;
+  MapOptions NormalizeDownloadFileSet(TIndex const & index, MapOptions options) const;
 
   // Modifies file set of file to deletion - always adds (marks for
   // removal) a routing file when map file is marked for deletion.
-  MapOptions NormalizeDeleteFileSet(MapOptions opt) const;
+  MapOptions NormalizeDeleteFileSet(MapOptions options) const;
 
   // Returns a pointer to a country in the downloader's queue.
   QueuedCountry * FindCountryInQueue(TIndex const & index);

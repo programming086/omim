@@ -300,10 +300,23 @@
 	<!-- Length of track in cell that describes route -->
 	<string name="length">Lunghezza</string>
 	<string name="share_my_location">Condividi la mia location</string>
-	<string name="become_a_pro">Aggiorna</string>
 	<string name="menu_search">Cerca</string>
+	<!-- Settings screen: "Map" category title -->
+	<string name="prefs_group_map">Mappa</string>
+	<!-- Settings screen: "Miscellaneous" category title -->
+	<string name="prefs_group_misc">Miscellanea</string>
+	<string name="prefs_group_route">Navigazione</string>
 	<string name="pref_zoom_title">Pulsanti per lo zoom</string>
 	<string name="pref_zoom_summary">Condividi la mia location</string>
+	<!-- Settings «Route» category: «Tts enabled» title -->
+	<string name="pref_tts_enable_title">Istruzioni vocali</string>
+	<!-- Settings «Route» category: «Tts language» title -->
+	<string name="pref_tts_language_title">Lingua per la voce</string>
+	<!-- Settings «Route» category: «Tts unavailable» subtitle -->
+	<string name="pref_tts_unavailable">Non disponibile</string>
+	<!-- Title for "Other" section in TTS settings. -->
+	<string name="pref_tts_other_section_title">Altro</string>
+	<string name="pref_tts_how_to_set_up_voice">Come impostare la voce</string>
 	<string name="placepage_distance">Distanza</string>
 	<string name="placepage_coordinates">Coordinate</string>
 	<string name="placepage_unsorted">Non classificato</string>
@@ -328,10 +341,6 @@
 	<string name="route">Linea</string>
 	<!-- category title -->
 	<string name="routes">Percorsi</string>
-	<!-- button in the interface -->
-	<string name="choose_starting_point">Scegli il punto di partenza…</string>
-	<!-- button in the interface -->
-	<string name="choose_destination">Scegli la destinazione…</string>
 	<!-- text of notification -->
 	<string name="download_map_notification">Scarica la mappa del luogo in cui ti trovi</string>
 	<!-- text of notification -->
@@ -425,7 +434,7 @@
 	<!-- Context menu item for downloader. -->
 	<string name="downloader_download_map">Scarica mappa</string>
 	<string name="downloader_download_map_no_routing">Scarica mappa senza percorsi</string>
-	<!-- Button for routing PP. -->
+	<!-- Button for routing. -->
 	<string name="routing_go">Andare!</string>
 	<!-- Item status in downloader. -->
 	<string name="downloader_retry">Riprova</string>
@@ -755,35 +764,9 @@
 	<!-- Failed planning route message in navigation view -->
 	<string name="routing_planning_error">Pianificazione del percorso fallito</string>
 	<!-- Arrive routing message in navigation view -->
-	<string name="routing_arrive">Arrivo</string>
-	<!-- Routing Start button title -->
-	<string name="routing_start">Parti</string>
-	<!-- Planning route message in navigation view -->
-	<string name="routing_planning">Calcolo del percorso</string>
+	<string name="routing_arrive">Arrivo: %s</string>
 	<!-- Text for routing::IRouter::FileTooOld dialog. -->
 	<string name="dialog_routing_download_and_update_maps">Per creare un percorso, scaricare e aggiornare tutte le mappe interessate dal percorso.</string>
-	<!-- Text for facebook sharing news about walking routes -->
-	<string name="share_walking_routes_facebook">MAPS.ME ti fa risparmiare tempo anche a piedi. Disponibili oltre 2 milioni di km di percorsi pedonali, itinerari e sentieri pedonali.</string>
-	<!-- Text for messenger sharing news about walking routes -->
-	<string name="share_walking_routes_messenger">MAPS.ME ti offre i percorsi pedonali più brevi in tutto il mondo. Scopri su: http://maps.me/get?walk_im</string>
-	<!-- Text for sms sharing news about walking routes -->
-	<string name="share_walking_routes_sms">MAPS.ME offre i percorsi pedonali più brevi:http://maps.me/get?walk</string>
-	<!-- Subject for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_subject">Disponibili i percorsi pedonali più brevi</string>
-	<!-- Text for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_body">MAPS.ME ha appena lanciato i percorsi pedonali per trovare la strada più breve verso qualsiasi destinazione basati sulla mappa più dettagliata al mondo. Provali ora: http://maps.me/get?walk_em</string>
-	<!-- Title for walking routes dialog, notifications etc. -->
-	<string name="title_walking_available">Percorsi pedonali ora disponibili su MAPS.ME!</string>
-	<!-- Text for walking routes dialog -->
-	<string name="share_walking_routes_first_launch">Indicano il percorso più veloce verso la tua destinazione. Aiuta i tuoi amici a risparmiare tempo!</string>
-	<!-- Title for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_congratulations">Congratulazioni!</string>
-	<!-- Text for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_mastering">Hai usufruito della funzione percorsi pedonali. Aiuta i tuoi amici a risparmiare tempo. Invitali a scoprire MAPS.ME.</string>
-	<!-- Android notification about walking directions for update users -->
-	<string name="walking_notification_text">Vuoi provarli?</string>
-	<!-- Android notification with picture (rich) about walking directions for update users -->
-	<string name="walking_rich_notification_text">Indicano il percorso più veloce verso la tua destinazione. Provali tu stesso e aiuta i tuoi amici a risparmiare tempo.</string>
 	<string name="rate_alert_title">Ti piace l’app?</string>
 	<string name="rate_alert_default_message">Grazie per aver utilizzato MAPS.ME. Valuta l’app. Il tuo feedback ci permette di migliorare.</string>
 	<string name="rate_alert_five_star_message">Hooray! Anche noi amiamo i nostri utenti!</string>
@@ -800,8 +783,22 @@
 	<string name="search_not_found_location">Scarica la mappa del luogo in cui ti trovi.</string>
 	<string name="search_history_title">Cerca nella cronologia</string>
 	<string name="search_history_text">Accedi velocemente alle stringhe di ricerca recenti.</string>
-	<string name="update_maps_alert_title">Esplorare le mappe è ora più semplice</string>
-	<string name="update_maps_alert_message">Abbiamo migliorato gli stili delle mappe: ora tutti gli oggetti sono più chiari. Aggiorna le mappe per ricevere il meglio del nuovo design.</string>
-	<string name="update_maps_alert_button_title">Aggiorna mappe</string>
 	<string name="clear_search">Cancella сronologia ricerche</string>
+	<!-- Title for settings to enable/disable showcase menu button -->
+	<string name="showcase_settings_title">Mostra pubblicità</string>
+	<string name="p2p_route_planning">Pianificazione percorso</string>
+	<string name="p2p_your_location">La tua posizione</string>
+	<string name="p2p_from">Il punto di partenza</string>
+	<string name="p2p_to">Il punto di destinazione</string>
+	<string name="p2p_start">Inizia</string>
+	<string name="p2p_planning">Pianificazione…</string>
+	<string name="p2p_from_here">Da</string>
+	<string name="p2p_to_here">A</string>
+	<string name="p2p_only_from_current">La navigazione è disponibile solo dalla tua posizione attuale.</string>
+	<string name="p2p_reroute_from_current">Vuoi che impostiamo il percorso dalla tua posizione corrente?</string>
+	<string name="whats_new_where_to_turn">MAPS.ME ti farà sapere dove girare</string>
+	<string name="whats_new_voice_instructions">Cari amici, ci avete chiesto, per tanto tempo, di inserire le istruzioni vocali durante la navigazione; bene, lo abbiamo fatto! Ora, il nostro navigatore vi comunicherà, in tempo, quando dovrete girare.</string>
+	<string name="whats_new_between_any_points">Crea percorsi fra punti qualsiasi</string>
+	<string name="whats_new_happy_day">Un giorno davvero felice! Pianifica in anticipo i tuoi viaggi con MAPS.ME.</string>
+	<string name="whats_new_next">Avanti</string>
 </resources>

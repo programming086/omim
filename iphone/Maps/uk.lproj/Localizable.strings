@@ -360,7 +360,7 @@
 "no_search_results_found" = "Результатів не знайдено";
 
 /* Notes field in Bookmarks view */
-"description" = "Додати примітку";
+"description" = "Примітка";
 
 /* Button text */
 "share_by_email" = "Подiлитися по електронній пошті";
@@ -478,13 +478,48 @@
 
 "share_my_location" = "Поділитися моїм місцезнаходженням";
 
-"become_a_pro" = "Купити PRO";
-
 "menu_search" = "Пошук";
+
+/* Settings screen: "Map" category title */
+"prefs_group_map" = "Карта";
+
+/* Settings screen: "Miscellaneous" category title */
+"prefs_group_misc" = "Інше";
+
+"prefs_group_route" = "Навігація";
 
 "pref_zoom_title" = "Кнопки трансфокації";
 
 "pref_zoom_summary" = "Відображення на екрані";
+
+/* Settings «Map» category: «Map style» title */
+"pref_map_style_title" = "Map style";
+
+/* Settings «Map» category: «Map style» summary */
+"pref_map_style_summary" = "Change map presentation";
+
+/* «Map style» entry value */
+"pref_map_style_classic_light" = "Classic light";
+
+/* «Map style» entry value */
+"pref_map_style_classic_dark" = "Classic dark";
+
+/* «Map style» entry value */
+"pref_map_style_modern_light" = "Modern light";
+
+/* Settings «Route» category: «Tts enabled» title */
+"pref_tts_enable_title" = "Голосові інструкції";
+
+/* Settings «Route» category: «Tts language» title */
+"pref_tts_language_title" = "Мова підказок";
+
+/* Settings «Route» category: «Tts unavailable» subtitle */
+"pref_tts_unavailable" = "Не доступнi";
+
+/* Title for "Other" section in TTS settings. */
+"pref_tts_other_section_title" = "Інша";
+
+"pref_tts_how_to_set_up_voice" = "Як налаштувати голосовий контроль";
 
 "placepage_distance" = "Відстань";
 
@@ -524,12 +559,6 @@
 /* category title */
 "routes" = "Маршрути";
 
-/* button in the interface */
-"choose_starting_point" = "Виберіть початкову точку…";
-
-/* button in the interface */
-"choose_destination" = "Виберіть місце призначення…";
-
 /* Show on first launch. */
 "maps_licence_info" = "This applications uses geographical data (including maps, business listings, points of interest, borders of countries and regions, etc.) taken from the OpenStreetMap project. We do not warrant any consistency, accuracy, completeness or applicability of the OpenStreetMap data.";
 
@@ -558,6 +587,12 @@
 "settings_and_more" = "Налаштування";
 
 /* Text in menu */
+"website" = "Website";
+
+/* Text in menu */
+"blog" = "Blog";
+
+/* Text in menu */
 "maps_me_community" = "Спільнота MAPS.ME";
 
 /* Text in menu */
@@ -569,11 +604,26 @@
 /* Text in menu */
 "contact_us" = "Контакти";
 
+/* Settings: Send feedback button and dialog title */
+"feedback" = "Feedback";
+
+/* Settings: "Send general feedback" button */
+"feedback_general" = "General feedback";
+
 /* Text in menu */
 "subscribe_to_news" = "Email-бюлетень";
 
 /* Text in menu */
 "rate_the_app" = "Оцінити застосунок";
+
+/* Rate in Google Play (Android only) */
+"rate_gp" = "Rate on Google Play";
+
+/* Share with friends: menu item title */
+"tell_friends" = "Tell a Friend";
+
+/* Share with friends: sharing text */
+"tell_friends_text" = "Hi! Install Maps.me!";
 
 /* Text in menu */
 "help" = "Допомога";
@@ -589,6 +639,9 @@
 
 /* Email body */
 "subscribe_me_body" = "Я хочу першим дізнаватися про всі новини оновлення програм і акції. Я можу відписатися від розсилки в будь-який момент.";
+
+/* About short text (below logo) */
+"about_description" = "Joined efforts of Mail.Ru Group and OpenStreetMap make the most useful application for travelers!";
 
 /* About text */
 "about_text" = "MAPS.ME пропонує карти всіх міст, всіх країн світу, які працюють без підключення до інтернету. Подорожуйте з впевненістю: де б ви не були, MAPS.ME допоможуть вирішити будь-яку вашу проблему - допоможуть визначити ваше місцезнаходження, знайти ресторан, готель, заправку, банк, туалет і т.д.\n\nМи постійно працюємо над додаванням нових функцій, тому, якщо у вас є ідеї або пропозиції з покращення MAPS.ME, пишіть нам. Якщо у вам виникла проблема з програмою, сповістіть нас, будь ласка, про неї. Наш емейл support@maps.me. Ми відповідаємо на всі листи!\n\nЯкщо вам подобається програма і ви хочете підтримати нас, є декілька простих і абсолютно безкоштовних способів:\n\n- залиште відгук у вашому магазині програм\n- підпишіться на наші новини на сторінці у Facebook http://www.facebook.com/mapswithme\n- або просто розкажіть про MAPS.ME своїй мамі, друзям і колегам :)\n\nДякуємо за вашу підтримку!\n\nP.S. У програмі ми використовуємо картографічні дані проекту OpenStreetMap, який працює за принципом Вікіпедії, надаючи можливість користувачам зі всього світу створювати і редагувати карти. Якщо ви помітили, що на карті щось не відповідає дійсності або відсутнє, ви можете виправити це прямо на сайті http://openstreetmap.org, і ці виправлення з'являться під час наступного оновлення MAPS.ME.";
@@ -679,7 +732,7 @@
 
 "downloader_download_map_no_routing" = "Завантажити карту без маршрутів";
 
-/* Button for routing PP. */
+/* Button for routing. */
 "routing_go" = "Поїхали!";
 
 /* Item status in downloader. */
@@ -1193,49 +1246,10 @@
 "routing_planning_error" = "Збій планування маршруту";
 
 /* Arrive routing message in navigation view */
-"routing_arrive" = "Прибуття";
-
-/* Routing Start button title */
-"routing_start" = "Почати";
-
-/* Planning route message in navigation view */
-"routing_planning" = "Планування маршруту";
+"routing_arrive" = "Прибуття в %s";
 
 /* Text for routing::IRouter::FileTooOld dialog. */
 "dialog_routing_download_and_update_maps" = "Для створення маршруту, будь ласка, скачайте та обновіть всі карти за ним.";
-
-/* Text for facebook sharing news about walking routes */
-"share_walking_routes_facebook" = "MAPS.ME економить час при ходьбі. Більше 2 мільйонів кілометрів пішохідних маршрутів, доріг і стежок доступні для пішохідних маршрутів зараз.";
-
-/* Text for messenger sharing news about walking routes */
-"share_walking_routes_messenger" = "MAPS.ME пропонує найкоротші пішохідні маршрути по всьому світу! Зацініть out: http://maps.me/get?walk_im";
-
-/* Text for sms sharing news about walking routes */
-"share_walking_routes_sms" = "MAPS.ME - найкоротші пішохідні маршрути: http://maps.me/get?walk";
-
-/* Subject for email sharing news about walking routes */
-"share_walking_routes_email_subject" = "Доступні найкоротші пішохідні маршрути";
-
-/* Text for email sharing news about walking routes */
-"share_walking_routes_email_body" = "MAPS.ME щойно випустили пішохідні маршрути в основі яких лежить найбільш детальна карта світу! Вони пропонують найкоротші маршрути до будь-якого місця призначення. Спробуйте: http://maps.me/get?walk_em";
-
-/* Title for walking routes dialog, notifications etc. */
-"title_walking_available" = "Пішохідні маршрути доступні в MAPS.ME!";
-
-/* Text for walking routes dialog */
-"share_walking_routes_first_launch" = "Вони пропонують найкоротший шлях до точки призначення. Допоможіть друзям зекономити час при ходьбі також!";
-
-/* Title for walking routes dialog after 3 built routes */
-"share_walking_routes_congratulations" = "Вітання!";
-
-/* Text for walking routes dialog after 3 built routes */
-"share_walking_routes_mastering" = "Ви освоїли функцію пішохідні маршрути. Допоможіть друзям зекономити час при ходьбі також. Розкажіть їм про MAPS.ME.";
-
-/* Android notification about walking directions for update users */
-"walking_notification_text" = "Хочете спробувати їх?";
-
-/* Android notification with picture (rich) about walking directions for update users */
-"walking_rich_notification_text" = "Вони пропонують найкоротший шлях до точки призначення. Спробуйте самі і допоможіть друзям зекономити час у подорожі.";
 
 "rate_alert_title" = "Подобається програма?";
 
@@ -1269,10 +1283,40 @@
 
 "search_history_text" = "Швидкий доступ до недавніх результатів пошуку.";
 
-"update_maps_alert_title" = "Орієнтуватись стало легше";
-
-"update_maps_alert_message" = "Ми покращили стилі карт: тепер усі об'єкти виглядають більш дружніми та зрозумілими. Оновіть карти, щоб використати усі переваги нового дизайну.";
-
-"update_maps_alert_button_title" = "Оновити карти";
-
 "clear_search" = "Очистити історію пошуку";
+
+/* Title for settings to enable/disable showcase menu button */
+"showcase_settings_title" = "Показувати рекламу";
+
+/* Place Page link to Wikipedia article (if map object has it). */
+"read_in_wikipedia" = "Wikipedia";
+
+"p2p_route_planning" = "Планування маршруту";
+
+"p2p_your_location" = "Ваше місцезнаходження";
+
+"p2p_from" = "Пункт відправлення";
+
+"p2p_to" = "Пункт призначення";
+
+"p2p_start" = "Почати рух";
+
+"p2p_planning" = "Плануємо…";
+
+"p2p_from_here" = "Звідси";
+
+"p2p_to_here" = "Сюди";
+
+"p2p_only_from_current" = "Маршрут можна прокласти лише з поточного місцезнаходження.";
+
+"p2p_reroute_from_current" = "Хочете спланувати маршрут із поточного місцезнаходження?";
+
+"whats_new_where_to_turn" = "MAPS.ME підкаже, куди повернути";
+
+"whats_new_voice_instructions" = "Любі друзі, Ви давно просили додати голосові підказки під час навігації - і ми це зробили! Ваш новий штурман вчасно попередить про маневр.";
+
+"whats_new_between_any_points" = "Прокладіть маршрут між будь-якими об'єктами";
+
+"whats_new_happy_day" = "Так, це насправді! Сьогодні щасливий день і ще одне покращення. Заздалегідь заплануйте свої подорожі разом з MAPS.ME.";
+
+"whats_new_next" = "Далі";

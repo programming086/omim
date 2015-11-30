@@ -5,7 +5,6 @@ import android.app.Activity;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
 import android.support.annotation.DimenRes;
@@ -22,6 +21,7 @@ import android.view.animation.Animation;
 import android.view.animation.Animation.AnimationListener;
 import android.view.animation.AnimationUtils;
 import android.widget.TextView;
+
 import com.mapswithme.maps.MwmApplication;
 import com.mapswithme.maps.R;
 
@@ -60,10 +60,19 @@ public final class UiUtils
     public void onAnimationRepeat(Animator animation) {}
   }
 
-  
+  public interface OnViewMeasuredListener
+  {
+    void onViewMeasured(int width, int height);
+  }
+
+
   public static void waitLayout(final View view, @NonNull final ViewTreeObserver.OnGlobalLayoutListener callback)
   {
-    view.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener()
+    ViewTreeObserver observer = view.getViewTreeObserver();
+    if (!observer.isAlive())
+      throw new IllegalArgumentException("ViewTreeObserver is not alive");
+
+    observer.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener()
     {
       @SuppressWarnings("deprecation")
       @Override
@@ -76,6 +85,22 @@ public final class UiUtils
           view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
 
         callback.onGlobalLayout();
+      }
+    });
+  }
+
+  public static void measureView(final View frame, final OnViewMeasuredListener listener)
+  {
+    waitLayout(frame, new ViewTreeObserver.OnGlobalLayoutListener()
+    {
+      @Override
+      public void onGlobalLayout()
+      {
+        Activity ac = (Activity) frame.getContext();
+        if (ac == null || ac.isFinishing())
+          return;
+
+        listener.onViewMeasured(frame.getMeasuredWidth(), frame.getMeasuredHeight());
       }
     });
   }
@@ -146,6 +171,19 @@ public final class UiUtils
       invisible(frame, id);
   }
 
+  public static void visibleIf(boolean condition, View view)
+  {
+    view.setVisibility(condition ? View.VISIBLE : View.INVISIBLE);
+  }
+
+  public static void visibleIf(boolean condition, View... views)
+  {
+    if (condition)
+      show(views);
+    else
+      invisible(views);
+  }
+
   public static void showIf(boolean condition, View view)
   {
     view.setVisibility(condition ? View.VISIBLE : View.GONE);
@@ -159,6 +197,11 @@ public final class UiUtils
       hide(views);
   }
 
+  public static boolean isVisible(View view)
+  {
+    return (view.getVisibility() == View.VISIBLE);
+  }
+
   public static void setTextAndShow(TextView tv, CharSequence text)
   {
     tv.setText(text);
@@ -169,38 +212,6 @@ public final class UiUtils
   {
     tv.setText(text);
     showIf(!TextUtils.isEmpty(text), tv);
-  }
-
-  public static void openAppInMarket(Activity activity, String marketUrl)
-  {
-    try
-    {
-      activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(marketUrl)));
-    } catch (final Exception e)
-    {
-      e.printStackTrace();
-    }
-  }
-
-  public static void showFacebookPage(Activity activity)
-  {
-    try
-    {
-      // Exception is thrown if we don't have installed Facebook application.
-      activity.getPackageManager().getPackageInfo(Constants.Package.FB_PACKAGE, 0);
-
-      activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Constants.Url.FB_MAPSME_COMMUNITY_NATIVE)));
-    } catch (final Exception e)
-    {
-      activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Constants.Url.FB_MAPSME_COMMUNITY_HTTP)));
-    }
-  }
-
-  public static void showTwitterPage(Activity activity)
-  {
-    Intent intent;
-    intent = new Intent(Intent.ACTION_VIEW, Uri.parse(Constants.Url.TWITTER_MAPSME_HTTP));
-    activity.startActivity(intent);
   }
 
   public static void checkConnectionAndShowAlert(final Activity activity, final String message)
@@ -308,7 +319,7 @@ public final class UiUtils
 
   public static void appearSlidingDown(final View view, @Nullable final Runnable completionListener)
   {
-    if (view.getVisibility() == View.VISIBLE)
+    if (isVisible(view) || view.getAnimation() != null)
     {
       if (completionListener != null)
         completionListener.run();
@@ -333,7 +344,7 @@ public final class UiUtils
 
   public static void disappearSlidingUp(final View view, @Nullable final Runnable completionListener)
   {
-    if (view.getVisibility() != View.VISIBLE)
+    if (!isVisible(view) || view.getAnimation() != null)
     {
       if (completionListener != null)
         completionListener.run();

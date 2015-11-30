@@ -304,8 +304,22 @@
 	<string name="length">Pituus</string>
 	<string name="share_my_location">Jaa sijaintini</string>
 	<string name="menu_search">Haku</string>
+	<!-- Settings screen: "Map" category title -->
+	<string name="prefs_group_map">Kartta</string>
+	<!-- Settings screen: "Miscellaneous" category title -->
+	<string name="prefs_group_misc">Muut</string>
+	<string name="prefs_group_route">Navigaatio</string>
 	<string name="pref_zoom_title">Zoomauspainikkeet</string>
 	<string name="pref_zoom_summary">Näytä ruudulla</string>
+	<!-- Settings «Route» category: «Tts enabled» title -->
+	<string name="pref_tts_enable_title">Ääniohjeistukset</string>
+	<!-- Settings «Route» category: «Tts language» title -->
+	<string name="pref_tts_language_title">Äänen kieli</string>
+	<!-- Settings «Route» category: «Tts unavailable» subtitle -->
+	<string name="pref_tts_unavailable">Non disponible</string>
+	<!-- Title for "Other" section in TTS settings. -->
+	<string name="pref_tts_other_section_title">Egyéb</string>
+	<string name="pref_tts_how_to_set_up_voice">Így állítsd be a hangot</string>
 	<string name="placepage_distance">Etäisyys</string>
 	<string name="placepage_coordinates">Koordinaatit</string>
 	<string name="placepage_unsorted">Järjestelemätön</string>
@@ -326,10 +340,6 @@
 	<string name="route">Reitti</string>
 	<!-- category title -->
 	<string name="routes">Reitit</string>
-	<!-- button in the interface -->
-	<string name="choose_starting_point">Valitse lähtöpaikka…</string>
-	<!-- button in the interface -->
-	<string name="choose_destination">Valitse määränpää…</string>
 	<!-- Show on first launch. -->
 	<string name="maps_licence_info">Tämä sovellus käyttää maantieteellistä dataa (mukaan lukien karttoja, yrityslistauksia, mielenkiinnon kohteita, maiden ja alueiden rajoja jne.), joka on noudettu OpenStreetMap-järjestelmästä. Emme takaa OpenStreetMapin datan johdonmukaisuutta, täsmällisyyttä, täydellisyyttä tai sovellettavuutta.</string>
 	<!-- Show on first launch. -->
@@ -427,7 +437,7 @@
 	<!-- Context menu item for downloader. -->
 	<string name="downloader_download_map">Lataa kartta</string>
 	<string name="downloader_download_map_no_routing">Lataa kartta ilman reititystä</string>
-	<!-- Button for routing PP. -->
+	<!-- Button for routing. -->
 	<string name="routing_go">Lähde!</string>
 	<!-- Item status in downloader. -->
 	<string name="downloader_retry">Yritä uudelleen</string>
@@ -757,35 +767,9 @@
 	<!-- Failed planning route message in navigation view -->
 	<string name="routing_planning_error">Reitin suunnittelu epäonnistui</string>
 	<!-- Arrive routing message in navigation view -->
-	<string name="routing_arrive">Saavut</string>
-	<!-- Routing Start button title -->
-	<string name="routing_start">Aloita</string>
-	<!-- Planning route message in navigation view -->
-	<string name="routing_planning">Reittiä suunnitellaan</string>
+	<string name="routing_arrive">Saavut: %s</string>
 	<!-- Text for routing::IRouter::FileTooOld dialog. -->
 	<string name="dialog_routing_download_and_update_maps">Lataa ja päivitä kaikki kartat reitin varrella luodaksesi reitin.</string>
-	<!-- Text for facebook sharing news about walking routes -->
-	<string name="share_walking_routes_facebook">MAPS.ME lyhentää matkustusaikaasi. Yli 2 miljoonaa kilometriä jalankulkureitteinä, polkuina ja teinä kävelyohjeissa nyt.</string>
-	<!-- Text for messenger sharing news about walking routes -->
-	<string name="share_walking_routes_messenger">MAPS.ME antaa lyhyimmät kävelyreitit ympäri maailmaa! Katso ne täältä: http://maps.me/get?walk_im</string>
-	<!-- Text for sms sharing news about walking routes -->
-	<string name="share_walking_routes_sms">MAPS.ME antaa lyhyimmät kävelyreitit: http://maps.me/get?walk</string>
-	<!-- Subject for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_subject">Lyhyimmät kävelyreitit ovat saatavilla</string>
-	<!-- Text for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_body">MAPS.ME julkaisi juuri Kävelyohjeet, jotka perustuvat maailman yksityiskohtaisimpaan karttaan! Ne antavat lyhyimmät reitit mihin tahansa päämäärään. Kokeile niitä täältä: http://maps.me/get?walk_em</string>
-	<!-- Title for walking routes dialog, notifications etc. -->
-	<string name="title_walking_available">Kävelyohjeet ovat saatavilla MAPS.ME:ssa!</string>
-	<!-- Text for walking routes dialog -->
-	<string name="share_walking_routes_first_launch">Ne antavat lyhyimmän reitin mihin tahansa päämäärään. Auta ystäviäsikin lyhentämään matkustusaikaansa!</string>
-	<!-- Title for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_congratulations">Onnittelut!</string>
-	<!-- Text for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_mastering">Hallitset nyt Kävelyohje-toiminnon. Auta ystäviäsikin lyhentämään kävelyaikaansa. Kerro heille MAPS.ME:sta.</string>
-	<!-- Android notification about walking directions for update users -->
-	<string name="walking_notification_text">Haluatko kokeilla niitä?</string>
-	<!-- Android notification with picture (rich) about walking directions for update users -->
-	<string name="walking_rich_notification_text">Ne antavat lyhyimmän reitin mihin tahansa päämäärään. Kokeile itse, ja auta ystäviäsi lyhentämään matkustusaikaansa.</string>
 	<string name="rate_alert_title">Pidätkö sovelluksesta?</string>
 	<string name="rate_alert_default_message">Kiitos kun käytät MAPS.ME:tä. Voisitko myös arvostella sovelluksen? Palautteesi avulla tulemme vielä paremmiksi.</string>
 	<string name="rate_alert_five_star_message">Hurraa! Mekin rakastamme sinua!</string>
@@ -802,8 +786,22 @@
 	<string name="search_not_found_location">Lataa nykyisen sijaintisi kartta.</string>
 	<string name="search_history_title">Hakuhistoria</string>
 	<string name="search_history_text">Siirry nopeasti aikaisempaan hakuun.</string>
-	<string name="update_maps_alert_title">Karttojen käyttäminen on nyt entistäkin helpompaa</string>
-	<string name="update_maps_alert_message">Olemme parantaneet karttoja, ja nyt kaikki kuvakkeet näkyvät ystävällisemmin ja selkeämmin. Päivitä karttasi saadaksesti uudesta designista kaikki irti.</string>
-	<string name="update_maps_alert_button_title">Päivitä kartat</string>
 	<string name="clear_search">Poista hakuhistoria</string>
+	<!-- Title for settings to enable/disable showcase menu button -->
+	<string name="showcase_settings_title">Näytä mainokset</string>
+	<string name="p2p_route_planning">Reittisuunnittelu</string>
+	<string name="p2p_your_location">Sijaintisi</string>
+	<string name="p2p_from">Lähtöpiste</string>
+	<string name="p2p_to">Päämäärä</string>
+	<string name="p2p_start">Aloita</string>
+	<string name="p2p_planning">Lasketaan…</string>
+	<string name="p2p_from_here">Lähtöpaikka</string>
+	<string name="p2p_to_here">Määränpää</string>
+	<string name="p2p_only_from_current">Navigointi onnistuu vain nykyisestä sijainnistasi.</string>
+	<string name="p2p_reroute_from_current">Haluatko valita vaihtoehtoisen reitin?</string>
+	<string name="whats_new_where_to_turn">MAPS.ME kertoo sinulle, minne kääntyä</string>
+	<string name="whats_new_voice_instructions">Hyvät ystävät, olette pyytäneet ääniopastusta navigoinnin avuksi jo pitkän aikaa - toiveenne on kuultu! Nyt navigaattorimme varoittaa sinua hyvissä ajoin, ennen kuin sinun pitää kääntyä.</string>
+	<string name="whats_new_between_any_points">Luo reittejä minkä tahansa kohteiden välille</string>
+	<string name="whats_new_happy_day">Elämä hymyilee! Suunnittele matkasi etukäteen MAPS.ME -sovelluksen avulla.</string>
+	<string name="whats_new_next">Seuraava</string>
 </resources>

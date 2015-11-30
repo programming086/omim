@@ -1,11 +1,11 @@
 #import "MWMNavigationViewProtocol.h"
 
-@interface MWMNavigationView : UIView
+@interface MWMNavigationView : SolidTouchView
 
 @property (nonatomic) CGFloat topBound;
 @property (nonatomic) CGFloat leftBound;
 @property (nonatomic, readonly) CGFloat visibleHeight;
-@property (nonatomic, readonly) CGFloat defaultHeight;
+@property (nonatomic) CGFloat defaultHeight;
 @property (nonatomic, readonly) BOOL isVisible;
 @property (nonatomic) UIView * statusbarBackground;
 @property (weak, nonatomic) id<MWMNavigationViewProtocol> delegate;

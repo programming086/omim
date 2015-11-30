@@ -1,3 +1,5 @@
+#import "BookmarksRootVC.h"
+#import "BookmarksVC.h"
 #import "Common.h"
 #import "EAGLView.h"
 #import "MapsAppDelegate.h"
@@ -5,9 +7,13 @@
 #import "MWMAlertViewController.h"
 #import "MWMAPIBar.h"
 #import "MWMMapViewControlsManager.h"
+#import "MWMPageController.h"
+#import "MWMTextToSpeech.h"
 #import "RouteState.h"
+#import "Statistics.h"
 #import "UIFont+MapsMeFonts.h"
 #import "UIViewController+Navigation.h"
+#import <MyTargetSDKCorp/MTRGManager_Corp.h>
 
 #import "3party/Alohalytics/src/alohalytics_objc.h"
 
@@ -24,7 +30,13 @@
 #include "platform/platform.hpp"
 #include "platform/settings.hpp"
 
+// If you have a "missing header error" here, then please run configure.sh script in the root repo folder.
+#import "../../../private.h"
+
 extern NSString * const kAlohalyticsTapEventKey = @"$onClick";
+extern NSString * const kUDWhatsNewWasShown = @"WhatsNewWithTTSAndP2PWasShown";
+extern char const * kAdForbiddenSettingsKey;
+extern char const * kAdServerForbiddenKey;
 
 typedef NS_ENUM(NSUInteger, ForceRoutingStateChange)
 {
@@ -71,10 +83,10 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
 
 @end
 
-@interface MapViewController ()
+@interface MapViewController () <MTRGNativeAppwallAdDelegate>
 
 @property (nonatomic, readwrite) MWMMapViewControlsManager * controlsManager;
-@property (nonatomic) MWMSideMenuState menuRestoreState;
+@property (nonatomic) MWMBottomMenuState menuRestoreState;
 
 @property (nonatomic) ForceRoutingStateChange forceRoutingStateChange;
 @property (nonatomic) BOOL disableStandbyOnLocationStateMode;
@@ -82,6 +94,9 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
 @property (nonatomic) MWMAlertViewController * alertController;
 
 @property (nonatomic) UserTouchesAction userTouchesAction;
+@property (nonatomic) MWMPageController * pageViewController;
+
+@property (nonatomic) BOOL skipForceTouch;
 
 @end
 
@@ -142,8 +157,9 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
 
   if (res.IsValid())
     [self.controlsManager setupRoutingDashboard:res];
-  
-  [self.controlsManager playTurnNotifications];
+
+  if (frm.IsOnRoute())
+    [[MWMTextToSpeech tts] playTurnNotifications];
 }
 
 - (void)onCompassUpdate:(location::CompassInfo const &)info
@@ -183,7 +199,7 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
 {
   self.forceRoutingStateChange = ForceRoutingStateChangeStartFollowing;
   auto & f = GetFramework();
-  m2::PointD const location = ToMercator([MapsAppDelegate theApp].m_locationManager.lastLocation.coordinate);
+  m2::PointD const location = [MapsAppDelegate theApp].m_locationManager.lastLocation.mercator;
   f.SetRouter(f.GetBestRouter(location, self.restoreRouteDestination));
   GetFramework().BuildRoute(location, self.restoreRouteDestination, 0 /* timeoutSec */);
 }
@@ -207,7 +223,8 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
 
   Framework & f = GetFramework();
   UserMark const * userMark = f.GetUserMark(pxClicked, isLongClick);
-  if (f.HasActiveUserMark() == false && self.controlsManager.searchHidden && !f.IsRouteNavigable())
+  if (!f.HasActiveUserMark() && self.controlsManager.searchHidden && !f.IsRouteNavigable()
+      && MapsAppDelegate.theApp.routingPlaneMode == MWMRoutingPlaneModeNone)
   {
     if (userMark == nullptr)
       self.controlsManager.hidden = !self.controlsManager.hidden;
@@ -264,9 +281,17 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
   }
 }
 
+- (BOOL)hasForceTouch
+{
+  if (isIOSVersionLessThan(9))
+    return NO;
+  return self.view.traitCollection.forceTouchCapability == UIForceTouchCapabilityAvailable;
+}
+
 -(void)preformLongTapSelector:(NSValue *)object
 {
-  [self performSelector:@selector(onLongTap:) withObject:[[NSValueWrapper alloc] initWithValue:object] afterDelay:1.0];
+  if (![self hasForceTouch])
+    [self performSelector:@selector(onLongTap:) withObject:[[NSValueWrapper alloc] initWithValue:object] afterDelay:1.0];
 }
 
 -(void)performSingleTapSelector:(NSValue *)object
@@ -276,7 +301,8 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
 
 -(void)cancelLongTap
 {
-  [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(onLongTap:) object:[[NSValueWrapper alloc] initWithValue:nil]];
+  if (![self hasForceTouch])
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(onLongTap:) object:[[NSValueWrapper alloc] initWithValue:nil]];
 }
 
 -(void)cancelSingleTap
@@ -316,6 +342,16 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
 
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
 {
+  if (!self.skipForceTouch && [self hasForceTouch])
+  {
+    UITouch * theTouch = (UITouch *)[touches anyObject];
+    if (theTouch.force >= theTouch.maximumPossibleForce)
+    {
+      self.skipForceTouch = YES;
+      [self processMapClickAtPoint:[theTouch locationInView:self.view] longClick:YES];
+    }
+  }
+
   m2::PointD const TempPt1 = m_Pt1;
   m2::PointD const TempPt2 = m_Pt2;
 
@@ -395,7 +431,7 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
     if (tapCount == 1)
     {
       // Launch single tap timer
-      if (m_isSticking)
+      if (m_isSticking && !self.skipForceTouch)
         [self performSingleTapSelector: [NSValue valueWithCGPoint:[theTouch locationInView:self.view]]];
     }
     else if (tapCount == 2 && m_isSticking)
@@ -414,10 +450,12 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
     }
     m_isSticking = NO;
   }
+  self.skipForceTouch = NO;
 }
 
 - (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event
 {
+  self.skipForceTouch = NO;
   [self cancelLongTap];
   [self cancelSingleTap];
 
@@ -442,9 +480,7 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
                                 duration:(NSTimeInterval)duration
 {
   if (isIOSVersionLessThan(8))
-    [(UIViewController *)self.childViewControllers.firstObject
-        willRotateToInterfaceOrientation:toInterfaceOrientation
-                                duration:duration];
+    [self.alertController willRotateToInterfaceOrientation:toInterfaceOrientation duration:duration];
   [self.controlsManager willRotateToInterfaceOrientation:toInterfaceOrientation duration:duration];
 }
 
@@ -452,6 +488,7 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
        withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator
 {
   [self.controlsManager viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+  [self.pageViewController viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
 }
 
 - (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation
@@ -493,7 +530,10 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
   GetFramework().EnterForeground();
 
   if (self.isViewLoaded && self.view.window)
+  {
     [self invalidate]; // only invalidate when map is displayed on the screen
+    [self.controlsManager onEnterForeground];
+  }
 }
 
 - (void)viewWillAppear:(BOOL)animated
@@ -503,6 +543,8 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
   [self invalidate];
 
   self.controlsManager.menuState = self.menuRestoreState;
+
+  [self refreshAd];
 }
 
 - (void)viewDidLoad
@@ -511,21 +553,47 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
   EAGLView * v = (EAGLView *)self.view;
   [v initRenderPolicy];
   self.view.clipsToBounds = YES;
+  [MTRGManager setMyCom:YES];
   self.controlsManager = [[MWMMapViewControlsManager alloc] initWithParentController:self];
+  if (!isIOSVersionLessThan(8))
+    [self showWhatsNewIfNeeded];
 }
 
-- (void)viewDidAppear:(BOOL)animated
+- (void)showWhatsNewIfNeeded
 {
-  [super viewDidAppear:animated];
-  self.menuRestoreState = self.controlsManager.menuState;
+  NSUserDefaults * ud = [NSUserDefaults standardUserDefaults];
+  BOOL const whatsNewWasShown = [ud boolForKey:kUDWhatsNewWasShown];
+  if (whatsNewWasShown)
+    return;
+
+  if (![Alohalytics isFirstSession])
+    [self configureAndShowPageController];
+
+  [ud setBool:YES forKey:kUDWhatsNewWasShown];
+  [ud synchronize];
+}
+
+- (void)configureAndShowPageController
+{
+  self.pageViewController = [MWMPageController pageControllerWithParent:self];
+  [self.pageViewController show];
 }
 
 - (void)viewWillDisappear:(BOOL)animated
 {
   [super viewWillDisappear:animated];
-
+  self.menuRestoreState = self.controlsManager.menuState;
   GetFramework().SetUpdatesEnabled(false);
   [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(orientationChanged:) name:UIDeviceOrientationDidChangeNotification object:nil];
+}
+
+- (void)presentViewController:(UIViewController *)viewControllerToPresent
+                     animated:(BOOL)flag
+                   completion:(void (^__nullable)(void))completion
+{
+  if (isIOSVersionLessThan(8))
+    self.menuRestoreState = self.controlsManager.menuState;
+  [super presentViewController:viewControllerToPresent animated:flag completion:completion];
 }
 
 - (void)orientationChanged:(NSNotification *)notification
@@ -541,10 +609,11 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
 - (UIStatusBarStyle)preferredStatusBarStyle
 {
   BOOL const isLight = !self.controlsManager.searchHidden ||
-                       self.controlsManager.menuState == MWMSideMenuStateActive ||
+                       self.controlsManager.menuState == MWMBottomMenuStateActive ||
                        self.controlsManager.isDirectionViewShown ||
                        (GetFramework().GetMapStyle() == MapStyleDark &&
-                        self.controlsManager.navigationState == MWMNavigationDashboardStateHidden);
+                        self.controlsManager.navigationState == MWMNavigationDashboardStateHidden) ||
+                        MapsAppDelegate.theApp.routingPlaneMode != MWMRoutingPlaneModeNone;
   if (isLight)
     return UIStatusBarStyleLightContent;
   return UIStatusBarStyleDefault;
@@ -588,7 +657,7 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
 
     self.forceRoutingStateChange = ForceRoutingStateChangeNone;
     self.userTouchesAction = UserTouchesActionNone;
-    self.menuRestoreState = MWMSideMenuStateInactive;
+    self.menuRestoreState = MWMBottomMenuStateInactive;
 
     // restore previous screen position
     if (!f.LoadState())
@@ -687,6 +756,74 @@ typedef NS_ENUM(NSUInteger, UserTouchesAction)
 
   NSLog(@"MapViewController initWithCoder Ended");
   return self;
+}
+
+- (void)openBookmarks
+{
+  BOOL const oneCategory = (GetFramework().GetBmCategoriesCount() == 1);
+  TableViewController * vc =
+      oneCategory ? [[BookmarksVC alloc] initWithCategory:0] : [[BookmarksRootVC alloc] init];
+  [self.navigationController pushViewController:vc animated:YES];
+}
+
+#pragma mark - 3d touch
+
+- (void)performAction:(NSString *)action
+{
+  [self.navigationController popToRootViewControllerAnimated:NO];
+  self.controlsManager.searchHidden = YES;
+  [self.controlsManager routingHidden];
+  if ([action isEqualToString:@"me.maps.3daction.bookmarks"])
+  {
+    [self openBookmarks];
+  }
+  else if ([action isEqualToString:@"me.maps.3daction.search"])
+  {
+    self.controlsManager.searchHidden = NO;
+  }
+  else if ([action isEqualToString:@"me.maps.3daction.route"])
+  {
+    [MapsAppDelegate theApp].routingPlaneMode = MWMRoutingPlaneModePlacePage;
+    [self.controlsManager routingPrepare];
+  }
+}
+
+#pragma mark - myTarget
+
+- (void)refreshAd
+{
+  bool adServerForbidden = false;
+  (void)Settings::Get(kAdServerForbiddenKey, adServerForbidden);
+  bool adForbidden = false;
+  (void)Settings::Get(kAdForbiddenSettingsKey, adForbidden);
+  if (isIOSVersionLessThan(8) || adServerForbidden || adForbidden)
+  {
+    self.appWallAd = nil;
+    return;
+  }
+  if (self.isAppWallAdActive)
+    return;
+  self.appWallAd = [[MTRGNativeAppwallAd alloc]initWithSlotId:@(MY_TARGET_KEY)];
+  self.appWallAd.handleLinksInApp = YES;
+  self.appWallAd.closeButtonTitle = L(@"close");
+  self.appWallAd.delegate = self;
+  [self.appWallAd load];
+}
+
+- (void)onLoadWithAppwallBanners:(NSArray *)appwallBanners appwallAd:(MTRGNativeAppwallAd *)appwallAd
+{
+  if (![appwallAd isEqual:self.appWallAd])
+    return;
+  if (appwallBanners.count == 0)
+    self.appWallAd = nil;
+  [self.controlsManager refreshLayout];
+}
+
+- (void)onNoAdWithReason:(NSString *)reason appwallAd:(MTRGNativeAppwallAd *)appwallAd
+{
+  if (![appwallAd isEqual:self.appWallAd])
+    return;
+  self.appWallAd = nil;
 }
 
 #pragma mark - API bar
@@ -823,6 +960,28 @@ NSInteger compareAddress(id l, id r, void * context)
       break;
   }
   _userTouchesAction = userTouchesAction;
+}
+
+#pragma mark - Properties
+
+- (void)setAppWallAd:(MTRGNativeAppwallAd *)appWallAd
+{
+  _appWallAd = appWallAd;
+  [self.controlsManager refreshLayout];
+}
+
+- (MWMMapViewControlsManager *)controlsManager
+{
+  if (!_controlsManager)
+    _controlsManager = [[MWMMapViewControlsManager alloc] initWithParentController:self];
+  return _controlsManager;
+}
+
+- (BOOL)isAppWallAdActive
+{
+  BOOL const haveAppWall = (self.appWallAd != nil);
+  BOOL const haveBanners = (self.appWallAd.banners && self.appWallAd.banners != 0);
+  return haveAppWall && haveBanners;
 }
 
 @end

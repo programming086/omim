@@ -270,7 +270,7 @@
 	<!-- iOS share by Message button text (including SMS) -->
 	<string name="message">Mensagem</string>
 	<!-- Share by email button text -->
-	<string name="email">E-Mail</string>
+	<string name="email">E-mail</string>
 	<!-- Copy Link -->
 	<string name="copy_link">Copiar hiperligação</string>
 	<!-- Text for the button that returns to caller application -->
@@ -300,10 +300,23 @@
 	<!-- Length of track in cell that describes route -->
 	<string name="length">Comprimento</string>
 	<string name="share_my_location">Partilhar a minha localização</string>
-	<string name="become_a_pro">Obter PRO</string>
 	<string name="menu_search">Pesquisar</string>
+	<!-- Settings screen: "Map" category title -->
+	<string name="prefs_group_map">Mapa</string>
+	<!-- Settings screen: "Miscellaneous" category title -->
+	<string name="prefs_group_misc">Diversos</string>
+	<string name="prefs_group_route">Navegação</string>
 	<string name="pref_zoom_title">Botões de zoom</string>
 	<string name="pref_zoom_summary">Mostrar no ecrã</string>
+	<!-- Settings «Route» category: «Tts enabled» title -->
+	<string name="pref_tts_enable_title">Instruções de voz</string>
+	<!-- Settings «Route» category: «Tts language» title -->
+	<string name="pref_tts_language_title">Idioma da voz</string>
+	<!-- Settings «Route» category: «Tts unavailable» subtitle -->
+	<string name="pref_tts_unavailable">Não disponível</string>
+	<!-- Title for "Other" section in TTS settings. -->
+	<string name="pref_tts_other_section_title">Outro</string>
+	<string name="pref_tts_how_to_set_up_voice">Como configurar a voz</string>
 	<string name="placepage_distance">Distância</string>
 	<string name="placepage_coordinates">Coordenadas</string>
 	<string name="placepage_unsorted">Não classificado</string>
@@ -328,10 +341,6 @@
 	<string name="route">Trajeto</string>
 	<!-- category title -->
 	<string name="routes">Trajetos</string>
-	<!-- button in the interface -->
-	<string name="choose_starting_point">Selecione o ponto de partida…</string>
-	<!-- button in the interface -->
-	<string name="choose_destination">Selecione o destino…</string>
 	<!-- text of notification -->
 	<string name="download_map_notification">Descarregue o mapa do local onde estiver</string>
 	<!-- text of notification -->
@@ -425,7 +434,7 @@
 	<!-- Context menu item for downloader. -->
 	<string name="downloader_download_map">Baixar o mapa</string>
 	<string name="downloader_download_map_no_routing">Baixar mapa sem roteamento</string>
-	<!-- Button for routing PP. -->
+	<!-- Button for routing. -->
 	<string name="routing_go">Avançar!</string>
 	<!-- Item status in downloader. -->
 	<string name="downloader_retry">Tentar de novo</string>
@@ -755,35 +764,9 @@
 	<!-- Failed planning route message in navigation view -->
 	<string name="routing_planning_error">Falhou o Planeamento da Rota</string>
 	<!-- Arrive routing message in navigation view -->
-	<string name="routing_arrive">Chegada</string>
-	<!-- Routing Start button title -->
-	<string name="routing_start">Começar</string>
-	<!-- Planning route message in navigation view -->
-	<string name="routing_planning">A planear a viagem</string>
+	<string name="routing_arrive">Chegada: %s</string>
 	<!-- Text for routing::IRouter::FileTooOld dialog. -->
 	<string name="dialog_routing_download_and_update_maps">Para criar uma rota, por favor, baixe e atualize todos os mapas ao longo da rota.</string>
-	<!-- Text for facebook sharing news about walking routes -->
-	<string name="share_walking_routes_facebook">O MAPS.ME economiza tempo de caminhada. Mais de 2 milhões de km de percursos, caminhos e trilhas pedestres estão disponíveis para rotas a pé agora.</string>
-	<!-- Text for messenger sharing news about walking routes -->
-	<string name="share_walking_routes_messenger">O MAPS.ME dá as rotas pedestres mais curtas em todo o mundo! Confira: http://maps.me/get?walk_im</string>
-	<!-- Text for sms sharing news about walking routes -->
-	<string name="share_walking_routes_sms">MAPS.ME dá as rotas pedestres mais curtas: http://maps.me/get?walk</string>
-	<!-- Subject for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_subject">As rotas pedestres mais curtas estão disponíveis</string>
-	<!-- Text for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_body">O MAPS.ME acaba de lançar as rotas a pé com base no mapa mais detalhado do mundo! Elas dão o caminho mais curto para qualquer destino. Experimente-as: http://maps.me/get?walk_em</string>
-	<!-- Title for walking routes dialog, notifications etc. -->
-	<string name="title_walking_available">As rotas a pé estão disponíveis no MAPS.ME!</string>
-	<!-- Text for walking routes dialog -->
-	<string name="share_walking_routes_first_launch">As rotas a pé estão disponíveis no MAPS.ME! Elas dão o caminho mais curto para qualquer destino. Ajude seus amigos a poupar tempo caminhando, também!</string>
-	<!-- Title for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_congratulations">Parabéns!</string>
-	<!-- Text for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_mastering">Você dominou a função rotas a pé. Ajude seus amigos a poupar tempo caminhando, também. Conte a eles sobre o MAPS.ME.</string>
-	<!-- Android notification about walking directions for update users -->
-	<string name="walking_notification_text">Quer experimentá-las?</string>
-	<!-- Android notification with picture (rich) about walking directions for update users -->
-	<string name="walking_rich_notification_text">Elas dão o caminho mais curto para qualquer ponto de destino. Experimente-as e ajude seus amigos a poupar tempo de viagem.</string>
 	<string name="rate_alert_title">Gosta do aplicativo?</string>
 	<string name="rate_alert_default_message">Obrigado por usar MAPS.ME. Por favor, classifique o aplicativo. Seu feedback nos ajuda a melhorar.</string>
 	<string name="rate_alert_five_star_message">Viva! Também amamos você!</string>
@@ -800,8 +783,22 @@
 	<string name="search_not_found_location">Baixe o mapa da sua localização atual.</string>
 	<string name="search_history_title">Histórico de Busca</string>
 	<string name="search_history_text">Acesse os termos de busca recentes rapidamente.</string>
-	<string name="update_maps_alert_title">Está mais fácil explorar o mapa</string>
-	<string name="update_maps_alert_message">Melhoramos os estilos de mapa: agora todos os objetos estão mais agradáveis e mais claros. Atualize os mapas para aproveitar o novo design ao máximo.</string>
-	<string name="update_maps_alert_button_title">Atualizar mapas</string>
 	<string name="clear_search">Limpar histórico de pesquisa</string>
+	<!-- Title for settings to enable/disable showcase menu button -->
+	<string name="showcase_settings_title">Mostrar anúncios</string>
+	<string name="p2p_route_planning">Planejar rota</string>
+	<string name="p2p_your_location">Localização atual</string>
+	<string name="p2p_from">O ponto de partida</string>
+	<string name="p2p_to">O ponto de destino</string>
+	<string name="p2p_start">Iniciar</string>
+	<string name="p2p_planning">Planejando…</string>
+	<string name="p2p_from_here">De</string>
+	<string name="p2p_to_here">Para</string>
+	<string name="p2p_only_from_current">Só é possível navegar a partir da sua localização atual.</string>
+	<string name="p2p_reroute_from_current">Deseja planejar uma rota a partir da sua localização atual?</string>
+	<string name="whats_new_where_to_turn">MAPS.ME te permitirá saber dónde girar</string>
+	<string name="whats_new_voice_instructions">Estimados amigos: hace tiempo que solicitáis instrucciones de voz durante la navegación. ¡Lo hemos hecho posible! Ahora, nuestro navegador te indicará oportunamente dónde debes girar a continuación.</string>
+	<string name="whats_new_between_any_points">Crea rutas entre los puntos que quieras</string>
+	<string name="whats_new_happy_day">¡Que tengas un buen día! Planifica tus viajes por adelantado con MAPS.ME.</string>
+	<string name="whats_new_next">Próxima</string>
 </resources>

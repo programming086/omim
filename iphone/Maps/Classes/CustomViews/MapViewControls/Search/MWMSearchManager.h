@@ -11,15 +11,16 @@ typedef NS_ENUM(NSUInteger, MWMSearchManagerState)
 
 @protocol MWMSearchManagerProtocol <NSObject>
 
-- (void)searchViewWillEnterState:(MWMSearchManagerState)state;
 - (void)searchViewDidEnterState:(MWMSearchManagerState)state;
 - (void)actionDownloadMaps;
 
 @end
 
+@protocol MWMRoutingProtocol;
+
 @interface MWMSearchManager : NSObject
 
-@property (weak, nonatomic) id <MWMSearchManagerProtocol> delegate;
+@property (weak, nonatomic) id <MWMSearchManagerProtocol, MWMRoutingProtocol> delegate;
 @property (weak, nonatomic) IBOutlet MWMSearchTextField * searchTextField;
 
 @property (nonatomic) MWMSearchManagerState state;
@@ -28,7 +29,7 @@ typedef NS_ENUM(NSUInteger, MWMSearchManagerState)
 
 - (nullable instancetype)init __attribute__((unavailable("init is not available")));
 - (nullable instancetype)initWithParentView:(nonnull UIView *)view
-                                   delegate:(nonnull id<MWMSearchManagerProtocol, MWMSearchViewProtocol>)delegate;
+                                   delegate:(nonnull id<MWMSearchManagerProtocol, MWMSearchViewProtocol, MWMRoutingProtocol>)delegate;
 
 #pragma mark - Layout
 

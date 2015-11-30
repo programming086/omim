@@ -6,7 +6,6 @@ static CGFloat const kStatusbarHeight = 20.0;
 @interface MWMNavigationView ()
 
 @property (nonatomic) BOOL isVisible;
-@property (nonatomic, readwrite) CGFloat defaultHeight;
 
 @property (weak, nonatomic, readwrite) IBOutlet UIView * contentView;
 
@@ -27,9 +26,14 @@ static CGFloat const kStatusbarHeight = 20.0;
 - (void)addToView:(UIView *)superview
 {
   NSAssert(superview != nil, @"Superview can't be nil");
+  if ([superview.subviews containsObject:self])
+    return;
   dispatch_async(dispatch_get_main_queue(), ^
   {
-    [superview insertSubview:self atIndex:0];
+    if (IPAD)
+      [superview addSubview:self];
+    else
+      [superview insertSubview:self atIndex:0];
     self.frame = self.defaultFrame;
     self.isVisible = YES;
   });

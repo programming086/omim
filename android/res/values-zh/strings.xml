@@ -303,10 +303,23 @@
 	<!-- Length of track in cell that describes route -->
 	<string name="length">长度</string>
 	<string name="share_my_location">共享我的位置</string>
-	<string name="become_a_pro">升级</string>
 	<string name="menu_search">搜索</string>
+	<!-- Settings screen: "Map" category title -->
+	<string name="prefs_group_map">地图</string>
+	<!-- Settings screen: "Miscellaneous" category title -->
+	<string name="prefs_group_misc">其他</string>
+	<string name="prefs_group_route">导航</string>
 	<string name="pref_zoom_title">缩放按钮</string>
 	<string name="pref_zoom_summary">在屏幕上显示</string>
+	<!-- Settings «Route» category: «Tts enabled» title -->
+	<string name="pref_tts_enable_title">语音指导</string>
+	<!-- Settings «Route» category: «Tts language» title -->
+	<string name="pref_tts_language_title">语音语言</string>
+	<!-- Settings «Route» category: «Tts unavailable» subtitle -->
+	<string name="pref_tts_unavailable">无法使用</string>
+	<!-- Title for "Other" section in TTS settings. -->
+	<string name="pref_tts_other_section_title">其他</string>
+	<string name="pref_tts_how_to_set_up_voice">如何设置语音</string>
 	<string name="placepage_distance">距离</string>
 	<string name="placepage_coordinates">坐标</string>
 	<string name="placepage_unsorted">未分类</string>
@@ -331,10 +344,6 @@
 	<string name="route">路线</string>
 	<!-- category title -->
 	<string name="routes">路线</string>
-	<!-- button in the interface -->
-	<string name="choose_starting_point">选择起点…</string>
-	<!-- button in the interface -->
-	<string name="choose_destination">选择目的地…</string>
 	<!-- Show on first launch. -->
 	<string name="maps_licence_info">这个应用程序使用了源自OpenStreetMap项目的地理数据（包括地图、商业清单、景点、国家和地区边界等）。我们对OpenStreetMap任何数据的一致性、准确性、完整性或适用性不做担保。</string>
 	<!-- Show on first launch. -->
@@ -434,7 +443,7 @@
 	<!-- Context menu item for downloader. -->
 	<string name="downloader_download_map">下载地图</string>
 	<string name="downloader_download_map_no_routing">下载不带路线的地图</string>
-	<!-- Button for routing PP. -->
+	<!-- Button for routing. -->
 	<string name="routing_go">出发！</string>
 	<!-- Item status in downloader. -->
 	<string name="downloader_retry">重试</string>
@@ -762,35 +771,9 @@
 	<!-- Failed planning route message in navigation view -->
 	<string name="routing_planning_error">路线计划失败</string>
 	<!-- Arrive routing message in navigation view -->
-	<string name="routing_arrive">抵達</string>
-	<!-- Routing Start button title -->
-	<string name="routing_start">开始</string>
-	<!-- Planning route message in navigation view -->
-	<string name="routing_planning">规划路线</string>
+	<string name="routing_arrive">抵達:%s</string>
 	<!-- Text for routing::IRouter::FileTooOld dialog. -->
 	<string name="dialog_routing_download_and_update_maps">要创建路线，请下载并更新所有沿路线的地图。</string>
-	<!-- Text for facebook sharing news about walking routes -->
-	<string name="share_walking_routes_facebook">MAPS.ME为您节省步行时间。现在有200多万公里的步行路线、轨道和步道有步行方向了。</string>
-	<!-- Text for messenger sharing news about walking routes -->
-	<string name="share_walking_routes_messenger">MAPS.ME给出全世界的最短步行路线！查看它：http://maps.me/get?walk_im</string>
-	<!-- Text for sms sharing news about walking routes -->
-	<string name="share_walking_routes_sms">MAPS.ME给出最短的步行路线：http://maps.me/get?walk</string>
-	<!-- Subject for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_subject">有最短的步行路线</string>
-	<!-- Text for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_body">MAPS.ME刚刚基于世界上最详细的地图发布了步行方向！它们给出到任何目的地的最短路线。试试它们：http://maps.me/get?walk_em</string>
-	<!-- Title for walking routes dialog, notifications etc. -->
-	<string name="title_walking_available">MAPS.ME有步行方向了！</string>
-	<!-- Text for walking routes dialog -->
-	<string name="share_walking_routes_first_launch">它们给出到任何目的地的最短路线。也帮您的好友们节省步行时间吧！</string>
-	<!-- Title for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_congratulations">恭喜！</string>
-	<!-- Text for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_mastering">您掌握了步行方向功能。也帮您的好友们节省步行时间吧。告诉他们MAPS.ME。</string>
-	<!-- Android notification about walking directions for update users -->
-	<string name="walking_notification_text">想试试它们吗？</string>
-	<!-- Android notification with picture (rich) about walking directions for update users -->
-	<string name="walking_rich_notification_text">它们给出到任何目的地的最短路线。亲自试试，帮您的好友们节省旅行时间。</string>
 	<string name="rate_alert_title">喜欢这个应用吗？</string>
 	<string name="rate_alert_default_message">感谢您使用 MAPS.ME。请，评价该应用。您的反馈帮助我们变得更好。</string>
 	<string name="rate_alert_five_star_message">太棒了！我们也爱您！</string>
@@ -807,8 +790,22 @@
 	<string name="search_not_found_location">下载您当前位置的地图。</string>
 	<string name="search_history_title">搜索历史。</string>
 	<string name="search_history_text">快速访问最近的搜索查询。</string>
-	<string name="update_maps_alert_title">探索地图现在更容易了</string>
-	<string name="update_maps_alert_message">我们改进了地图风格：现在所有东西看上去更友好和清楚了。更新地图，尽可能地利用新设计。</string>
-	<string name="update_maps_alert_button_title">更新地图</string>
 	<string name="clear_search">清除历史搜索</string>
+	<!-- Title for settings to enable/disable showcase menu button -->
+	<string name="showcase_settings_title">显示广告</string>
+	<string name="p2p_route_planning">路线计划</string>
+	<string name="p2p_your_location">您的位置</string>
+	<string name="p2p_from">出发地点</string>
+	<string name="p2p_to">目的地点</string>
+	<string name="p2p_start">开始</string>
+	<string name="p2p_planning">计划中…</string>
+	<string name="p2p_from_here">从</string>
+	<string name="p2p_to_here">到</string>
+	<string name="p2p_only_from_current">导航只能从您目前的位置开始。</string>
+	<string name="p2p_reroute_from_current">你是否想要规划当前位置的路线？</string>
+	<string name="whats_new_where_to_turn">MAPS.ME会告诉您在哪转弯</string>
+	<string name="whats_new_voice_instructions">亲爱的朋友们，您一直都在要求导航中的声音指导——我们做到了！现在我们的导航会及时警告您下次转弯。</string>
+	<string name="whats_new_between_any_points">在任何点中间构建路线</string>
+	<string name="whats_new_happy_day">真是快乐的一天！用MAPS.ME事先计划路程吧。</string>
+	<string name="whats_new_next">下一页</string>
 </resources>

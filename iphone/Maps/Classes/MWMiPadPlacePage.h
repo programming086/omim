@@ -2,6 +2,8 @@
 
 @interface MWMiPadPlacePage : MWMPlacePage
 
-- (void)updatePlacePageLayout;
+@property (nonatomic) CGFloat height;
+
+- (void)updatePlacePageLayoutAnimated:(BOOL)animated;
 
 @end

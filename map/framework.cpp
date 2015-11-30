@@ -41,6 +41,8 @@
 #include "indexer/feature_utils.hpp"
 //@}
 
+#include "storage/country_info_getter.hpp"
+
 #include "anim/controller.hpp"
 
 #include "gui/controller.hpp"
@@ -100,6 +102,7 @@ namespace
   static const int BM_TOUCH_PIXEL_INCREASE = 20;
   static const int kKeepPedestrianDistanceMeters = 10000;
   char const kRouterTypeKey[] = "router";
+  char const kMapStyleKey[] = "MapStyleKeyV1";
 }
 
 pair<MwmSet::MwmId, MwmSet::RegResult> Framework::RegisterMap(
@@ -202,6 +205,12 @@ Framework::Framework()
     m_fixedSearchResults(0),
     m_locationChangedSlotID(-1)
 {
+  // Restore map style before classificator loading
+  int mapStyle = MapStyleLight;
+  if (!Settings::Get(kMapStyleKey, mapStyle))
+    mapStyle = MapStyleClear;
+  GetStyleReader().SetCurrentStyle(static_cast<MapStyle>(mapStyle));
+
   // Checking whether we should enable benchmark.
   bool isBenchmarkingEnabled = false;
   (void)Settings::Get("IsBenchmarking", isBenchmarkingEnabled);
@@ -247,8 +256,13 @@ Framework::Framework()
   m_model.SetOnMapDeregisteredCallback(bind(&Framework::OnMapDeregistered, this, _1));
   LOG(LDEBUG, ("Classificator initialized"));
 
+
+  // To avoid possible races - init country info getter once in constructor.
+  InitCountryInfoGetter();
+  LOG(LDEBUG, ("Country info getter initialized"));
+
   // To avoid possible races - init search engine once in constructor.
-  (void)GetSearchEngine();
+  InitSearchEngine();
   LOG(LDEBUG, ("Search engine initialized"));
 
   RegisterAllMaps();
@@ -344,13 +358,13 @@ void Framework::DrawSingleFrame(m2::PointD const & center, int zoomModifier,
   m_cpuDrawer->EndFrame(image);
 }
 
-void Framework::InitSingleFrameRenderer(graphics::EDensity density)
+void Framework::InitSingleFrameRenderer(graphics::EDensity density, int exactDensityDPI)
 {
   ASSERT(!IsSingleFrameRendererInited(), ());
   if (m_cpuDrawer == nullptr)
   {
-    CPUDrawer::Params params(GetGlyphCacheParams(density));
-    params.m_visualScale = graphics::visualScale(density);
+    CPUDrawer::Params params(GetGlyphCacheParams(density, exactDensityDPI));
+    params.m_visualScale = graphics::visualScaleExact(exactDensityDPI);
     params.m_density = density;
 
     m_cpuDrawer.reset(new CPUDrawer(params));
@@ -389,9 +403,6 @@ void Framework::DeleteCountry(storage::TIndex const & index, MapOptions opt)
       {
         InvalidateRect(GetCountryBounds(countryFile.GetNameWithoutExt()), true /* doForceUpdate */);
       }
-      // TODO (@ldragunov, @gorshenin): rewrite routing session to use MwmHandles. Thus,
-      // it won' be needed to reset it after maps update.
-      m_routingSession.Reset();
       return;
     }
     case MapOptions::CarRouting:
@@ -420,9 +431,9 @@ string Framework::GetCountryName(TIndex const & index) const
 
 m2::RectD Framework::GetCountryBounds(string const & file) const
 {
-  m2::RectD const r = GetSearchEngine()->GetCountryBounds(file);
-  ASSERT ( r.IsValid(), () );
-  return r;
+  m2::RectD const bounds = m_infoGetter->CalcLimitRect(file);
+  ASSERT(bounds.IsValid(), ());
+  return bounds;
 }
 
 m2::RectD Framework::GetCountryBounds(TIndex const & index) const
@@ -452,7 +463,7 @@ void Framework::UpdateLatestCountryFile(LocalCountryFile const & localFile)
   if (id.IsAlive())
     InvalidateRect(id.GetInfo()->m_limitRect, true /* doForceUpdate */);
 
-  GetSearchEngine()->ClearViewportsCache();
+  m_searchEngine->ClearViewportsCache();
 }
 
 void Framework::OnMapDeregistered(platform::LocalCountryFile const & localFile)
@@ -466,7 +477,6 @@ void Framework::RegisterAllMaps()
          ("Registering maps while map downloading leads to removing downloading maps from "
           "ActiveMapsListener::m_items."));
 
-  platform::CleanupMapsDirectory();
   m_storage.RegisterAllLocalMaps();
 
   int minFormat = numeric_limits<int>::max();
@@ -486,7 +496,7 @@ void Framework::RegisterAllMaps()
 
   m_countryTree.Init(maps);
 
-  GetSearchEngine()->SupportOldFormat(minFormat < version::v3);
+  m_searchEngine->SupportOldFormat(minFormat < version::v3);
 }
 
 void Framework::DeregisterAllMaps()
@@ -823,8 +833,11 @@ void Framework::DrawModel(shared_ptr<PaintEvent> const & e,
 
 bool Framework::IsCountryLoaded(m2::PointD const & pt) const
 {
+  // TODO (@gorshenin, @govako): the method's name is quite
+  // obfuscating and should be fixed.
+
   // Correct, but slow version (check country polygon).
-  string const fName = GetSearchEngine()->GetCountryFile(pt);
+  string const fName = m_infoGetter->GetRegionFile(pt);
   if (fName.empty())
     return true;
 
@@ -981,15 +994,30 @@ void Framework::ShowRectFixedAR(m2::AnyRectD const & rect)
   Invalidate();
 }
 
+void Framework::StartInteractiveSearch(search::SearchParams const & params)
+{
+  using namespace search;
+
+  m_lastSearch = params;
+  m_lastSearch.SetForceSearch(false);
+  m_lastSearch.SetSearchMode(SearchParams::IN_VIEWPORT_ONLY | SearchParams::SEARCH_WORLD);
+  m_lastSearch.m_callback = [this](Results const & results)
+  {
+    if (!results.IsEndMarker())
+      GetPlatform().RunOnGuiThread([this, results]()
+      {
+        UpdateSearchResults(results);
+      });
+  };
+}
+
 void Framework::UpdateUserViewportChanged()
 {
   if (IsISActive())
   {
     (void)GetCurrentPosition(m_lastSearch.m_lat, m_lastSearch.m_lon);
-    m_lastSearch.SetSearchMode(search::SearchParams::IN_VIEWPORT_ONLY);
-    m_lastSearch.SetForceSearch(false);
 
-    (void)GetSearchEngine()->Search(m_lastSearch, GetCurrentViewport());
+    m_searchEngine->Search(m_lastSearch, GetCurrentViewport());
   }
 }
 
@@ -1002,7 +1030,8 @@ void Framework::UpdateSearchResults(search::Results const & results)
 void Framework::ClearAllCaches()
 {
   m_model.ClearCaches();
-  GetSearchEngine()->ClearAllCaches();
+  m_infoGetter->ClearCaches();
+  m_searchEngine->ClearAllCaches();
 }
 
 void Framework::MemoryWarning()
@@ -1229,46 +1258,61 @@ void Framework::StopScale(ScaleEvent const & e)
 }
 //@}
 
-search::Engine * Framework::GetSearchEngine() const
+void Framework::InitCountryInfoGetter()
 {
-  if (!m_pSearchEngine)
+  ASSERT(!m_infoGetter.get(), ("InitCountryInfoGetter() must be called only once."));
+  Platform const & platform = GetPlatform();
+  try
   {
-    Platform & pl = GetPlatform();
-
-    try
-    {
-      m_pSearchEngine.reset(new search::Engine(
-          &m_model.GetIndex(), pl.GetReader(SEARCH_CATEGORIES_FILE_NAME),
-          pl.GetReader(PACKED_POLYGONS_FILE), pl.GetReader(COUNTRIES_FILE),
-          languages::GetCurrentOrig(), make_unique<search::SearchQueryFactory>()));
-    }
-    catch (RootException const & e)
-    {
-      LOG(LCRITICAL, ("Can't load needed resources for search::Engine: ", e.Msg()));
-    }
+    m_infoGetter.reset(new storage::CountryInfoGetter(platform.GetReader(PACKED_POLYGONS_FILE),
+                                                      platform.GetReader(COUNTRIES_FILE)));
   }
+  catch (RootException const & e)
+  {
+    LOG(LCRITICAL, ("Can't load needed resources for storage::CountryInfoGetter:", e.Msg()));
+  }
+}
 
-  return m_pSearchEngine.get();
+void Framework::InitSearchEngine()
+{
+  ASSERT(!m_searchEngine.get(), ("InitSearchEngine() must be called only once."));
+  ASSERT(m_infoGetter.get(), ());
+  Platform const & platform = GetPlatform();
+
+  try
+  {
+    m_searchEngine.reset(new search::Engine(
+        const_cast<Index &>(m_model.GetIndex()), platform.GetReader(SEARCH_CATEGORIES_FILE_NAME),
+        *m_infoGetter, languages::GetCurrentOrig(), make_unique<search::SearchQueryFactory>()));
+  }
+  catch (RootException const & e)
+  {
+    LOG(LCRITICAL, ("Can't load needed resources for search::Engine:", e.Msg()));
+  }
 }
 
 TIndex Framework::GetCountryIndex(m2::PointD const & pt) const
 {
-  return m_storage.FindIndexByFile(GetSearchEngine()->GetCountryFile(pt));
+  return m_storage.FindIndexByFile(m_infoGetter->GetRegionFile(pt));
 }
 
 string Framework::GetCountryName(m2::PointD const & pt) const
 {
-  return GetSearchEngine()->GetCountryName(pt);
+  storage::CountryInfo info;
+  m_infoGetter->GetRegionInfo(pt, info);
+  return info.m_name;
 }
 
 string Framework::GetCountryName(string const & id) const
 {
-  return GetSearchEngine()->GetCountryName(id);
+  storage::CountryInfo info;
+  m_infoGetter->GetRegionInfo(id, info);
+  return info.m_name;
 }
 
 void Framework::PrepareSearch()
 {
-  GetSearchEngine()->PrepareSearch(GetCurrentViewport());
+  m_searchEngine->PrepareSearch(GetCurrentViewport());
 }
 
 bool Framework::Search(search::SearchParams const & params)
@@ -1284,7 +1328,7 @@ bool Framework::Search(search::SearchParams const & params)
   search::SearchParams const & rParams = params;
 #endif
 
-  return GetSearchEngine()->Search(rParams, GetCurrentViewport());
+  return m_searchEngine->Search(rParams, GetCurrentViewport());
 }
 
 bool Framework::GetCurrentPosition(double & lat, double & lon) const
@@ -1538,6 +1582,7 @@ void Framework::InitGuiSubsystem()
   if (m_renderPolicy)
   {
     gui::Controller::RenderParams rp(m_renderPolicy->Density(),
+                                     m_renderPolicy->DensityExactDPI(),
                                      bind(&WindowHandle::invalidate,
                                           m_renderPolicy->GetWindowHandle().get()),
                                      m_renderPolicy->GetGlyphCache(),
@@ -1597,7 +1642,10 @@ void Framework::CreateDrapeEngine(dp::RefPointer<dp::OGLContextFactory> contextF
 
 void Framework::SetMapStyle(MapStyle mapStyle)
 {
+  // Store current map style before classificator reloading
+  Settings::Set(kMapStyleKey, static_cast<int>(mapStyle));
   GetStyleReader().SetCurrentStyle(mapStyle);
+
   classificator::Load();
 
   alohalytics::TStringMap details {{"mapStyle", strings::to_string(static_cast<int>(mapStyle))}};
@@ -1613,18 +1661,17 @@ void Framework::SetupMeasurementSystem()
 {
   Settings::Units units = Settings::Metric;
   Settings::Get("Units", units);
-  // @TODO(vbykoianko) Rewrites code to use enum class LengthUnits only.
-  m_routingSession.SetTurnNotificationsUnits(units == Settings::Foot ?
-                                             routing::turns::sound::LengthUnits::Feet :
-                                             routing::turns::sound::LengthUnits::Meters);
 
+  m_routingSession.SetTurnNotificationsUnits(units);
   m_informationDisplay.measurementSystemChanged();
   Invalidate();
 }
 
 string Framework::GetCountryCode(m2::PointD const & pt) const
 {
-  return GetSearchEngine()->GetCountryCode(pt);
+  storage::CountryInfo info;
+  m_infoGetter->GetRegionInfo(pt, info);
+  return info.m_flag;
 }
 
 gui::Controller * Framework::GetGuiController() const
@@ -2176,9 +2223,9 @@ void Framework::SetRouterImpl(RouterType type)
 
   auto countryFileGetter = [this](m2::PointD const & p) -> string
   {
-    // TODO (@gorshenin): fix search engine to return CountryFile
+    // TODO (@gorshenin): fix CountryInfoGetter to return CountryFile
     // instances instead of plain strings.
-    return GetSearchEngine()->GetCountryFile(p);
+    return m_infoGetter->GetRegionFile(p);
   };
 
   if (type == RouterType::Pedestrian)
@@ -2209,6 +2256,12 @@ void Framework::RemoveRoute()
   m_bmManager.UserMarksClear(UserMarkContainer::DEBUG_MARK);
 
   m_bmManager.ResetRouteTrack();
+}
+
+bool Framework::DisableFollowMode()
+{
+  GetLocationState()->SetRoutingNotFollow();
+  return m_routingSession.DisableFollowMode();
 }
 
 void Framework::FollowRoute()
@@ -2265,7 +2318,7 @@ void Framework::CheckLocationForRouting(GpsInfo const & info)
     return;
 
   m2::PointD const & position = GetLocationState()->Position();
-  if (m_routingSession.OnLocationPositionChanged(position, info) == RoutingSession::RouteNeedRebuild)
+  if (m_routingSession.OnLocationPositionChanged(position, info, m_model.GetIndex()) == RoutingSession::RouteNeedRebuild)
   {
     auto readyCallback = [this](Route const & route, IRouter::ResultCode code)
     {
@@ -2273,7 +2326,8 @@ void Framework::CheckLocationForRouting(GpsInfo const & info)
         GetPlatform().RunOnGuiThread(bind(&Framework::InsertRoute, this, route));
     };
 
-    m_routingSession.RebuildRoute(position, readyCallback, m_progressCallback, 0 /* timeoutSec */);
+    m_routingSession.RebuildRoute(MercatorBounds::FromLatLon(info.m_latitude, info.m_longitude),
+                                  readyCallback, m_progressCallback, 0 /* timeoutSec */);
   }
 }
 
@@ -2331,28 +2385,41 @@ RouterType Framework::GetBestRouter(m2::PointD const & startPoint, m2::PointD co
 {
   if (MercatorBounds::DistanceOnEarth(startPoint, finalPoint) < kKeepPedestrianDistanceMeters)
   {
-    string routerType;
-    Settings::Get(kRouterTypeKey, routerType);
-    if (routerType == routing::ToString(RouterType::Pedestrian))
+    if (GetLastUsedRouter() == RouterType::Pedestrian)
       return RouterType::Pedestrian;
-    else
+
+    // Return on a short distance the vehicle router flag only if we are already have routing files.
+    auto countryFileGetter = [this](m2::PointD const & pt)
     {
-      // Return on a short distance the vehicle router flag only if we are already have routing files.
-      auto countryFileGetter = [this](m2::PointD const & p)
-      {
-        return GetSearchEngine()->GetCountryFile(p);
-      };
-      if (!OsrmRouter::CheckRoutingAbility(startPoint, finalPoint, countryFileGetter,
-                                           &m_model.GetIndex()))
-      {
-        return RouterType::Pedestrian;
-      }
+      return m_infoGetter->GetRegionFile(pt);
+    };
+    if (!OsrmRouter::CheckRoutingAbility(startPoint, finalPoint, countryFileGetter,
+                                         &m_model.GetIndex()))
+    {
+      return RouterType::Pedestrian;
     }
   }
   return RouterType::Vehicle;
 }
 
+RouterType Framework::GetLastUsedRouter() const
+{
+  string routerType;
+  Settings::Get(kRouterTypeKey, routerType);
+  return (routerType == routing::ToString(RouterType::Pedestrian) ? RouterType::Pedestrian : RouterType::Vehicle);
+}
+
 void Framework::SetLastUsedRouter(RouterType type)
 {
   Settings::Set(kRouterTypeKey, routing::ToString(type));
+}
+
+void Framework::SetRouteStartPoint(m2::PointD const & pt, bool isValid)
+{
+  m_bmManager.SetRouteStartPoint(pt, isValid);
+}
+
+void Framework::SetRouteFinishPoint(m2::PointD const & pt, bool isValid)
+{
+  m_bmManager.SetRouteFinishPoint(pt, isValid);
 }

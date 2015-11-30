@@ -19,12 +19,13 @@ typedef NS_ENUM(NSUInteger, BookmarkDescriptionState)
 @property (weak, nonatomic) IBOutlet UITextView * textView;
 @property (weak, nonatomic) IBOutlet UIWebView * webView;
 
+@property (weak, nonatomic) IBOutlet NSLayoutConstraint * textViewBottomOffset;
+
 @property (nonatomic) UIBarButtonItem * leftButton;
 @property (nonatomic) UIBarButtonItem * rightButton;
 
 @property (weak, nonatomic) MWMPlacePageViewManager * manager;
 @property (nonatomic) BookmarkDescriptionState state;
-@property (nonatomic) CGFloat realPlacePageHeight;
 
 @end
 
@@ -44,7 +45,13 @@ typedef NS_ENUM(NSUInteger, BookmarkDescriptionState)
   [super viewDidLoad];
   self.navigationItem.title = L(@"description");
   MWMPlacePageEntity const * entity = self.manager.entity;
-
+  if (!IPAD)
+  {
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(keyboardWillChangeFrame:)
+                                                 name:UIKeyboardWillChangeFrameNotification
+                                               object:nil];
+  }
   if (entity.isHTMLDescription)
     self.state = BookmarkDescriptionStateViewHTML;
   else
@@ -52,28 +59,29 @@ typedef NS_ENUM(NSUInteger, BookmarkDescriptionState)
 
   if (self.iPadOwnerNavigationController)
   {
-    self.realPlacePageHeight = self.iPadOwnerNavigationController.view.height;
     UIBarButtonItem * leftButton = [[UIBarButtonItem alloc] initWithCustomView:self.backButton];
     [self.navigationItem setLeftBarButtonItem:leftButton];
-    return;
   }
-
-  [[NSNotificationCenter defaultCenter] addObserver:self
-                                           selector:@selector(keyboardWillShown:)
-                                               name:UIKeyboardWillShowNotification object:nil];
-
-  [[NSNotificationCenter defaultCenter] addObserver:self
-                                           selector:@selector(keyboardWillBeHidden:)
-                                               name:UIKeyboardWillHideNotification object:nil];
 }
 
 - (void)viewWillAppear:(BOOL)animated
 {
   [super viewWillAppear:animated];
-  if (!self.iPadOwnerNavigationController)
-    return;
-
   [self.iPadOwnerNavigationController setNavigationBarHidden:NO];
+}
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+  [super viewWillDisappear:animated];
+  [self.manager reloadBookmark];
+}
+
+- (void)viewDidLayoutSubviews
+{
+  [super viewDidLayoutSubviews];
+  if (!IPAD)
+    return;
+  self.view.height = self.iPadOwnerNavigationController.view.height - self.iPadOwnerNavigationController.navigationBar.height;
 }
 
 - (void)setState:(BookmarkDescriptionState)state
@@ -106,6 +114,7 @@ typedef NS_ENUM(NSUInteger, BookmarkDescriptionState)
   completion:^(BOOL finished)
   {
     self.webView.hidden = YES;
+    [self.textView becomeFirstResponder];
   }];
   [self configureNavigationBarForEditing];
 }
@@ -148,6 +157,7 @@ typedef NS_ENUM(NSUInteger, BookmarkDescriptionState)
 
 - (void)cancelTap
 {
+  [self.textView resignFirstResponder];
   if (self.manager.entity.isHTMLDescription)
     self.state = BookmarkDescriptionStateViewHTML;
   else
@@ -159,16 +169,12 @@ typedef NS_ENUM(NSUInteger, BookmarkDescriptionState)
   MWMPlacePageEntity * entity = self.manager.entity;
   entity.bookmarkDescription = self.textView.text;
   [entity synchronize];
-  [self.textView resignFirstResponder];
-
-  if (entity.isHTMLDescription)
-    self.state = BookmarkDescriptionStateViewHTML;
-  else
-    [self popViewController];
+  [self cancelTap];
 }
 
 - (void)backTap
 {
+  [self.textView resignFirstResponder];
   [self popViewController];
 }
 
@@ -179,38 +185,19 @@ typedef NS_ENUM(NSUInteger, BookmarkDescriptionState)
 
 - (void)popViewController
 {
-  if (!self.iPadOwnerNavigationController)
-  {
-    [self.navigationController popViewControllerAnimated:YES];
-    return;
-  }
   [self.iPadOwnerNavigationController setNavigationBarHidden:YES];
-  [UIView animateWithDuration:kDefaultAnimationDuration animations:^
-  {
-    self.iPadOwnerNavigationController.view.height = self.realPlacePageHeight;
-  }
-  completion:^(BOOL finished)
-  {
-    [self.navigationController popViewControllerAnimated:YES];
-  }];
+  [self.navigationController popViewControllerAnimated:YES];
 }
 
 #pragma mark - Notifications
 
-- (void)keyboardWillShown:(NSNotification *)aNotification
+- (void)keyboardWillChangeFrame:(NSNotification *)aNotification
 {
   NSDictionary * info = [aNotification userInfo];
-  CGSize const kbSize = [[info objectForKey:UIKeyboardFrameBeginUserInfoKey] CGRectValue].size;
-  CGFloat const externalHeight = self.navigationController.navigationBar.height + [UIApplication sharedApplication].statusBarFrame.size.height;
-  self.textView.height -= (kbSize.height - externalHeight);
-}
-
-- (void)keyboardWillBeHidden:(NSNotification *)aNotification
-{
-  NSDictionary * info = [aNotification userInfo];
-  CGSize const kbSize = [[info objectForKey:UIKeyboardFrameBeginUserInfoKey] CGRectValue].size;
-  CGFloat const externalHeight = self.navigationController.navigationBar.height + [UIApplication sharedApplication].statusBarFrame.size.height;
-  self.textView.height += (kbSize.height - externalHeight);
+  CGSize const kbSize = [info[UIKeyboardFrameEndUserInfoKey] CGRectValue].size;
+  CGFloat const offsetToKeyboard = 8.0;
+  CGFloat const navBarHeight = IPAD ? self.navigationController.navigationBar.height : 0.0;
+  self.textViewBottomOffset.constant = kbSize.height + offsetToKeyboard - navBarHeight;
 }
 
 - (void)dealloc

@@ -478,13 +478,48 @@
 
 "share_my_location" = "Yerimi paylaş";
 
-"become_a_pro" = "Yükselt";
-
 "menu_search" = "Ara";
+
+/* Settings screen: "Map" category title */
+"prefs_group_map" = "Harita";
+
+/* Settings screen: "Miscellaneous" category title */
+"prefs_group_misc" = "Çeşitli";
+
+"prefs_group_route" = "Navigasyon";
 
 "pref_zoom_title" = "Yakınlaştırma butonları";
 
 "pref_zoom_summary" = "Ekranda göster";
+
+/* Settings «Map» category: «Map style» title */
+"pref_map_style_title" = "Map style";
+
+/* Settings «Map» category: «Map style» summary */
+"pref_map_style_summary" = "Change map presentation";
+
+/* «Map style» entry value */
+"pref_map_style_classic_light" = "Classic light";
+
+/* «Map style» entry value */
+"pref_map_style_classic_dark" = "Classic dark";
+
+/* «Map style» entry value */
+"pref_map_style_modern_light" = "Modern light";
+
+/* Settings «Route» category: «Tts enabled» title */
+"pref_tts_enable_title" = "Sesli Talimatlar";
+
+/* Settings «Route» category: «Tts language» title */
+"pref_tts_language_title" = "Ses Dili";
+
+/* Settings «Route» category: «Tts unavailable» subtitle */
+"pref_tts_unavailable" = "Mevcut değil";
+
+/* Title for "Other" section in TTS settings. */
+"pref_tts_other_section_title" = "Diğer";
+
+"pref_tts_how_to_set_up_voice" = "Ses nasıl ayarlanır";
 
 "placepage_distance" = "Mesafe";
 
@@ -524,12 +559,6 @@
 /* category title */
 "routes" = "Güzergahlar";
 
-/* button in the interface */
-"choose_starting_point" = "Başlangıç noktası seçin…";
-
-/* button in the interface */
-"choose_destination" = "Varış noktası seçin…";
-
 /* Show on first launch. */
 "maps_licence_info" = "This applications uses geographical data (including maps, business listings, points of interest, borders of countries and regions, etc.) taken from the OpenStreetMap project. We do not warrant any consistency, accuracy, completeness or applicability of the OpenStreetMap data.";
 
@@ -558,6 +587,12 @@
 "settings_and_more" = "Ayarlar & Fazlası";
 
 /* Text in menu */
+"website" = "Website";
+
+/* Text in menu */
+"blog" = "Blog";
+
+/* Text in menu */
 "maps_me_community" = "MAPS.ME Topluluğu";
 
 /* Text in menu */
@@ -569,11 +604,26 @@
 /* Text in menu */
 "contact_us" = "İletişim";
 
+/* Settings: Send feedback button and dialog title */
+"feedback" = "Feedback";
+
+/* Settings: "Send general feedback" button */
+"feedback_general" = "General feedback";
+
 /* Text in menu */
 "subscribe_to_news" = "Haberlerimize abone ol";
 
 /* Text in menu */
 "rate_the_app" = "Uygulamayı değerlendir";
+
+/* Rate in Google Play (Android only) */
+"rate_gp" = "Rate on Google Play";
+
+/* Share with friends: menu item title */
+"tell_friends" = "Tell a Friend";
+
+/* Share with friends: sharing text */
+"tell_friends_text" = "Hi! Install Maps.me!";
 
 /* Text in menu */
 "help" = "Yardım";
@@ -589,6 +639,9 @@
 
 /* Email body */
 "subscribe_me_body" = "En son haberlerden güncellemelerden ve tanıtımlardan ilk önce haberdar olmak istiyorum. Aboneliğimi herhangi bir zaman iptal edebilirim.";
+
+/* About short text (below logo) */
+"about_description" = "Joined efforts of Mail.Ru Group and OpenStreetMap make the most useful application for travelers!";
 
 /* About text */
 "about_text" = "MAPS.ME dünyadaki tüm ülkelerdeki şehirlerin en hızlı çevrimdışı haritalarını sunuyor. Tam güven ile seyahat edin: nerede olursanız olun, MAPS.ME harita üzerinde nerede olduğunuzu belirlemeye, en yakın restoranı, oteli, bankayı, benzin istasyonunu v.b. bulmaya yardımcı olur. İnternet bağlantısı gerektirmez.\n\nHer zaman yeni özellikler üzerinde çalışıyoruz ve sizlerin MAPS.ME'yi nasıl geliştirebileceğimize dair görüşlerinizi almaktan mutluluk duyuyoruz. Eğer uygulama ile ilgili herhangi bir probleminiz varsa, bizimle support@maps.me adresinden temasa geçmekten çekinmeyin. Her talebe cevap veriyoruz!\n\nMAPS.ME'yi beğendiniz ve bize destek olmak ister misiniz? Bunun bazı basit ve tamamıyla ücretsiz yolları var:\n\n- Uygulama Marketinizde bir yorum yazın\n- Facebook sayfamızı beğenin http://www.facebook.com/mapswithme\n- veya sadece annenize, arkadaşlarınıza ve iş arkadaşlarınıza MAPS.ME'den bahsedin :)\n\nBizi tercih ettiğiniz için teşekkür ederiz. Desteğinizden dolayı çok memnuniyet duyarız!\n\nNot: Verileri haritaları kullanıcıların yaratmasına ve düzenlemesine olanak veren Wikipedia benzeri bir proje olan OpenStreetMap'dan almaktayız. Eğer haritada eksik ya da hatalı bir şeyler görürseniz doğrudan haritaları\n\nhttp://openstreetmap.org, adresinden düzeltebilirsiniz ve yaptığınız değişiklikler MAPS.ME'de bir sonraki sürüm yayınlandığında görülebilir olacaktır.";
@@ -679,7 +732,7 @@
 
 "downloader_download_map_no_routing" = "Haritayı rota olmadan indirin";
 
-/* Button for routing PP. */
+/* Button for routing. */
 "routing_go" = "Git!";
 
 /* Item status in downloader. */
@@ -1193,49 +1246,10 @@
 "routing_planning_error" = "Rota Planlaması Başarısız";
 
 /* Arrive routing message in navigation view */
-"routing_arrive" = "Varış";
-
-/* Routing Start button title */
-"routing_start" = "Başlat";
-
-/* Planning route message in navigation view */
-"routing_planning" = "Rota Planlanıyor";
+"routing_arrive" = "Varış: %s";
 
 /* Text for routing::IRouter::FileTooOld dialog. */
 "dialog_routing_download_and_update_maps" = "Bir rota oluşturmak için lütfen rota üzerindeki tüm haritaları indirin ve güncelleyin.";
-
-/* Text for facebook sharing news about walking routes */
-"share_walking_routes_facebook" = "MAPS.ME size yürüyüş zamanınızdan tasarruf ettirir. Artık 2 milyon kilometreden fazla yaya yolu, parkur ve asfaltsız yol yürüyüş rotaları için mevcuttur.";
-
-/* Text for messenger sharing news about walking routes */
-"share_walking_routes_messenger" = "MAPS.ME dünya çapında en kısa yürüyüş rotalarını gösteriyor! Gözatın: http://maps.me/get?walk_im";
-
-/* Text for sms sharing news about walking routes */
-"share_walking_routes_sms" = "MAPS.ME en kısa yürüyüş rotalarını gösterir: http://maps.me/get?walk";
-
-/* Subject for email sharing news about walking routes */
-"share_walking_routes_email_subject" = "En kısa yürüyüş rotaları mevcuttur";
-
-/* Text for email sharing news about walking routes */
-"share_walking_routes_email_body" = "MAPS.ME kısa bir süre önce, dünyanın en detaylı haritalarını baz alarak yürüyüş rotalarını piyasaya sürdü! Onlar herhangi bir hedefe en kısa rotayı gösteriyorlar. Onları deneyin: http://maps.me/get?walk_em";
-
-/* Title for walking routes dialog, notifications etc. */
-"title_walking_available" = "Yürüyüş rotaları MAPS.ME'de mevcuttur!";
-
-/* Text for walking routes dialog */
-"share_walking_routes_first_launch" = "Onlar herhangi bir hedef noktasına ulaşmanız için en kısa yolu gösterirler. Arkadaşlarınızında yürüyüş zamanınından tasarruf etmelerine yardımcı olun!";
-
-/* Title for walking routes dialog after 3 built routes */
-"share_walking_routes_congratulations" = "Tebrikler!";
-
-/* Text for walking routes dialog after 3 built routes */
-"share_walking_routes_mastering" = "Yürüyüş rotalarını fonksiyonlarını hakim oldunuz. Arkadaşlarınızında yürüyüş zamanınından tasarruf etmelerine yardımcı olun. Onlara MAPS.ME'den bahsedin.";
-
-/* Android notification about walking directions for update users */
-"walking_notification_text" = "Onları denemek ister misiniz?";
-
-/* Android notification with picture (rich) about walking directions for update users */
-"walking_rich_notification_text" = "Onlar herhangi bir hedef noktasına ulaşmanız için en kısa yolu gösterirler. Onları deneyin ve arkadaşlarınızın seyahat zamanınından tasarruf etmelerine yardımcı olun.";
 
 "rate_alert_title" = "Uygulamayı beğendiniz mi?";
 
@@ -1269,10 +1283,40 @@
 
 "search_history_text" = "En son yapılan arama sorgularına hızlı erişim.";
 
-"update_maps_alert_title" = "Navigasyon daha da kolaylaştı";
-
-"update_maps_alert_message" = "Haritaların tarzını geliştirdik: artık bütün nesneler daha arkadaşça ve daha anlaşılır gözüküyor. Yeni tasarımdan yararlanmak için haritaları yükseltin.";
-
-"update_maps_alert_button_title" = "Haritaları güncelle";
-
 "clear_search" = "Arama geçmişini temizle";
+
+/* Title for settings to enable/disable showcase menu button */
+"showcase_settings_title" = "Reklamı göster";
+
+/* Place Page link to Wikipedia article (if map object has it). */
+"read_in_wikipedia" = "Wikipedia";
+
+"p2p_route_planning" = "Rota planlama";
+
+"p2p_your_location" = "Konumunuz";
+
+"p2p_from" = "Kalkış noktası";
+
+"p2p_to" = "Varış noktası";
+
+"p2p_start" = "Başla";
+
+"p2p_planning" = "Planlanıyor…";
+
+"p2p_from_here" = "Başlangıç";
+
+"p2p_to_here" = "Hedef";
+
+"p2p_only_from_current" = "Navigasyon sadece şu anki konumunuzdan mevcut.";
+
+"p2p_reroute_from_current" = "Mevcut konumunuzdan bir rota planlamamızı ister misiniz?";
+
+"whats_new_where_to_turn" = "MAPS.ME nereye döneceğinizi bilmenizi sağlayacak";
+
+"whats_new_voice_instructions" = "Sevgili arkadaşlar, navigasyon sırasında sesli talimatları uzun süredir sormaktaydınız - Bunu yaptık! Artık navigatörümüz bir sonraki dönüşünüz için zamanı geldiğinde sizi uyaracak.";
+
+"whats_new_between_any_points" = "Herhangi noktalar arasında rotalar oluşturun";
+
+"whats_new_happy_day" = "Çok mutlu bir gün öyle değil mi! Yolculuğunuzu önceden MAPS.ME ile planlayın.";
+
+"whats_new_next" = "Sonraki";

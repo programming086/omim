@@ -304,10 +304,23 @@
 	<!-- Length of track in cell that describes route -->
 	<string name="length">Hossz</string>
 	<string name="share_my_location">Helyzetem megosztása</string>
-	<string name="become_a_pro">Frissítés most</string>
 	<string name="menu_search">Keresés</string>
+	<!-- Settings screen: "Map" category title -->
+	<string name="prefs_group_map">Térkép</string>
+	<!-- Settings screen: "Miscellaneous" category title -->
+	<string name="prefs_group_misc">Egyéb</string>
+	<string name="prefs_group_route">Navigáció</string>
 	<string name="pref_zoom_title">Nagyítás/kicsinyítés gombok</string>
 	<string name="pref_zoom_summary">Mutassa a kijelzőn</string>
+	<!-- Settings «Route» category: «Tts enabled» title -->
+	<string name="pref_tts_enable_title">Hangutasítások</string>
+	<!-- Settings «Route» category: «Tts language» title -->
+	<string name="pref_tts_language_title">A hang nyelve</string>
+	<!-- Settings «Route» category: «Tts unavailable» subtitle -->
+	<string name="pref_tts_unavailable">Nem áll rendelkezésre</string>
+	<!-- Title for "Other" section in TTS settings. -->
+	<string name="pref_tts_other_section_title">Egyéb</string>
+	<string name="pref_tts_how_to_set_up_voice">Így állítsd be a hangot</string>
 	<string name="placepage_distance">Távolság</string>
 	<string name="placepage_coordinates">Koordináták</string>
 	<string name="placepage_unsorted">Osztályozatlan</string>
@@ -332,10 +345,6 @@
 	<string name="route">Útvonal</string>
 	<!-- category title -->
 	<string name="routes">Útvonalak</string>
-	<!-- button in the interface -->
-	<string name="choose_starting_point">Válasszon kiindulási pontot…</string>
-	<!-- button in the interface -->
-	<string name="choose_destination">Válasszon úti célt…</string>
 	<!-- text of notification -->
 	<string name="download_map_notification">Töltsd le annak a helynek a térképét, ahol most vagy</string>
 	<!-- text of notification -->
@@ -429,7 +438,7 @@
 	<!-- Context menu item for downloader. -->
 	<string name="downloader_download_map">Töltsd le a térképet</string>
 	<string name="downloader_download_map_no_routing">Térkép letöltése útvonal nélkül</string>
-	<!-- Button for routing PP. -->
+	<!-- Button for routing. -->
 	<string name="routing_go">Indulás!</string>
 	<!-- Item status in downloader. -->
 	<string name="downloader_retry">Újra próbál</string>
@@ -759,35 +768,9 @@
 	<!-- Failed planning route message in navigation view -->
 	<string name="routing_planning_error">Sikertelen útvonaltervezés</string>
 	<!-- Arrive routing message in navigation view -->
-	<string name="routing_arrive">Megérkezik</string>
-	<!-- Routing Start button title -->
-	<string name="routing_start">Indítás</string>
-	<!-- Planning route message in navigation view -->
-	<string name="routing_planning">Útvonal tervezése</string>
+	<string name="routing_arrive">Megérkezik: %s</string>
 	<!-- Text for routing::IRouter::FileTooOld dialog. -->
 	<string name="dialog_routing_download_and_update_maps">Útvonal létrehozásához kérjük, töltse le és frissítse az összes térképet az útvonal mentén.</string>
-	<!-- Text for facebook sharing news about walking routes -->
-	<string name="share_walking_routes_facebook">A MAPS.ME segít a séta menetidő spórolásában. Több mint kétmillió km gyalogos szakasz, táv és ösvény érhető el a séta útszakaszokhoz.</string>
-	<!-- Text for messenger sharing news about walking routes -->
-	<string name="share_walking_routes_messenger">A MAPS.ME világszerte a lehető legrövidebb séta szakaszt adja meg! Nézze meg itt: http://maps.me/get?walk_im</string>
-	<!-- Text for sms sharing news about walking routes -->
-	<string name="share_walking_routes_sms">A MAPS.ME a legrövidebb séta szakaszt adja meg: http://maps.me/get?walk</string>
-	<!-- Subject for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_subject">A lehető legrövidebb útszakaszok érhetők el</string>
-	<!-- Text for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_body">A MAPS.ME épp most adta ki a séta útvonalakat, méghozzá a világ legrészletesebb térképe alapján! Bármely úti célhoz a legrövidebb útvonalat adják meg. Próbálja ki őket: http://maps.me/get?walk_em</string>
-	<!-- Title for walking routes dialog, notifications etc. -->
-	<string name="title_walking_available">A séta útvonalak elérhetők a MAPS.ME-n!</string>
-	<!-- Text for walking routes dialog -->
-	<string name="share_walking_routes_first_launch">A legrövidebb útvonalat adják meg bármely megadott úti célhoz. Próbálja ki saját maga, és segítsen a barátainak is időt spórolni!</string>
-	<!-- Title for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_congratulations">Gratulálunk!</string>
-	<!-- Text for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_mastering">Elsajátította a séta útvonalak funkciót. Segítsen a barátainak is séta menetidőt spórolni. Számoljon be nekik a MAPS.ME-ről.</string>
-	<!-- Android notification about walking directions for update users -->
-	<string name="walking_notification_text">Ki akarja próbálni őket?</string>
-	<!-- Android notification with picture (rich) about walking directions for update users -->
-	<string name="walking_rich_notification_text">A legrövidebb útvonalat adják meg bármely megszabott úti célhoz. Próbálja ki saját maga, és segítsen a barátainak időt spórolni.</string>
 	<string name="rate_alert_title">Tetszik az app?</string>
 	<string name="rate_alert_default_message">Köszönjük, hogy a MAPS.ME-t használta. Kérjük, értékelje az appot. A visszajelzéseik segítenek bennünket abban, hogy jobbá váljunk.</string>
 	<string name="rate_alert_five_star_message">Hurrá! Mi is szeretjük magát!</string>
@@ -804,8 +787,22 @@
 	<string name="search_not_found_location">Töltse le a jelenlegi tartózkodási helye térképét.</string>
 	<string name="search_history_title">Előző keresések</string>
 	<string name="search_history_text">Aktuális keresés gyors elérése.</string>
-	<string name="update_maps_alert_title">Egyszerűbbé vált a navigálás</string>
-	<string name="update_maps_alert_message">Javítottunk a térképek stílusán: mostantól minden objektum barátságosabban és érthetőbben néz ki. Frissítse fel a térképeket az új design összes előnyének kihasználása érdekében.</string>
-	<string name="update_maps_alert_button_title">Térképek frissítése</string>
 	<string name="clear_search">A keresési előzmények törlése</string>
+	<!-- Title for settings to enable/disable showcase menu button -->
+	<string name="showcase_settings_title">Hirdetés mutatása</string>
+	<string name="p2p_route_planning">Útvonaltervezés</string>
+	<string name="p2p_your_location">Az Ön helyzete</string>
+	<string name="p2p_from">Az indulás helye</string>
+	<string name="p2p_to">Az érkezés helye</string>
+	<string name="p2p_start">Indítás</string>
+	<string name="p2p_planning">Tervezés…</string>
+	<string name="p2p_from_here">Innen</string>
+	<string name="p2p_to_here">Ide</string>
+	<string name="p2p_only_from_current">A navigáció csak a jelenlegi helyzetéből érhető el.</string>
+	<string name="p2p_reroute_from_current">Szeretne útvonaltervet készíttetni a jelenlegi pozíciójától?</string>
+	<string name="whats_new_where_to_turn">A MAPS.ME segítségével tudni fogod, hogy merre kanyarodj</string>
+	<string name="whats_new_voice_instructions">Kedves barátaink! Már régóta kértétek tőlünk a hangirányítás hozzáadását a navigációhoz, most végre kész lett! Most a navigátor időben figyelmeztet, hogy mikor kell legközelebb kanyarodnod.</string>
+	<string name="whats_new_between_any_points">Alakíts ki egy útvonalat két tetszőleges pont között</string>
+	<string name="whats_new_happy_day">Micsoda boldog nap ez! Tervezd meg az utaidat előre a MAPS.ME-vel!</string>
+	<string name="whats_new_next">Következő</string>
 </resources>

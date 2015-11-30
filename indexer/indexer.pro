@@ -18,7 +18,6 @@ SOURCES += \
     data_header.cpp \
     drawing_rule_def.cpp \
     drawing_rules.cpp \
-    drules_city_rank_table.cpp \
     drules_selector.cpp \
     drules_selector_parser.cpp \
     feature.cpp \
@@ -29,6 +28,7 @@ SOURCES += \
     feature_impl.cpp \
     feature_loader.cpp \
     feature_loader_base.cpp \
+    feature_meta.cpp \
     feature_utils.cpp \
     feature_visibility.cpp \
     features_offsets_table.cpp \
@@ -38,6 +38,7 @@ SOURCES += \
     geometry_serialization.cpp \
     index.cpp \
     index_builder.cpp \
+    map_style.cpp \
     map_style_reader.cpp \
     mercator.cpp \
     mwm_set.cpp \
@@ -60,7 +61,6 @@ HEADERS += \
     data_header.hpp \
     drawing_rule_def.hpp \
     drawing_rules.hpp \
-    drules_city_rank_table.hpp \
     drules_include.hpp \
     drules_selector.cpp \
     drules_selector_parser.cpp \

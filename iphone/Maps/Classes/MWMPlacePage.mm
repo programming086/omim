@@ -1,17 +1,17 @@
-#import "MWMPlacePage.h"
+#import "MapsAppDelegate.h"
 #import "MWMBasePlacePageView.h"
+#import "MWMBookmarkColorViewController.h"
+#import "MWMBookmarkDescriptionViewController.h"
+#import "MWMDirectionView.h"
+#import "MWMPlacePage.h"
+#import "MWMPlacePageActionBar.h"
 #import "MWMPlacePageEntity.h"
 #import "MWMPlacePageViewManager.h"
-#import "MWMPlacePageActionBar.h"
-#import "MWMDirectionView.h"
-#import "MWMBookmarkColorViewController.h"
 #import "SelectSetVC.h"
-#import "MWMBookmarkDescriptionViewController.h"
-
-#import "../../3party/Alohalytics/src/alohalytics_objc.h"
+#import "Statistics.h"
 
 static NSString * const kPlacePageNibIdentifier = @"PlacePageView";
-extern NSString * const kAlohalyticsTapEventKey;
+static NSString * const kPlacePageViewCenterKeyPath = @"center";
 
 @interface MWMPlacePage ()
 
@@ -28,20 +28,80 @@ extern NSString * const kAlohalyticsTapEventKey;
   {
     [[NSBundle mainBundle] loadNibNamed:kPlacePageNibIdentifier owner:self options:nil];
     self.manager = manager;
+    if (!IPAD)
+    {
+      [self.extendedPlacePageView addObserver:self
+                                   forKeyPath:kPlacePageViewCenterKeyPath
+                                      options:NSKeyValueObservingOptionNew
+                                      context:nullptr];
+    }
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(keyboardWillShow:)
+                                                 name:UIKeyboardWillShowNotification
+                                               object:nil];
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(keyboardWillHide)
+                                                 name:UIKeyboardWillHideNotification
+                                               object:nil];
   }
   return self;
+}
+
+- (void)dealloc
+{
+  if (!IPAD)
+  {
+    [self.extendedPlacePageView removeObserver:self forKeyPath:kPlacePageViewCenterKeyPath];
+  }
+  [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)keyboardWillShow:(NSNotification *)aNotification
+{
+  NSDictionary * info = [aNotification userInfo];
+  self.keyboardHeight = [info[UIKeyboardFrameEndUserInfoKey] CGRectValue].size.height;
+}
+
+- (void)keyboardWillHide
+{
+  self.keyboardHeight = 0.0;
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary *)change
+                       context:(void *)context
+{
+  if ([self.extendedPlacePageView isEqual:object] &&
+      [keyPath isEqualToString:kPlacePageViewCenterKeyPath])
+    [self.manager dragPlacePage:self.extendedPlacePageView.frame];
 }
 
 - (void)configure
 {
   MWMPlacePageEntity * entity = self.manager.entity;
   [self.basePlacePageView configureWithEntity:entity];
-  [self.actionBar configureWithPlacePage:self];
+  BOOL const isPrepareRouteMode = MapsAppDelegate.theApp.routingPlaneMode != MWMRoutingPlaneModeNone;
+  if (self.actionBar.isPrepareRouteMode == isPrepareRouteMode)
+  {
+    [self.actionBar configureWithPlacePage:self];
+  }
+  else
+  {
+    [self.actionBar removeFromSuperview];
+    self.actionBar = [MWMPlacePageActionBar actionBarForPlacePage:self];
+  }
 }
 
 - (void)show
 {
   // Should override this method if you want to show place page with custom animation.
+}
+
+- (void)hide
+{
+  // Should override this method if you want to hide place page with custom animation.
 }
 
 - (void)dismiss
@@ -67,18 +127,15 @@ extern NSString * const kAlohalyticsTapEventKey;
 {
   [self.basePlacePageView removeBookmark];
   [self.manager removeBookmark];
-  self.keyboardHeight = 0.;
 }
 
 - (void)share
 {
-  [Alohalytics logEvent:kAlohalyticsTapEventKey withValue:@"ppShare"];
   [self.manager share];
 }
 
 - (void)route
 {
-  [Alohalytics logEvent:kAlohalyticsTapEventKey withValue:@"ppRoute"];
   [self.manager buildRoute];
 }
 
@@ -134,16 +191,16 @@ extern NSString * const kAlohalyticsTapEventKey;
   [self.basePlacePageView reloadBookmarkCell];
 }
 
-- (void)willStartEditingBookmarkTitle:(CGFloat)keyboardHeight
+- (void)willStartEditingBookmarkTitle
 {
-  self.keyboardHeight = keyboardHeight;
+  [[Statistics instance] logEvent:kStatEventName(kStatPlacePage, kStatRename)];
+// This method should be ovverriden.
 }
 
 - (void)willFinishEditingBookmarkTitle:(NSString *)title
 {
   self.basePlacePageView.titleLabel.text = title;
   [self.basePlacePageView layoutIfNeeded];
-  self.keyboardHeight = 0.;
 }
 
 - (IBAction)didTap:(UITapGestureRecognizer *)sender

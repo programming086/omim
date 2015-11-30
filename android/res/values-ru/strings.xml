@@ -230,7 +230,7 @@
 	<!-- String in search result list, when nothing found -->
 	<string name="no_search_results_found">Нет результатов поиска</string>
 	<!-- Notes field in Bookmarks view -->
-	<string name="description">Добавить примечание</string>
+	<string name="description">Примечание</string>
 	<!-- Button text -->
 	<string name="share_by_email">Послать по email</string>
 	<!-- Email Subject when sharing bookmarks category -->
@@ -278,7 +278,7 @@
 	<!-- iOS share by Message button text (including SMS) -->
 	<string name="message">Сообщение</string>
 	<!-- Share by email button text -->
-	<string name="email">E-Mail</string>
+	<string name="email">E-mail</string>
 	<!-- Copy Link -->
 	<string name="copy_link">Скопировать ссылку</string>
 	<!-- Text for the button that returns to caller application -->
@@ -308,10 +308,33 @@
 	<!-- Length of track in cell that describes route -->
 	<string name="length">Длина</string>
 	<string name="share_my_location">Поделиться местоположением</string>
-	<string name="become_a_pro">Загрузить PRO</string>
 	<string name="menu_search">Поиск</string>
+	<!-- Settings screen: "Map" category title -->
+	<string name="prefs_group_map">Карта</string>
+	<!-- Settings screen: "Miscellaneous" category title -->
+	<string name="prefs_group_misc">Прочее</string>
+	<string name="prefs_group_route">Навигация</string>
 	<string name="pref_zoom_title">Кнопки масштаба</string>
 	<string name="pref_zoom_summary">Показать на карте</string>
+	<!-- Settings «Map» category: «Map style» title -->
+	<string name="pref_map_style_title">Стиль карты</string>
+	<!-- Settings «Map» category: «Map style» summary -->
+	<string name="pref_map_style_summary">Стиль отображения карты</string>
+	<!-- «Map style» entry value -->
+	<string name="pref_map_style_classic_light">Классическая светлая</string>
+	<!-- «Map style» entry value -->
+	<string name="pref_map_style_classic_dark">Классическая тёмная</string>
+	<!-- «Map style» entry value -->
+	<string name="pref_map_style_modern_light">Современная светлая</string>
+	<!-- Settings «Route» category: «Tts enabled» title -->
+	<string name="pref_tts_enable_title">Голосовые инструкции</string>
+	<!-- Settings «Route» category: «Tts language» title -->
+	<string name="pref_tts_language_title">Язык подсказок</string>
+	<!-- Settings «Route» category: «Tts unavailable» subtitle -->
+	<string name="pref_tts_unavailable">Не доступны</string>
+	<!-- Title for "Other" section in TTS settings. -->
+	<string name="pref_tts_other_section_title">Другой</string>
+	<string name="pref_tts_how_to_set_up_voice">Как настроить голос</string>
 	<string name="placepage_distance">Расстояние</string>
 	<string name="placepage_coordinates">Координаты</string>
 	<string name="placepage_unsorted">Без категории</string>
@@ -336,10 +359,6 @@
 	<string name="route">Маршрут</string>
 	<!-- category title -->
 	<string name="routes">Маршруты</string>
-	<!-- button in the interface -->
-	<string name="choose_starting_point">Откуда…</string>
-	<!-- button in the interface -->
-	<string name="choose_destination">Куда…</string>
 	<!-- Show on first launch. -->
 	<string name="maps_licence_info">Это приложение использует географические данные (включая карты, справочники, достопримечательности, границы стран и регионов, др.) взятые из проекта OpenStreetMap. Мы не гарантируем последовательности, точности, полноты и пригодности данных OpenStreetMap.</string>
 	<!-- Show on first launch. -->
@@ -359,6 +378,10 @@
 	<!-- Text in menu -->
 	<string name="settings_and_more">Настройки и другое</string>
 	<!-- Text in menu -->
+	<string name="website">Сайт</string>
+	<!-- Text in menu -->
+	<string name="blog">Блог</string>
+	<!-- Text in menu -->
 	<string name="maps_me_community">Сообщество MAPS.ME</string>
 	<!-- Text in menu -->
 	<string name="like_on_facebook">MAPS.ME в Facebook</string>
@@ -366,10 +389,20 @@
 	<string name="follow_on_twitter">MAPS.ME в Twitter</string>
 	<!-- Text in menu -->
 	<string name="contact_us">Свяжитесь с нами</string>
+	<!-- Settings: Send feedback button and dialog title -->
+	<string name="feedback">Связаться с нами</string>
+	<!-- Settings: "Send general feedback" button -->
+	<string name="feedback_general">Отправить отзыв</string>
 	<!-- Text in menu -->
 	<string name="subscribe_to_news">Подписаться на новости</string>
 	<!-- Text in menu -->
 	<string name="rate_the_app">Оценить приложение</string>
+	<!-- Rate in Google Play (Android only) -->
+	<string name="rate_gp">Оценить в Google Play</string>
+	<!-- Share with friends: menu item title -->
+	<string name="tell_friends">Рассказать друзьям</string>
+	<!-- Share with friends: sharing text -->
+	<string name="tell_friends_text">Привет! Установи Maps.me!</string>
 	<!-- Text in menu -->
 	<string name="help">Помощь</string>
 	<!-- Text in menu -->
@@ -380,6 +413,8 @@
 	<string name="subscribe_me_subject">Подпишите меня на email-рассылку MAPS.ME</string>
 	<!-- Email body -->
 	<string name="subscribe_me_body">Я хочу первым узнавать обо всех новостях, обновлениях приложения и акциях. Я могу отписаться от рассылки в любой момент.</string>
+	<!-- About short text (below logo) -->
+	<string name="about_description">Объединив усилия Mail.Ru Group и данные OpenStreetMap, мы создаем незаменимое приложение для путешествий.</string>
 	<!-- About text -->
 	<string name="about_text">MAPS.ME предлагает карты всех городов, всех стран мира, которые работают без подключения к интернету. Путешествуйте с уверенностью: где бы вы ни находились, MAPS.ME помогут решить любую вашу проблему - помогут определить ваше местоположение, найти ресторан, отель, заправку, банк, туалет и т.д.\n\nМы постоянно работаем над добавлением новых функций, поэтому если у вас есть идеи или предложения по улучшению MAPS.ME, пишите нам. Если у вас возникла проблема с приложением, сообщите нам, пожалуйста, о ней. Наш емэйл support@maps.me. Мы отвечаем на все письма! Если вам нравится приложение и вы хотите поддержать нас, есть несколько простых и абсолютно бесплатных способов:\n\n- оставьте отзыв в вашем магазине приложений\n- подпишитесь на наши новости на Facebook странице http://www.facebook.com/mapswithme\n- или просто расскажите о MAPS.ME своей маме, друзьям и коллегам :)\n\nСпасибо за вашу поддержку!\n\nP.S. В приложении мы используем картографические данные проекта OpenStreetMap, который работает по принципу Википедии, давая возможность пользователям со всего мира создавать и редактировать карты. Если вы заметили, что на карте что-то не соответствует действительности либо отсутствует, вы можете откорректировать это прямо на сайте http://openstreetmap.org, и эти исправления появятся во время следующего обновления MAPS.ME.</string>
 	<!-- Alert text -->
@@ -439,7 +474,7 @@
 	<!-- Context menu item for downloader. -->
 	<string name="downloader_download_map">Загрузить карту</string>
 	<string name="downloader_download_map_no_routing">Загрузить карту без маршрутов</string>
-	<!-- Button for routing PP. -->
+	<!-- Button for routing. -->
 	<string name="routing_go">Поехали!</string>
 	<!-- Item status in downloader. -->
 	<string name="downloader_retry">Повторите попытку</string>
@@ -769,35 +804,9 @@
 	<!-- Failed planning route message in navigation view -->
 	<string name="routing_planning_error">Ошибка построения маршрута</string>
 	<!-- Arrive routing message in navigation view -->
-	<string name="routing_arrive">Прибытие в</string>
-	<!-- Routing Start button title -->
-	<string name="routing_start">Начать</string>
-	<!-- Planning route message in navigation view -->
-	<string name="routing_planning">Поиск маршрута</string>
+	<string name="routing_arrive">Прибытие в %s</string>
 	<!-- Text for routing::IRouter::FileTooOld dialog. -->
 	<string name="dialog_routing_download_and_update_maps">Для построения маршрута загрузите и обновите все карты по пути следования.</string>
-	<!-- Text for facebook sharing news about walking routes -->
-	<string name="share_walking_routes_facebook">MAPS.ME экономит время на передвижения пешком. Более двух миллионов км. пешеходных дорог и троп используется для построения маршрутов.</string>
-	<!-- Text for messenger sharing news about walking routes -->
-	<string name="share_walking_routes_messenger">MAPS.ME найдет кратчайшие пешеходные маршруты по всему миру! Проверь сам:  http://maps.me/get?walk_im</string>
-	<!-- Text for sms sharing news about walking routes -->
-	<string name="share_walking_routes_sms">MAPS.ME ищет кратчайшие пешеходные маршруты: http://maps.me/get?walk</string>
-	<!-- Subject for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_subject">Пешеходные маршруты теперь доступны в MAPS.ME</string>
-	<!-- Text for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_body">В приложении MAPS.ME появилась пешеходная навигация, разработанная на базе самой детальной карты мира! Благодаря ей ты всегда сможешь найти кратчайший путь к любому месту. Проверь сам: http://maps.me/get?walk_em</string>
-	<!-- Title for walking routes dialog, notifications etc. -->
-	<string name="title_walking_available">В MAPS.ME появилась пешеходная навигация!</string>
-	<!-- Text for walking routes dialog -->
-	<string name="share_walking_routes_first_launch">С её помощью ты найдешь кратчайший путь до любого места. Попробуй сам и поделись новостью с друзьями: пусть и они экономят время на дорогу!</string>
-	<!-- Title for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_congratulations">Поздравляем!</string>
-	<!-- Text for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_mastering">Теперь ты знаешь, как работают пешеходные маршруты. Помоги друзьям также экономить время на дорогу. Расскажи им о MAPS.ME!</string>
-	<!-- Android notification about walking directions for update users -->
-	<string name="walking_notification_text">Хочешь проверить, как она работает?</string>
-	<!-- Android notification with picture (rich) about walking directions for update users -->
-	<string name="walking_rich_notification_text">С её помощью ты найдешь кратчайший путь до любого места. Попробуй сам и поделись новостью с друзьями: пусть и они экономят время на дорогу.</string>
 	<string name="rate_alert_title">Нравится приложение?</string>
 	<string name="rate_alert_default_message">Спасибо что пользуетесь картами MAPS.ME. Пожалуйста, оцените приложение. Ваши оценки и отзывы помогают нам становиться лучше.</string>
 	<string name="rate_alert_five_star_message">Ура! Мы вас тоже любим!</string>
@@ -805,7 +814,7 @@
 	<string name="rate_alert_less_than_four_star_message">Расскажите, что мы могли бы улучшить?</string>
 	<string name="categories">Категории</string>
 	<string name="history">История</string>
-	<string name="next_turn_then">След.</string>
+	<string name="next_turn_then">Далее</string>
 	<string name="closed">Закрыто</string>
 	<string name="back_to">Назад к %s</string>
 	<string name="search_not_found">К сожалению, мы ничего не нашли.</string>
@@ -814,8 +823,22 @@
 	<string name="search_not_found_location">Скачайте карту текущего местоположения.</string>
 	<string name="search_history_title">История поиска</string>
 	<string name="search_history_text">Быстрый доступ к последним поисковым запросам.</string>
-	<string name="update_maps_alert_title">Ориентироваться стало проще</string>
-	<string name="update_maps_alert_message">Мы улучшили стили карт: теперь все объекты выглядят дружелюбнее и понятнее. Обновите карты, чтобы использовать все преимущества нового дизайна.</string>
-	<string name="update_maps_alert_button_title">Обновить карты</string>
 	<string name="clear_search">Очистить историю поиска</string>
+	<!-- Title for settings to enable/disable showcase menu button -->
+	<string name="showcase_settings_title">Показывать рекламу</string>
+	<string name="p2p_route_planning">Планирование маршрута</string>
+	<string name="p2p_your_location">Ваше местоположение</string>
+	<string name="p2p_from">Пункт отправления</string>
+	<string name="p2p_to">Пункт назначения</string>
+	<string name="p2p_start">Начать</string>
+	<string name="p2p_planning">Планируем…</string>
+	<string name="p2p_from_here">Отсюда</string>
+	<string name="p2p_to_here">Сюда</string>
+	<string name="p2p_only_from_current">Навигация возможна только из текущего местоположения.</string>
+	<string name="p2p_reroute_from_current">Хотите перестроить маршрут от вашего местоположения?</string>
+	<string name="whats_new_where_to_turn">MAPS.ME подскажет, куда поворачивать</string>
+	<string name="whats_new_voice_instructions">Друзья, вы давно просили голосовые подсказки во время навигации — мы сделали это! Ваш новый штурман вовремя предупредит о маневре.</string>
+	<string name="whats_new_between_any_points">Стройте маршрут между любыми объектами</string>
+	<string name="whats_new_happy_day">Да, да, это правда! Сегодня счастливый день и еще одно улучшение. Планируйте свои путешествия заранее с MAPS.ME.</string>
+	<string name="whats_new_next">Далее</string>
 </resources>

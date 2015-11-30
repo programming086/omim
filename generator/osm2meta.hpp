@@ -39,6 +39,12 @@ public:
       if (!value.empty())
         md.Add(Metadata::FMD_PHONE_NUMBER, value);
     }
+    else if (k == "maxspeed")
+    {
+      string const & value = ValidateAndFormat_maxspeed(v);
+      if (!value.empty())
+        md.Add(Metadata::FMD_MAXSPEED, value);
+    }
     else if (k == "stars")
     {
       string const & value = ValidateAndFormat_stars(v);
@@ -111,11 +117,25 @@ public:
       if (!value.empty())
         md.Add(Metadata::FMD_WIKIPEDIA, value);
     }
+    else if (k == "addr:flats")
+    {
+      string const & value = ValidateAndFormat_flats(v);
+      if (!value.empty())
+        md.Add(Metadata::FMD_FLATS, value);
+    }
     return false;
   }
 
 protected:
   /// Validation and formatting functions
+
+  string ValidateAndFormat_maxspeed(string const & v) const
+  {
+    if (!ftypes::IsSpeedCamChecker::Instance()(m_params.m_Types))
+      return string();
+
+    return v;
+  }
 
   string ValidateAndFormat_stars(string const & v) const
   {
@@ -189,51 +209,9 @@ protected:
   {
     return v;
   }
-
-  // Special URL encoding for wikipedia:
-  // Replaces special characters with %HH codes
-  // And spaces with underscores.
-  string WikiUrlEncode(string const & value) const
+  string ValidateAndFormat_flats(string const & v) const
   {
-    ostringstream escaped;
-    escaped.fill('0');
-    escaped << hex;
-
-    for (auto const & c : value)
-    {
-      if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
-        escaped << c;
-      else if (c == ' ')
-        escaped << '_';
-      else
-        escaped << '%' << std::uppercase << setw(2) << static_cast<int>(static_cast<unsigned char>(c));
-    }
-
-    return escaped.str();
+    return v;
   }
-
-  string ValidateAndFormat_wikipedia(string const & v) const
-  {
-    // Find prefix before ':', shortest case: "lg:aa".
-    string::size_type i = v.find(':');
-    if (i == string::npos || i < 2 || i + 2 > v.length())
-      return string();
-
-    // URL encode lang:title (lang is at most 3 chars), so URL can be reconstructed faster.
-    if (i <= 3 || v.substr(0, i) == "be-x-old")
-      return v.substr(0, i + 1) + WikiUrlEncode(v.substr(i + 1));
-
-    static string::size_type const minUrlPartLength = string("//be.wikipedia.org/wiki/AB").length();
-    if (v[i+1] == '/' && i + minUrlPartLength < v.length())
-    {
-      // Convert URL to "lang:title".
-      i += 3; // skip "://"
-      string::size_type const j = v.find('.', i + 1);
-      static string const wikiUrlPart = ".wikipedia.org/wiki/";
-      if (j != string::npos && v.substr(j, wikiUrlPart.length()) == wikiUrlPart)
-        return v.substr(i, j - i) + ":" + v.substr(j + wikiUrlPart.length());
-    }
-    return string();
-  }
-
+  string ValidateAndFormat_wikipedia(string v) const;
 };

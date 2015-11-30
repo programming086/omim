@@ -1,24 +1,15 @@
 #include "testing/testing.hpp"
 
+#include "types_helper.hpp"
+
 #include "generator/feature_builder.hpp"
+#include "generator/osm2type.hpp"
 
-#include "indexer/feature_visibility.hpp"
 #include "indexer/classificator_loader.hpp"
-#include "indexer/classificator.hpp"
+#include "indexer/feature_visibility.hpp"
 
+using namespace tests;
 
-namespace
-{
-
-template <size_t N, size_t M> void AddTypes(FeatureParams & params, char const * (&arr)[N][M])
-{
-  Classificator const & c = classif();
-
-  for (size_t i = 0; i < N; ++i)
-    params.AddType(c.GetTypeByPath(vector<string>(arr[i], arr[i] + M)));
-}
-
-}
 
 UNIT_TEST(FBuilder_ManyTypes)
 {
@@ -45,7 +36,7 @@ UNIT_TEST(FBuilder_ManyTypes)
   params.FinishAddingTypes();
   params.AddHouseNumber("75");
   params.AddHouseName("Best House");
-  params.name.AddString(0, "Name");
+  params.AddName("default", "Name");
 
   fb1.SetParams(params);
   fb1.SetCenter(m2::PointD(0, 0));
@@ -105,12 +96,24 @@ UNIT_TEST(FVisibility_RemoveNoDrawableTypes)
   classificator::Load();
   Classificator const & c = classif();
 
-  vector<uint32_t> types;
-  types.push_back(c.GetTypeByPath({ "building" }));
-  types.push_back(c.GetTypeByPath({ "amenity", "theatre" }));
+  {
+    vector<uint32_t> types;
+    types.push_back(c.GetTypeByPath({ "building" }));
+    types.push_back(c.GetTypeByPath({ "amenity", "theatre" }));
 
-  TEST(feature::RemoveNoDrawableTypes(types, feature::GEOM_AREA), ());
-  TEST_EQUAL(types.size(), 2, ());
+    TEST(feature::RemoveNoDrawableTypes(types, feature::GEOM_AREA), ());
+    TEST_EQUAL(types.size(), 2, ());
+  }
+
+  {
+    vector<uint32_t> types;
+    types.push_back(c.GetTypeByPath({ "amenity" }));
+    types.push_back(c.GetTypeByPath({ "building" }));
+
+    TEST(feature::RemoveNoDrawableTypes(types, feature::GEOM_AREA, true), ());
+    TEST_EQUAL(types.size(), 1, ());
+    TEST_EQUAL(types[0], c.GetTypeByPath({ "building" }), ());
+  }
 }
 
 UNIT_TEST(FBuilder_RemoveUselessNames)
@@ -125,8 +128,8 @@ UNIT_TEST(FBuilder_RemoveUselessNames)
   AddTypes(params, arr2);
   params.FinishAddingTypes();
 
-  params.name.AddString(0, "Name");
-  params.name.AddString(8, "Имя");
+  params.AddName("default", "Name");
+  params.AddName("ru", "Имя");
 
   FeatureBuilder1 fb1;
   fb1.SetParams(params);
@@ -144,4 +147,60 @@ UNIT_TEST(FBuilder_RemoveUselessNames)
   TEST(fb1.GetName(8).empty(), ());
 
   TEST(fb1.CheckValid(), ());
+}
+
+UNIT_TEST(FBuilder_WithoutName)
+{
+  classificator::Load();
+  char const * arr1[][1] = { { "amenity" } };
+
+  {
+    FeatureParams params;
+    AddTypes(params, arr1);
+    params.AddName("default", "Name");
+
+    FeatureBuilder1 fb;
+    fb.SetParams(params);
+    fb.SetCenter(m2::PointD(0, 0));
+
+    TEST(fb.PreSerialize(), ());
+    TEST(fb.RemoveInvalidTypes(), ());
+  }
+
+  {
+    FeatureParams params;
+    AddTypes(params, arr1);
+
+    FeatureBuilder1 fb;
+    fb.SetParams(params);
+    fb.SetCenter(m2::PointD(0, 0));
+
+    TEST(fb.PreSerialize(), ());
+    TEST(!fb.RemoveInvalidTypes(), ());
+  }
+}
+
+UNIT_TEST(FBuilder_PointAddress)
+{
+  classificator::Load();
+
+  char const * arr[][2] = { { "addr:housenumber", "39/79" } };
+
+  OsmElement e;
+  FillXmlElement(arr, ARRAY_SIZE(arr), &e);
+
+  FeatureParams params;
+  ftype::GetNameAndType(&e, params);
+
+  TEST_EQUAL(params.m_Types.size(), 1, ());
+  TEST(params.IsTypeExist(GetType({"building", "address"})), ());
+  TEST_EQUAL(params.house.Get(), "39/79", ());
+
+  FeatureBuilder1 fb;
+  fb.SetParams(params);
+  fb.SetCenter(m2::PointD(0, 0));
+
+  TEST(fb.PreSerialize(), ());
+  TEST(fb.RemoveInvalidTypes(), ());
+  TEST(fb.CheckValid(), ());
 }

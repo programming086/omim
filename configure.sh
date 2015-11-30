@@ -1,15 +1,16 @@
-#!/bin/bash
+#!/bin/sh
 # Please run this script to configure the repository after cloning it.
 
 # Stop on the first error.
-set -e
+set -e -u
 
-PRIVATE_HEADER="private.h"
-PRIVATE_PROPERTIES="android/secure.properties"
-SAVED_PRIVATE_REPO_FILE=".private_repository_url"
-TMP_REPO_DIR=".tmp.private.repo"
+BASE_PATH=`dirname "$0"`
+PRIVATE_HEADER="$BASE_PATH/private.h"
+PRIVATE_PROPERTIES="$BASE_PATH/android/secure.properties"
+SAVED_PRIVATE_REPO_FILE="$BASE_PATH/.private_repository_url"
+TMP_REPO_DIR="$BASE_PATH/.tmp.private.repo"
 
-if [ ! -f "./omim.pro" ]; then
+if [ ! -f "$BASE_PATH/omim.pro" ]; then
   echo "Please run this script from the root repository folder."
   exit -1
 fi
@@ -28,8 +29,9 @@ else
 #pragma once
 
 #define ALOHALYTICS_URL ""
-#define FLURRY_KEY ""
+#define FLURRY_KEY "12345678901234567890"
 #define MY_TRACKER_KEY ""
+#define MY_TARGET_KEY ""
 #define PARSE_APPLICATION_ID ""
 #define PARSE_CLIENT_KEY ""
 #define MWM_GEOLOCATION_SERVER ""
@@ -37,6 +39,8 @@ else
 #define RESOURCES_METASERVER_URL ""
 #define METASERVER_URL ""
 #define DEFAULT_URLS_JSON ""
+#define AD_PERMISION_SERVER_URL ""
+#define AD_PERMISION_CHECK_DURATION 2 * 60 * 60
 ' > "$PRIVATE_HEADER"
     echo '
 ext {
@@ -54,8 +58,7 @@ ext {
   fi
 fi
 
-git clone --depth 1 "$PRIVATE_REPO" "$TMP_REPO_DIR"
-if [ $? == 0 ]; then
+if git clone --depth 1 "$PRIVATE_REPO" "$TMP_REPO_DIR"; then
   echo "Saved private repository url to $SAVED_PRIVATE_REPO_FILE"
   echo "$PRIVATE_REPO" > "$SAVED_PRIVATE_REPO_FILE"
   rm -rf "$TMP_REPO_DIR/.git" "$TMP_REPO_DIR/README.md"

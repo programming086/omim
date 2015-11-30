@@ -9,7 +9,7 @@
 namespace gui
 {
   Controller::RenderParams::RenderParams()
-    : m_Density(graphics::EDensityMDPI), m_GlyphCache(0)
+    : m_Density(graphics::EDensityMDPI), m_exactDensityDPI(0), m_GlyphCache(0)
   {}
 
   Controller::Controller()
@@ -17,10 +17,12 @@ namespace gui
   {}
 
   Controller::RenderParams::RenderParams(graphics::EDensity density,
+                                         int exactDensityDPI,
                                          TInvalidateFn invalidateFn,
                                          graphics::GlyphCache * glyphCache,
                                          graphics::Screen * cacheScreen)
     : m_Density(density),
+      m_exactDensityDPI(exactDensityDPI),
       m_InvalidateFn(invalidateFn),
       m_GlyphCache(glyphCache),
       m_CacheScreen(cacheScreen)
@@ -162,7 +164,7 @@ namespace gui
     m_GlyphCache = p.m_GlyphCache;
     m_InvalidateFn = p.m_InvalidateFn;
     m_Density = p.m_Density;
-    m_VisualScale = graphics::visualScale(p.m_Density);
+    m_VisualScale = graphics::visualScaleExact(p.m_exactDensityDPI);
     m_CacheScreen = p.m_CacheScreen;
 
     m_DisplayListCache.reset(new DisplayListCache(m_CacheScreen, m_GlyphCache));
@@ -189,9 +191,9 @@ namespace gui
 
     screen->beginFrame();
 
-    math::Matrix<double, 3, 3> m = math::Identity<double, 3>();
-
-    for_each(m_Elements.begin(), m_Elements.end(), bind(&Element::draw, _1, screen, m));
+    math::Matrix<double, 3, 3> const m = math::Identity<double, 3>();
+    for (auto const & element : m_Elements)
+      element->draw(screen, m);
 
     screen->endFrame();
   }
@@ -210,7 +212,8 @@ namespace gui
   void Controller::SetStringsBundle(StringsBundle const * bundle)
   {
     m_bundle = bundle;
-    for_each(m_Elements.begin(), m_Elements.end(), bind(&Element::setIsDirtyLayout, _1, true));
+    for (auto const & element : m_Elements)
+      element->setIsDirtyLayout(true);
   }
 
   StringsBundle const * Controller::GetStringsBundle() const
@@ -230,17 +233,22 @@ namespace gui
 
   void Controller::UpdateElements()
   {
-    for_each(m_Elements.begin(), m_Elements.end(), bind(&Element::update, _1));
+    for (auto const & element : m_Elements)
+      element->update();
   }
 
   void Controller::PurgeElements()
   {
-    for_each(m_Elements.begin(), m_Elements.end(), bind(&Element::purge, _1));
-    for_each(m_Elements.begin(), m_Elements.end(), bind(&Element::setIsDirtyLayout, _1, true));
+    for (auto const & element : m_Elements)
+    {
+      element->purge();
+      element->setIsDirtyLayout(true);
+    }
   }
 
   void Controller::LayoutElements()
   {
-    for_each(m_Elements.begin(), m_Elements.end(), bind(&Element::checkDirtyLayout, _1));
+    for (auto const & element : m_Elements)
+      element->checkDirtyLayout();
   }
 }

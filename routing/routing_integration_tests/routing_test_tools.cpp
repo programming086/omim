@@ -13,8 +13,6 @@
 #include "routing/route.hpp"
 #include "routing/router_delegate.hpp"
 
-#include "search/search_engine.hpp"
-
 #include "indexer/index.hpp"
 
 #include "platform/local_country_file.hpp"
@@ -24,8 +22,7 @@
 
 #include "geometry/distance_on_sphere.hpp"
 
-#include "search/search_engine.hpp"
-#include "search/search_query_factory.hpp"
+#include "std/limits.hpp"
 
 #include "private.h"
 
@@ -33,7 +30,6 @@
 
 
 using namespace routing;
-using platform::LocalCountryFile;
 
 namespace
 {
@@ -67,71 +63,48 @@ namespace integration
     return featuresFetcher;
   }
 
-  shared_ptr<search::Engine> CreateSearchEngine(shared_ptr<model::FeaturesFetcher> featuresFetcher)
+  unique_ptr<storage::CountryInfoGetter> CreateCountryInfoGetter()
   {
-    ASSERT(featuresFetcher, ());
-    search::Engine::IndexType const & index = featuresFetcher->GetIndex();
-
-    Platform const & pl = GetPlatform();
-    try
-    {
-      shared_ptr<search::Engine> searchEngine(new search::Engine(
-          &index, pl.GetReader(SEARCH_CATEGORIES_FILE_NAME), pl.GetReader(PACKED_POLYGONS_FILE),
-          pl.GetReader(COUNTRIES_FILE), languages::GetCurrentOrig(),
-          make_unique<search::SearchQueryFactory>()));
-      return searchEngine;
-    }
-    catch (RootException const &e)
-    {
-      LOG(LCRITICAL, ("Error:", e.what(), " while creating searchEngine."));
-      return nullptr;
-    }
+    Platform const & platform = GetPlatform();
+    return make_unique<storage::CountryInfoGetter>(platform.GetReader(PACKED_POLYGONS_FILE),
+                                                   platform.GetReader(COUNTRIES_FILE));
   }
 
-  shared_ptr<OsrmRouter> CreateOsrmRouter(Index & index, search::Engine & searchEngine)
+  shared_ptr<OsrmRouter> CreateOsrmRouter(Index & index,
+                                          storage::CountryInfoGetter const & infoGetter)
   {
     shared_ptr<OsrmRouter> osrmRouter(new OsrmRouter(
-        &index, [&searchEngine](m2::PointD const & pt)
+        &index, [&infoGetter](m2::PointD const & pt)
         {
-          return searchEngine.GetCountryFile(pt);
+          return infoGetter.GetRegionFile(pt);
         }
         ));
     return osrmRouter;
   }
 
-  shared_ptr<IRouter> CreatePedestrianRouter(Index & index, search::Engine & searchEngine)
+  shared_ptr<IRouter> CreatePedestrianRouter(Index & index,
+                                             storage::CountryInfoGetter const & infoGetter)
   {
-    auto countryFileGetter = [&searchEngine](m2::PointD const & pt)
+    auto countryFileGetter = [&infoGetter](m2::PointD const & pt)
     {
-      return searchEngine.GetCountryFile(pt);
+      return infoGetter.GetRegionFile(pt);
     };
     unique_ptr<IRouter> router = CreatePedestrianAStarBidirectionalRouter(index, countryFileGetter);
     return shared_ptr<IRouter>(move(router));
   }
 
-  class IRouterComponents
-  {
-  public:
-    virtual IRouter * GetRouter() const = 0;
-    virtual search::Engine * GetSearchEngine() const = 0;
-    virtual ~IRouterComponents() = default;
-  };
-
   class OsrmRouterComponents : public IRouterComponents
   {
   public:
     OsrmRouterComponents(vector<LocalCountryFile> const & localFiles)
-        : m_featuresFetcher(CreateFeaturesFetcher(localFiles)),
-          m_searchEngine(CreateSearchEngine(m_featuresFetcher)),
-          m_osrmRouter(CreateOsrmRouter(m_featuresFetcher->GetIndex(), *m_searchEngine.get()))
+      : IRouterComponents(localFiles)
+      , m_osrmRouter(CreateOsrmRouter(m_featuresFetcher->GetIndex(), *m_infoGetter))
     {
     }
+
     IRouter * GetRouter() const override { return m_osrmRouter.get(); }
-    search::Engine * GetSearchEngine() const override { return m_searchEngine.get(); }
 
   private:
-    shared_ptr<model::FeaturesFetcher> m_featuresFetcher;
-    shared_ptr<search::Engine> m_searchEngine;
     shared_ptr<OsrmRouter> m_osrmRouter;
   };
 
@@ -139,17 +112,14 @@ namespace integration
   {
   public:
     PedestrianRouterComponents(vector<LocalCountryFile> const & localFiles)
-        : m_featuresFetcher(CreateFeaturesFetcher(localFiles)),
-          m_searchEngine(CreateSearchEngine(m_featuresFetcher)),
-          m_router(CreatePedestrianRouter(m_featuresFetcher->GetIndex(), *m_searchEngine))
+      : IRouterComponents(localFiles)
+      , m_router(CreatePedestrianRouter(m_featuresFetcher->GetIndex(), *m_infoGetter))
     {
     }
+
     IRouter * GetRouter() const override { return m_router.get(); }
-    search::Engine * GetSearchEngine() const override { return m_searchEngine.get(); }
 
   private:
-    shared_ptr<model::FeaturesFetcher> m_featuresFetcher;
-    shared_ptr<search::Engine> m_searchEngine;
     shared_ptr<IRouter> m_router;
   };
 
@@ -165,7 +135,8 @@ namespace integration
       pl.SetResourceDir(options.m_resourcePath);
 
     vector<LocalCountryFile> localFiles;
-    platform::FindAllLocalMaps(localFiles);
+    platform::FindAllLocalMapsAndCleanup(numeric_limits<int64_t>::max() /* latestVersion */,
+                                         localFiles);
     for (auto & file : localFiles)
       file.SyncWithDisk();
     ASSERT(!localFiles.empty(), ());
@@ -222,7 +193,7 @@ namespace integration
     double const delta = expectedRouteMeters * relativeError;
     double const routeMeters = route.GetTotalDistanceMeters();
     TEST(my::AlmostEqualAbs(routeMeters, expectedRouteMeters, delta),
-        ("Route time test failed. Expected:", expectedRouteMeters, "have:", routeMeters, "delta:", delta));
+        ("Route length test failed. Expected:", expectedRouteMeters, "have:", routeMeters, "delta:", delta));
   }
 
   void TestRouteTime(Route const & route, double expectedRouteSeconds, double relativeError)
@@ -299,11 +270,12 @@ namespace integration
   {
     auto countryFileGetter = [&routerComponents](m2::PointD const & p) -> string
     {
-      return routerComponents.GetSearchEngine()->GetCountryFile(p);
+      return routerComponents.GetCountryInfoGetter().GetRegionFile(p);
     };
-    auto localFileGetter = [&routerComponents](string const & countryFile) -> shared_ptr<LocalCountryFile>
+    auto localFileGetter =
+        [&routerComponents](string const & countryFile) -> shared_ptr<LocalCountryFile>
     {
-      //Always returns empty LocalFile
+      // Always returns empty LocalCountryFile.
       return make_shared<LocalCountryFile>();
     };
     routing::OnlineAbsentCountriesFetcher fetcher(countryFileGetter, localFileGetter);
@@ -319,9 +291,7 @@ namespace integration
     }
     TEST_EQUAL(absent.size(), expected.size(), ());
     for (string const & name : expected)
-    {
-      TEST(find(absent.begin(), absent.end(), name) != absent.end(), ("Can't find ", name));
-    }
+      TEST(find(absent.begin(), absent.end(), name) != absent.end(), ("Can't find", name));
   }
 
   void TestOnlineCrosses(ms::LatLon const & startPoint, ms::LatLon const & finalPoint,
@@ -334,8 +304,9 @@ namespace integration
     TEST_EQUAL(points.size(), expected.size(), ());
     for (m2::PointD const & point : points)
     {
-      string const mwmName = routerComponents.GetSearchEngine()->GetCountryFile(point);
-      TEST(find(expected.begin(), expected.end(), mwmName) != expected.end(), ("Can't find ", mwmName));
+      string const mwmName = routerComponents.GetCountryInfoGetter().GetRegionFile(point);
+      TEST(find(expected.begin(), expected.end(), mwmName) != expected.end(),
+           ("Can't find ", mwmName));
     }
     TestOnlineFetcher(startPoint, finalPoint, expected, routerComponents);
   }

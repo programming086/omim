@@ -1,5 +1,7 @@
 #import "MWMZoomButtons.h"
 #import "MWMZoomButtonsView.h"
+#import "Statistics.h"
+
 #import "3party/Alohalytics/src/alohalytics_objc.h"
 
 #include "Framework.h"
@@ -30,6 +32,9 @@ extern NSString * const kAlohalyticsTapEventKey;
   {
     [[NSBundle mainBundle] loadNibNamed:kMWMZoomButtonsViewNibName owner:self options:nil];
     [view addSubview:self.zoomView];
+    [self.zoomView layoutIfNeeded];
+    self.zoomView.topBound = 0.0;
+    self.zoomView.bottomBound = view.height;
     self.zoomSwipeEnabled = NO;
   }
   return self;
@@ -52,12 +57,14 @@ extern NSString * const kAlohalyticsTapEventKey;
 
 - (void)zoomIn
 {
+  [[Statistics instance] logEvent:kStatEventName(kStatZoom, kStatIn)];
   [Alohalytics logEvent:kAlohalyticsTapEventKey withValue:@"+"];
   [self zoom:2.0];
 }
 
 - (void)zoomOut
 {
+  [[Statistics instance] logEvent:kStatEventName(kStatZoom, kStatOut)];
   [Alohalytics logEvent:kAlohalyticsTapEventKey withValue:@"-"];
   [self zoom:0.5];
 }

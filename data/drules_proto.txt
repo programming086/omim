@@ -2048,6 +2048,45 @@ cont {
   }
 }
 cont {
+  name: "amenity-clinic"
+  element {
+    scale: 17
+    caption {
+      primary {
+        height: 11
+        color: 4473924
+        stroke_color: 16777215
+        offset_y: 10
+      }
+      priority: 15003
+    }
+  }
+  element {
+    scale: 18
+    caption {
+      primary {
+        height: 11
+        color: 4473924
+        stroke_color: 16777215
+        offset_y: 10
+      }
+      priority: 15003
+    }
+  }
+  element {
+    scale: 19
+    caption {
+      primary {
+        height: 11
+        color: 4473924
+        stroke_color: 16777215
+        offset_y: 10
+      }
+      priority: 15003
+    }
+  }
+}
+cont {
   name: "amenity-college"
   element {
     scale: 13
@@ -2127,6 +2166,45 @@ cont {
       name: "university"
       priority: 16003
     }
+    caption {
+      primary {
+        height: 11
+        color: 4473924
+        stroke_color: 16777215
+        offset_y: 10
+      }
+      priority: 15003
+    }
+  }
+}
+cont {
+  name: "amenity-dentist"
+  element {
+    scale: 17
+    caption {
+      primary {
+        height: 11
+        color: 4473924
+        stroke_color: 16777215
+        offset_y: 10
+      }
+      priority: 15003
+    }
+  }
+  element {
+    scale: 18
+    caption {
+      primary {
+        height: 11
+        color: 4473924
+        stroke_color: 16777215
+        offset_y: 10
+      }
+      priority: 15003
+    }
+  }
+  element {
+    scale: 19
     caption {
       primary {
         height: 11
@@ -5430,6 +5508,37 @@ cont {
   }
 }
 cont {
+  name: "barrier-border_control"
+  element {
+    scale: 16
+    symbol {
+      name: "barrier"
+      priority: 16000
+    }
+  }
+  element {
+    scale: 17
+    symbol {
+      name: "barrier"
+      priority: 16000
+    }
+  }
+  element {
+    scale: 18
+    symbol {
+      name: "barrier"
+      priority: 16000
+    }
+  }
+  element {
+    scale: 19
+    symbol {
+      name: "barrier"
+      priority: 16000
+    }
+  }
+}
+cont {
   name: "barrier-city_wall"
   element {
     scale: 16
@@ -5469,6 +5578,30 @@ cont {
       priority: 1926
       join: ROUNDJOIN
       cap: ROUNDCAP
+    }
+  }
+}
+cont {
+  name: "barrier-entrance"
+  element {
+    scale: 17
+    symbol {
+      name: "gate"
+      priority: 16000
+    }
+  }
+  element {
+    scale: 18
+    symbol {
+      name: "gate"
+      priority: 16000
+    }
+  }
+  element {
+    scale: 19
+    symbol {
+      name: "gate"
+      priority: 16000
     }
   }
 }
@@ -21687,6 +21820,12 @@ cont {
       join: ROUNDJOIN
       cap: ROUNDCAP
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 13
@@ -21710,6 +21849,12 @@ cont {
         color: 4473924
         stroke_color: 16777096
       }
+      priority: 16048
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16048
     }
   }
@@ -21737,6 +21882,12 @@ cont {
       }
       priority: 16048
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 15
@@ -21760,6 +21911,12 @@ cont {
         color: 4473924
         stroke_color: 16777096
       }
+      priority: 16048
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16048
     }
   }
@@ -21787,6 +21944,12 @@ cont {
       }
       priority: 16048
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 17
@@ -21810,6 +21973,12 @@ cont {
         color: 4473924
         stroke_color: 16777096
       }
+      priority: 16048
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16048
     }
   }
@@ -21837,6 +22006,12 @@ cont {
       }
       priority: 16048
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 19
@@ -21860,6 +22035,12 @@ cont {
         color: 4473924
         stroke_color: 16777096
       }
+      priority: 16048
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16048
     }
   }
@@ -21933,6 +22114,12 @@ cont {
       join: ROUNDJOIN
       cap: ROUNDCAP
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 13
@@ -21958,6 +22145,12 @@ cont {
       }
       priority: 16048
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 14
@@ -21981,6 +22174,12 @@ cont {
         color: 4473924
         stroke_color: 16777096
       }
+      priority: 16048
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16048
     }
   }
@@ -22022,6 +22221,12 @@ cont {
       }
       priority: 16048
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 16
@@ -22059,6 +22264,12 @@ cont {
         color: 4473924
         stroke_color: 16777096
       }
+      priority: 16048
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16048
     }
   }
@@ -22100,6 +22311,12 @@ cont {
       }
       priority: 16048
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 18
@@ -22139,6 +22356,12 @@ cont {
       }
       priority: 16048
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 19
@@ -22176,6 +22399,12 @@ cont {
         color: 4473924
         stroke_color: 16777096
       }
+      priority: 16048
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16048
     }
   }
@@ -22249,6 +22478,12 @@ cont {
       join: ROUNDJOIN
       cap: ROUNDCAP
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 13
@@ -22274,6 +22509,12 @@ cont {
       }
       priority: 16048
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 14
@@ -22297,6 +22538,12 @@ cont {
         color: 4473924
         stroke_color: 16777096
       }
+      priority: 16048
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16048
     }
   }
@@ -22342,6 +22589,12 @@ cont {
       }
       priority: 16048
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 16
@@ -22383,6 +22636,12 @@ cont {
         color: 4473924
         stroke_color: 16777096
       }
+      priority: 16048
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16048
     }
   }
@@ -22428,6 +22687,12 @@ cont {
       }
       priority: 16048
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 18
@@ -22471,6 +22736,12 @@ cont {
       }
       priority: 16048
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16048
+    }
   }
   element {
     scale: 19
@@ -22512,6 +22783,12 @@ cont {
         color: 4473924
         stroke_color: 16777096
       }
+      priority: 16048
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16048
     }
   }
@@ -25400,6 +25677,12 @@ cont {
       join: ROUNDJOIN
       cap: ROUNDCAP
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
+    }
   }
   element {
     scale: 13
@@ -25416,6 +25699,12 @@ cont {
       priority: 1045
       join: ROUNDJOIN
       cap: ROUNDCAP
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
     }
   }
   element {
@@ -25440,6 +25729,12 @@ cont {
         color: 4473924
         stroke_color: 16777113
       }
+      priority: 16045
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16045
     }
   }
@@ -25467,6 +25762,12 @@ cont {
       }
       priority: 16045
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
+    }
   }
   element {
     scale: 16
@@ -25490,6 +25791,12 @@ cont {
         color: 4473924
         stroke_color: 16777113
       }
+      priority: 16045
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16045
     }
   }
@@ -25517,6 +25824,12 @@ cont {
       }
       priority: 16045
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
+    }
   }
   element {
     scale: 18
@@ -25542,6 +25855,12 @@ cont {
       }
       priority: 16045
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
+    }
   }
   element {
     scale: 19
@@ -25565,6 +25884,12 @@ cont {
         color: 4473924
         stroke_color: 16777113
       }
+      priority: 16045
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16045
     }
   }
@@ -25587,6 +25912,12 @@ cont {
       join: ROUNDJOIN
       cap: ROUNDCAP
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
+    }
   }
   element {
     scale: 13
@@ -25603,6 +25934,12 @@ cont {
       priority: 1045
       join: ROUNDJOIN
       cap: ROUNDCAP
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
     }
   }
   element {
@@ -25627,6 +25964,12 @@ cont {
         color: 4473924
         stroke_color: 16777113
       }
+      priority: 16045
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16045
     }
   }
@@ -25668,6 +26011,12 @@ cont {
       }
       priority: 16045
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
+    }
   }
   element {
     scale: 16
@@ -25705,6 +26054,12 @@ cont {
         color: 4473924
         stroke_color: 16777113
       }
+      priority: 16045
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16045
     }
   }
@@ -25746,6 +26101,12 @@ cont {
       }
       priority: 16045
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
+    }
   }
   element {
     scale: 18
@@ -25785,6 +26146,12 @@ cont {
       }
       priority: 16045
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
+    }
   }
   element {
     scale: 19
@@ -25822,6 +26189,12 @@ cont {
         color: 4473924
         stroke_color: 16777113
       }
+      priority: 16045
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16045
     }
   }
@@ -25844,6 +26217,12 @@ cont {
       join: ROUNDJOIN
       cap: ROUNDCAP
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
+    }
   }
   element {
     scale: 13
@@ -25860,6 +26239,12 @@ cont {
       priority: 1045
       join: ROUNDJOIN
       cap: ROUNDCAP
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
     }
   }
   element {
@@ -25884,6 +26269,12 @@ cont {
         color: 4473924
         stroke_color: 16777113
       }
+      priority: 16045
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16045
     }
   }
@@ -25929,6 +26320,12 @@ cont {
       }
       priority: 16045
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
+    }
   }
   element {
     scale: 16
@@ -25970,6 +26367,12 @@ cont {
         color: 4473924
         stroke_color: 16777113
       }
+      priority: 16045
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16045
     }
   }
@@ -26015,6 +26418,12 @@ cont {
       }
       priority: 16045
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
+    }
   }
   element {
     scale: 18
@@ -26058,6 +26467,12 @@ cont {
       }
       priority: 16045
     }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
+      priority: 16045
+    }
   }
   element {
     scale: 19
@@ -26099,6 +26514,12 @@ cont {
         color: 4473924
         stroke_color: 16777113
       }
+      priority: 16045
+    }
+    shield {
+      height: 11
+      color: 10044416
+      stroke_color: 16777215
       priority: 16045
     }
   }

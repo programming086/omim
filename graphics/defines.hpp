@@ -9,12 +9,16 @@ namespace graphics
 
   enum EDensity
   {
-    EDensityLDPI = 0,
+    EDensityLDPI = 0, //< The first must be 0
     EDensityMDPI,
     EDensityHDPI,
     EDensityXHDPI,
     EDensityXXHDPI,
-    EDensityIPhone6Plus
+    EDensityIPhone6Plus,
+    // Add new density here
+
+    // Specifies number of EDensity enum values, must be last
+    EDensityCount
   };
 
   /// get density name
@@ -23,8 +27,8 @@ namespace graphics
   /// get density from name
   void convert(char const * name, EDensity & density);
 
-  /// get scaling koefficient for specified density
-  double visualScale(EDensity density);
+  /// Gets visual scale by exact density in dpi.
+  double visualScaleExact(int exactDensityDPI);
 
   /// When adding values here,
   /// please check constructor of ResourceManager,

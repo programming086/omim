@@ -478,13 +478,48 @@
 
 "share_my_location" = "Partager ma position";
 
-"become_a_pro" = "Mettre à niveau";
-
 "menu_search" = "Rechercher";
+
+/* Settings screen: "Map" category title */
+"prefs_group_map" = "Carte";
+
+/* Settings screen: "Miscellaneous" category title */
+"prefs_group_misc" = "Divers";
+
+"prefs_group_route" = "Navigation";
 
 "pref_zoom_title" = "Boutons de zoom";
 
 "pref_zoom_summary" = "Afficher à l'écran";
+
+/* Settings «Map» category: «Map style» title */
+"pref_map_style_title" = "Map style";
+
+/* Settings «Map» category: «Map style» summary */
+"pref_map_style_summary" = "Change map presentation";
+
+/* «Map style» entry value */
+"pref_map_style_classic_light" = "Classic light";
+
+/* «Map style» entry value */
+"pref_map_style_classic_dark" = "Classic dark";
+
+/* «Map style» entry value */
+"pref_map_style_modern_light" = "Modern light";
+
+/* Settings «Route» category: «Tts enabled» title */
+"pref_tts_enable_title" = "Instructions vocales";
+
+/* Settings «Route» category: «Tts language» title */
+"pref_tts_language_title" = "Langue vocale";
+
+/* Settings «Route» category: «Tts unavailable» subtitle */
+"pref_tts_unavailable" = "Non disponible";
+
+/* Title for "Other" section in TTS settings. */
+"pref_tts_other_section_title" = "Autre";
+
+"pref_tts_how_to_set_up_voice" = "Comment configurer la voix";
 
 "placepage_distance" = "Distance";
 
@@ -524,12 +559,6 @@
 /* category title */
 "routes" = "Itinéraires";
 
-/* button in the interface */
-"choose_starting_point" = "Choisir le point de départ…";
-
-/* button in the interface */
-"choose_destination" = "Choisir la destination…";
-
 /* Show on first launch. */
 "maps_licence_info" = "Cette application utilise des données géographiques (incluant des cartes, des listes d'entreprises, des centres d'intérêt, des frontières de pays et de régions, etc.) extraites du projet OpenStreetMap. Nous ne garantissons aucune cohérence, exactitude, complétude ou applicabilité des données d'OpenStreetMap.";
 
@@ -558,6 +587,12 @@
 "settings_and_more" = "Paramètres & plus";
 
 /* Text in menu */
+"website" = "Website";
+
+/* Text in menu */
+"blog" = "Blog";
+
+/* Text in menu */
 "maps_me_community" = "Communauté MAPS.ME";
 
 /* Text in menu */
@@ -569,11 +604,26 @@
 /* Text in menu */
 "contact_us" = "Contactez-nous";
 
+/* Settings: Send feedback button and dialog title */
+"feedback" = "Feedback";
+
+/* Settings: "Send general feedback" button */
+"feedback_general" = "General feedback";
+
 /* Text in menu */
 "subscribe_to_news" = "S'abonner à nos informations";
 
 /* Text in menu */
 "rate_the_app" = "Évaluer l'appli";
+
+/* Rate in Google Play (Android only) */
+"rate_gp" = "Rate on Google Play";
+
+/* Share with friends: menu item title */
+"tell_friends" = "Tell a Friend";
+
+/* Share with friends: sharing text */
+"tell_friends_text" = "Hi! Install Maps.me!";
 
 /* Text in menu */
 "help" = "Aide";
@@ -589,6 +639,9 @@
 
 /* Email body */
 "subscribe_me_body" = "Informez-moi en priorité des dernières nouvelles, des mises à jour et des promotions. Je peux annuler mon abonnement à tout moment.";
+
+/* About short text (below logo) */
+"about_description" = "Joined efforts of Mail.Ru Group and OpenStreetMap make the most useful application for travelers!";
 
 /* About text */
 "about_text" = "MAPS.ME offre les cartes hors ligne les plus rapides de toutes les villes, de tous les pays du monde. Voyagez en toute confiance : où que vous soyez, MAPS.ME permet de vous situer sur la carte, de trouver le restaurant, l'hôtel, la banque, la station d'essence, etc. les plus proches. Ceci sans aucune connexion Internet.\n\nNous travaillons toujours sur de nouvelles fonctionnalités et nous aimerions avoir votre avis sur la manière d'améliorer MAPS.ME. Si vous avez quelque problème avec l'appli, n'hésitez pas à nous contacter à support@maps.me. Nous répondons à toutes les demandes !\n\nVous aimez-vous MAPS.ME et souhaitez nous soutenir ? Il existe des moyens simples et tout à fait gratuits :\n\n- Publier une critique sur votre boutique d'applis\n- aimez notre page Facebook http://www.facebook.com/mapswithme\n- ou parlez simplement de MAPS.ME à votre maman, à vos amis et à vos collègues :)\n\nNous vous remercions de votre fidélité. Nous apprécions beaucoup votre soutien !\n\nP.S. : nous prenons les données cartographiques d'OpenStreetMap, un projet de cartographie similaire à Wikipédia, qui permet aux utilisateurs de créer et de modifier des cartes. Si vous voyez une omission ou une erreur sur la carte, vous pouvez corriger les cartes directement sur http://openstreetmap.org, et vos modifications apparaîtront dans l'appli MAPS.ME lors la prochaine version.";
@@ -679,7 +732,7 @@
 
 "downloader_download_map_no_routing" = "Télécharger la carte sans itinéraire";
 
-/* Button for routing PP. */
+/* Button for routing. */
 "routing_go" = "Allez-y !";
 
 /* Item status in downloader. */
@@ -1193,49 +1246,10 @@
 "routing_planning_error" = "La planification de l'itinéraire a échoué";
 
 /* Arrive routing message in navigation view */
-"routing_arrive" = "Arrivée";
-
-/* Routing Start button title */
-"routing_start" = "Démarrer";
-
-/* Planning route message in navigation view */
-"routing_planning" = "Calcul de l'itinéraire";
+"routing_arrive" = "Arrivée: %s";
 
 /* Text for routing::IRouter::FileTooOld dialog. */
 "dialog_routing_download_and_update_maps" = "Pour créer un trajet, veuillez télécharger et mettre à jour toutes les cartes concernant ce trajet.";
-
-/* Text for facebook sharing news about walking routes */
-"share_walking_routes_facebook" = "MAPS.ME optimise vos temps de marche. Plus de 2 millions de km de routes piétonnes, de chemins et de pistes sont répertoriées pour les itinéraires piétons.";
-
-/* Text for messenger sharing news about walking routes */
-"share_walking_routes_messenger" = "MAPS.ME calcule les itinéraires les plus courts au monde ! Découvrez-les : http://maps.me/get?walk_im";
-
-/* Text for sms sharing news about walking routes */
-"share_walking_routes_sms" = "MAPS.ME calcule les itinéraires les plus directs au monde : http://maps.me/get?walk";
-
-/* Subject for email sharing news about walking routes */
-"share_walking_routes_email_subject" = "Les itinéraires piétons les plus courts sont disponibles";
-
-/* Text for email sharing news about walking routes */
-"share_walking_routes_email_body" = "MAPS.ME vient de dévoiler les Itinéraires piétons utilisant la carte la plus détaillée au monde ! Ils vous indiquent les itinéraires les plus courts vers votre destination. Découvrez-les : http://maps.me/get?walk_em";
-
-/* Title for walking routes dialog, notifications etc. */
-"title_walking_available" = "Itinéraires piétons disponibles dans MAPS.ME !";
-
-/* Text for walking routes dialog */
-"share_walking_routes_first_launch" = "Ils vous indiquent les chemins les plus directs vers chaque destination. Et n’oubliez pas d’aider vos amis à optimiser leurs trajets !";
-
-/* Title for walking routes dialog after 3 built routes */
-"share_walking_routes_congratulations" = "Félicitations !";
-
-/* Text for walking routes dialog after 3 built routes */
-"share_walking_routes_mastering" = "Vous êtes devenu un vrai pro de la fonction Itinéraires piétons. Aidez vos amis à optimiser leurs trajets. Faites leur découvrir MAPS.ME.";
-
-/* Android notification about walking directions for update users */
-"walking_notification_text" = "Vous voulez les essayer ?";
-
-/* Android notification with picture (rich) about walking directions for update users */
-"walking_rich_notification_text" = "Ils vous indiquent les chemins les plus directs vers votre destination. Essayez-les par vous-même et aidez vos amis à optimiser leurs temps de trajet.";
 
 "rate_alert_title" = "Vous aimez l’application ?";
 
@@ -1251,9 +1265,9 @@
 
 "history" = "Historique";
 
-"next_turn_then" = "Luego";
+"next_turn_then" = "Ensuite";
 
-"closed" = "Cerrado";
+"closed" = "Fermé";
 
 "back_to" = "Revenir à %@";
 
@@ -1269,10 +1283,40 @@
 
 "search_history_text" = "Accédez rapidement aux dernières recherches.";
 
-"update_maps_alert_title" = "Explorer la carte est désormais plus facile";
-
-"update_maps_alert_message" = "Nous avons amélioré les styles de carte : tous les objets apparaissent maintenant plus conviviaux et clairs. Mettez à jour les cartes pour profiter pleinement du nouveau design.";
-
-"update_maps_alert_button_title" = "Mettre à jour les cartes";
-
 "clear_search" = "Effacer l'historique de recherche";
+
+/* Title for settings to enable/disable showcase menu button */
+"showcase_settings_title" = "Afficher publicité";
+
+/* Place Page link to Wikipedia article (if map object has it). */
+"read_in_wikipedia" = "Wikipedia";
+
+"p2p_route_planning" = "Planification d’itinéraire";
+
+"p2p_your_location" = "Votre emplacement";
+
+"p2p_from" = "Le lieu de départ";
+
+"p2p_to" = "Le lieu de destination";
+
+"p2p_start" = "Démarrer";
+
+"p2p_planning" = "En cours de planification…";
+
+"p2p_from_here" = "Depuis";
+
+"p2p_to_here" = "Jusqu'à";
+
+"p2p_only_from_current" = "La navigation est uniquement disponible à partir de votre emplacement actuel.";
+
+"p2p_reroute_from_current" = "Souhaitez-vous que nous planifiions un itinéraire à partir de votre emplacement actuel ?";
+
+"whats_new_where_to_turn" = "MAPS.ME vous dit quand tourner";
+
+"whats_new_voice_instructions" = "Chers amis, vous nous demandiez depuis longtemps d'inclure des instructions vocales au cours de la navigation – nous l'avons fait ! Désormais, notre navigateur vous préviendra à l'avance de votre prochain virage.";
+
+"whats_new_between_any_points" = "Obtenez des itinéraires entre n'importe quels points";
+
+"whats_new_happy_day" = "Nous vous souhaitons une bonne journée ! Préparez vos trajet en avance avec MAPS.ME";
+
+"whats_new_next" = "Neste";

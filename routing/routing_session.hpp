@@ -4,7 +4,7 @@
 #include "routing/route.hpp"
 #include "routing/router.hpp"
 #include "routing/turns.hpp"
-#include "routing/turns_sound.hpp"
+#include "routing/turns_notification_manager.hpp"
 
 #include "platform/location.hpp"
 
@@ -14,6 +14,8 @@
 #include "base/deferred_task.hpp"
 #include "base/mutex.hpp"
 
+#include "std/atomic.hpp"
+#include "std/limits.hpp"
 #include "std/unique_ptr.hpp"
 
 namespace location
@@ -23,6 +25,15 @@ class RouteMatchingInfo;
 
 namespace routing
 {
+struct SpeedCameraRestriction
+{
+  size_t m_index;  // Index of a polyline point where camera is located.
+  uint8_t m_maxSpeedKmH;  // Maximum speed allowed by the camera.
+
+  SpeedCameraRestriction(size_t index, uint8_t maxSpeed) : m_index(index), m_maxSpeedKmH(maxSpeed) {}
+  SpeedCameraRestriction() : m_index(0), m_maxSpeedKmH(numeric_limits<uint8_t>::max()) {}
+};
+
 class RoutingSession
 {
 public:
@@ -34,7 +45,8 @@ public:
     RouteNotStarted,   // route is builded but the user isn't on it
     OnRoute,           // user follows the route
     RouteNeedRebuild,  // user left the route
-    RouteFinished      // destination point is reached but the session isn't closed
+    RouteFinished,     // destination point is reached but the session isn't closed
+    RouteNoFollowing   // route is built but following mode has been disabled
   };
 
   /*
@@ -44,6 +56,7 @@ public:
    * RouteNotStarted -> OnRoute           // user started following the route
    * RouteNotStarted -> RouteNeedRebuild  // user doesn't like the route.
    * OnRoute -> RouteNeedRebuild          // user moves away from route - need to rebuild
+   * OnRoute -> RouteNoFollowing          // following mode was disabled. Router doesn't track position.
    * OnRoute -> RouteFinished             // user reached the end of route
    * RouteNeedRebuild -> RouteNotReady    // start rebuild route
    * RouteFinished -> RouteNotReady       // start new route
@@ -77,7 +90,8 @@ public:
   bool IsOnRoute() const { return (m_state == OnRoute); }
   void Reset();
 
-  State OnLocationPositionChanged(m2::PointD const & position, location::GpsInfo const & info);
+  State OnLocationPositionChanged(m2::PointD const & position, location::GpsInfo const & info,
+                                  Index const & index);
   void GetRouteFollowingInfo(location::FollowingInfo & info) const;
 
   void MatchLocationToRoute(location::GpsInfo & location,
@@ -87,15 +101,20 @@ public:
 
   void ActivateAdditionalFeatures() {}
 
+  /// Disable following mode on GPS updates. Following mode is disabled only for the current route.
+  /// If a route is rebuilt you must call DisableFollowMode again.
+  /// Returns true if following was disabled, false if a route is not ready for the following yet.
+  bool DisableFollowMode();
+
   void SetRoutingSettings(RoutingSettings const & routingSettings);
 
   // Sound notifications for turn instructions.
   void EnableTurnNotifications(bool enable);
   bool AreTurnNotificationsEnabled() const;
-  void SetTurnNotificationsUnits(routing::turns::sound::LengthUnits const & units);
+  void SetTurnNotificationsUnits(Settings::Units const units);
   void SetTurnNotificationsLocale(string const & locale);
   string GetTurnNotificationsLocale() const;
-  void GenerateTurnSound(vector<string> & turnNotifications);
+  void GenerateTurnNotifications(vector<string> & turnNotifications);
 
 private:
   struct DoReadyCallback
@@ -115,6 +134,10 @@ private:
 
   void AssignRoute(Route & route, IRouter::ResultCode e);
 
+  /// Returns a nearest speed camera record on your way and distance to it.
+  /// Returns kInvalidSpeedCameraDistance if there is no cameras on your way.
+  double GetDistanceToCurrentCamM(SpeedCameraRestriction & camera, Index const & index);
+
   /// RemoveRoute removes m_route and resets route attributes (m_state, m_lastDistance, m_moveAwayCounter).
   void RemoveRoute();
   void RemoveRouteImpl();
@@ -122,8 +145,17 @@ private:
 private:
   unique_ptr<AsyncRouter> m_router;
   Route m_route;
-  State m_state;
+  atomic<State> m_state;
   m2::PointD m_endPoint;
+  size_t m_lastWarnedSpeedCameraIndex;
+  SpeedCameraRestriction m_lastFoundCamera;
+  // Index of a last point on a route checked for a speed camera.
+  size_t m_lastCheckedSpeedCameraIndex;
+
+  // TODO (ldragunov) Rewrite UI interop to message queue and avoid mutable.
+  /// This field is mutable because it's modified in a constant getter. Note that the notification
+  /// about camera will be sent at most once.
+  mutable bool m_speedWarningSignal;
 
   mutable threads::Mutex m_routeSessionMutex;
 
@@ -133,7 +165,7 @@ private:
   m2::PointD m_lastGoodPosition;
 
   // Sound turn notification parameters.
-  turns::sound::TurnsSound m_turnsSound;
+  turns::sound::NotificationManager m_turnNotificationsMgr;
 
   RoutingSettings m_routingSettings;
 

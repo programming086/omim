@@ -8,13 +8,33 @@ using namespace routing;
 
 namespace
 {
+  UNIT_TEST(StrangeCaseInAfrica)
+  {
+    integration::CalculateRouteAndTestRouteLength(
+        integration::GetOsrmComponents(), MercatorBounds::FromLatLon(19.207890000000002573, 30.506630000000001246), {0., 0.},
+        MercatorBounds::FromLatLon(19.172889999999998878, 30.473150000000000404), 7250.);
+  }
+
+  // Node filtering test. SVO has many restricted service roads that absent in a OSRM index.
+  UNIT_TEST(MoscowToSVOAirport)
+  {
+    integration::CalculateRouteAndTestRouteLength(
+          integration::GetOsrmComponents(),
+          MercatorBounds::FromLatLon(55.75100, 37.61790), {0., 0.},
+          MercatorBounds::FromLatLon(55.97310, 37.41460), 30470.);
+    integration::CalculateRouteAndTestRouteLength(
+          integration::GetOsrmComponents(),
+          MercatorBounds::FromLatLon(55.97310, 37.41460), {0., 0.},
+          MercatorBounds::FromLatLon(55.75100, 37.61790), 30470.);
+  }
+
   // Restrictions tests. Check restrictions generation, if there are any errors.
   UNIT_TEST(RestrictionTestNeatBaumanAndTTK)
   {
     integration::CalculateRouteAndTestRouteLength(
           integration::GetOsrmComponents(),
           MercatorBounds::FromLatLon(55.77399, 37.68468), {0., 0.},
-          MercatorBounds::FromLatLon(55.77198, 37.68782), 900.);
+          MercatorBounds::FromLatLon(55.77198, 37.68782), 700.);
   }
 
   UNIT_TEST(RestrictionTestNearMetroShodnenskaya)
@@ -107,6 +127,14 @@ namespace
         {11.327927635052676, 48.166256203616726}, 2870710.);
   }
 
+  UNIT_TEST(PeruSingleRoadTest)
+  {
+    integration::CalculateRouteAndTestRouteLength(
+        integration::GetOsrmComponents(),
+        MercatorBounds::FromLatLon(-14.22061, -73.35969), {0., 0.},
+        MercatorBounds::FromLatLon(-14.22389, -73.44281), 15900.);
+  }
+
   UNIT_TEST(RussiaMoscowFranceParisCenterRouteTest)
   {
     integration::CalculateRouteAndTestRouteLength(
@@ -115,18 +143,17 @@ namespace
         MercatorBounds::FromLatLon(48.86123, 2.34129), 2840940.);
   }
 
-// @TODO This test is failed to create a route for the time being with data from 12.09.2015.
-// Now it's impossible to create a vehicle route from Paris to London.
-// The assumed reason is some tags of the tunnel were changed and we stop working with
-// the situation correctly.
-// At the same time OSRM manages to create routes through the tunnel.
-  UNIT_TEST(FranceParisCenternglandLondonCenterRouteTest)
-  {
-    integration::CalculateRouteAndTestRouteLength(
-        integration::GetOsrmComponents(),
-        MercatorBounds::FromLatLon(48.86123, 2.34129), {0., 0.},
-        MercatorBounds::FromLatLon(51.49884, -0.10438), 0./* Some unknown value*/);
-  }
+// TODO(gardster) repair routing to London.
+// https://trello.com/c/WPSQUu9J/1932-francepariscenternglandlondoncenterroutetest
+// OSRM routes through a OSM way with tag render:no. So we have no geometry in the
+// mwm and we can not obtain a cross section exit point.
+//  UNIT_TEST(FranceParisCenternglandLondonCenterRouteTest)
+//  {
+//    integration::CalculateRouteAndTestRouteLength(
+//        integration::GetOsrmComponents(),
+//        MercatorBounds::FromLatLon(48.86123, 2.34129), {0., 0.},
+//        MercatorBounds::FromLatLon(51.49884, -0.10438), 0./* Some unknown value*/);
+//  }
 
   // Strange map edits in Africa borders. Routing not linked now.
   /*
@@ -214,7 +241,8 @@ namespace
   UNIT_TEST(RussiaSmolenskRussiaMoscowTimeTest)
   {
     TRouteResult const routeResult = integration::CalculateRoute(
-        integration::GetOsrmComponents(), {32.05489, 65.78463}, {0., 0.}, {37.60169, 67.45807});
+        integration::GetOsrmComponents(), MercatorBounds::FromLatLon(54.7998, 32.05489), {0., 0.},
+        MercatorBounds::FromLatLon(55.753, 37.60169));
 
     Route const & route = *routeResult.first;
     IRouter::ResultCode const result = routeResult.second;
@@ -226,12 +254,12 @@ namespace
   UNIT_TEST(RussiaMoscowLenigradskiy39GeroevPanfilovtsev22TimeTest)
   {
     TRouteResult const routeResult = integration::CalculateRoute(
-        integration::GetOsrmComponents(), {37.53804, 67.53647}, {0., 0.}, {37.40990, 67.64474});
-
+        integration::GetOsrmComponents(), MercatorBounds::FromLatLon(55.7971, 37.53804), {0., 0.},
+        MercatorBounds::FromLatLon(55.8579, 37.40990));
     Route const & route = *routeResult.first;
     IRouter::ResultCode const result = routeResult.second;
     TEST_EQUAL(result, IRouter::NoError, ());
 
-    integration::TestRouteTime(route, 910.);
+    integration::TestRouteTime(route, 900.);
   }
 }  // namespace

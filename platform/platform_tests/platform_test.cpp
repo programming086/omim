@@ -22,9 +22,13 @@ char const * TEST_FILE_NAME = "some_temporary_unit_test_file.tmp";
 void CheckFilesPresence(string const & baseDir, unsigned typeMask,
                         initializer_list<pair<string, size_t>> const & files)
 {
-  Platform::FilesList filesList;
-  Platform::GetFilesByType(baseDir, typeMask, filesList);
-  multiset<string> filesSet(filesList.begin(), filesList.end());
+  Platform::TFilesWithType fwts;
+  Platform::GetFilesByType(baseDir, typeMask, fwts);
+
+  multiset<string> filesSet;
+  for (auto const & fwt : fwts)
+    filesSet.insert(fwt.first);
+
   for (auto const & file : files)
     TEST_EQUAL(filesSet.count(file.first), file.second, (file.first, file.second));
 }
@@ -106,11 +110,20 @@ UNIT_TEST(DirsRoutines)
   Platform & platform = GetPlatform();
   string const baseDir = platform.WritableDir();
   string const testDir = my::JoinFoldersToPath(baseDir, "test-dir");
+  string const testFile = my::JoinFoldersToPath(testDir, "test-file");
 
   TEST(!Platform::IsFileExistsByFullPath(testDir), ());
   TEST_EQUAL(platform.MkDir(testDir), Platform::ERR_OK, ());
 
   TEST(Platform::IsFileExistsByFullPath(testDir), ());
+  TEST(Platform::IsDirectoryEmpty(testDir), ());
+
+  {
+    FileWriter writer(testFile);
+  }
+  TEST(!Platform::IsDirectoryEmpty(testDir), ());
+  FileWriter::DeleteFileX(testFile);
+
   TEST_EQUAL(Platform::RmDir(testDir), Platform::ERR_OK, ());
 
   TEST(!Platform::IsFileExistsByFullPath(testDir), ());

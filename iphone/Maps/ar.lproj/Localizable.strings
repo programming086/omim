@@ -478,13 +478,48 @@
 
 "share_my_location" = "مشاركة موقعي";
 
-"become_a_pro" = "ترقية";
-
 "menu_search" = "بحث";
+
+/* Settings screen: "Map" category title */
+"prefs_group_map" = "الخريطة";
+
+/* Settings screen: "Miscellaneous" category title */
+"prefs_group_misc" = "مُتَنَوّعة";
+
+"prefs_group_route" = "الملاحة";
 
 "pref_zoom_title" = "أزرار التكبير";
 
 "pref_zoom_summary" = "عرض على الشاشة";
+
+/* Settings «Map» category: «Map style» title */
+"pref_map_style_title" = "Map style";
+
+/* Settings «Map» category: «Map style» summary */
+"pref_map_style_summary" = "Change map presentation";
+
+/* «Map style» entry value */
+"pref_map_style_classic_light" = "Classic light";
+
+/* «Map style» entry value */
+"pref_map_style_classic_dark" = "Classic dark";
+
+/* «Map style» entry value */
+"pref_map_style_modern_light" = "Modern light";
+
+/* Settings «Route» category: «Tts enabled» title */
+"pref_tts_enable_title" = "تعليمات صوتية";
+
+/* Settings «Route» category: «Tts language» title */
+"pref_tts_language_title" = "لغة الصوت";
+
+/* Settings «Route» category: «Tts unavailable» subtitle */
+"pref_tts_unavailable" = "غير متاح";
+
+/* Title for "Other" section in TTS settings. */
+"pref_tts_other_section_title" = "آخر";
+
+"pref_tts_how_to_set_up_voice" = "كيفية ضبط الصوت";
 
 "placepage_distance" = "المسافة";
 
@@ -524,12 +559,6 @@
 /* category title */
 "routes" = "المسارات";
 
-/* button in the interface */
-"choose_starting_point" = "اختيار نقطة البداية…";
-
-/* button in the interface */
-"choose_destination" = "اختيار الوجهة…";
-
 /* Show on first launch. */
 "maps_licence_info" = "This applications uses geographical data (including maps, business listings, points of interest, borders of countries and regions, etc.) taken from the OpenStreetMap project. We do not warrant any consistency, accuracy, completeness or applicability of the OpenStreetMap data.";
 
@@ -558,6 +587,12 @@
 "settings_and_more" = "الإعدادات والمزيد";
 
 /* Text in menu */
+"website" = "Website";
+
+/* Text in menu */
+"blog" = "Blog";
+
+/* Text in menu */
 "maps_me_community" = "مجتمع MAPS.ME";
 
 /* Text in menu */
@@ -569,11 +604,26 @@
 /* Text in menu */
 "contact_us" = "أتصل بنا";
 
+/* Settings: Send feedback button and dialog title */
+"feedback" = "Feedback";
+
+/* Settings: "Send general feedback" button */
+"feedback_general" = "General feedback";
+
 /* Text in menu */
 "subscribe_to_news" = "أشترك في نشرتنا الإخبارية";
 
 /* Text in menu */
 "rate_the_app" = "تقييم التطبيق";
+
+/* Rate in Google Play (Android only) */
+"rate_gp" = "Rate on Google Play";
+
+/* Share with friends: menu item title */
+"tell_friends" = "Tell a Friend";
+
+/* Share with friends: sharing text */
+"tell_friends_text" = "Hi! Install Maps.me!";
 
 /* Text in menu */
 "help" = "مساعدة";
@@ -589,6 +639,9 @@
 
 /* Email body */
 "subscribe_me_body" = "أريد أن أكون أول من يعرف آخر الأخبار والتحديثات والترقيات. يمكنني إلغاء اشتراكي في أي وقت.";
+
+/* About short text (below logo) */
+"about_description" = "Joined efforts of Mail.Ru Group and OpenStreetMap make the most useful application for travelers!";
 
 /* About text */
 "about_text" = "توفر لكم MAPS.ME أحدث الخرائط دون الاتصال بالإنترنت لكافة دول وكافة مدن العالم. سافر وتمتع بالثقة التامة: إينما كنت، تساعدك MAPS.ME على تحديد مكانك على الخريطة، والعثور على أقرب مطعم أو فندق أو بنك أو محطة غاز الخ لا يتطلب الاتصال بالإنترنت.\n\nنحن نعمل دوماً على إدخال مزايا جديدة على التطبيق ونود أن نسمع منك رأيك عن الكيفية التي يمكن بها تحسين تطبيق MAPS.ME في رأيك. إذا واجهتك أي مشاكل مع التطبيق، لا تتردد في الاتصال بنا على support@maps.me. نحن نرد على كافة الطلبات.\n\nهل أعجبك تطبيق MAPS.ME وترغب في دعمنا؟ هناك بعض الطرق السهلة والمجانية بالكامل لعمل ذلك.\n\n- انشر رأيك على متجر التطبيقات الخاص بك\n- اعجب بصفحتنا على موقع Facebook http://www.facebook.com/mapswithme\n- أو أخبر والدتك وأصدقائك وزملائك عن تطبيق MAPS.ME :)\n\nشكراً لك على وجودك معنا. نحن نقدر جداً دعمك لنا!\n\nيُرجى ملاحظة نحن نستقي بيانات الخرائط من OpenStreetMap، مشروع خرائط يشبه موسوعة Wikipedia ويتيح هذا المشروع للمستخدمين إنشاء وتحرير الخرائط. إذا كنت ترى أن هناك خطأ ما أو شيء غير موجود على الخريطة، يمكنك تصحيح الخرائط مباشرة على http://openstreetmap.org، وسوف تظهر تغييراتك على تطبيق MAPS.ME في الإصدار القادم للتطبيق.";
@@ -679,7 +732,7 @@
 
 "downloader_download_map_no_routing" = "تنزيل خريطة بدون تحديد خط السير";
 
-/* Button for routing PP. */
+/* Button for routing. */
 "routing_go" = "انطلق!";
 
 /* Item status in downloader. */
@@ -1193,49 +1246,10 @@
 "routing_planning_error" = "فشل في تخطيط المسار";
 
 /* Arrive routing message in navigation view */
-"routing_arrive" = "الوصول";
-
-/* Routing Start button title */
-"routing_start" = "ابدأ";
-
-/* Planning route message in navigation view */
-"routing_planning" = "يتم تخطيط المسار";
+"routing_arrive" = "الوصول: %s";
 
 /* Text for routing::IRouter::FileTooOld dialog. */
 "dialog_routing_download_and_update_maps" = "لإنشاء مسار، يرجى تنزيل وتحديث جميع الخرائط على امتداد الطريق.";
-
-/* Text for facebook sharing news about walking routes */
-"share_walking_routes_facebook" = "توفر لك MAPS.ME في وقت السير. يتوافر الآن أكثر من 2 مليون كيلومتر من طرق المشاة، والمسارات، والدروب المتاحة لاتجاهات السير.";
-
-/* Text for messenger sharing news about walking routes */
-"share_walking_routes_messenger" = "تقدم MAPS.ME طرق السير الأقصر عالمياً! راجع:http://maps.me/get?walk_im";
-
-/* Text for sms sharing news about walking routes */
-"share_walking_routes_sms" = "تقدم MAPS.ME طرق السير الأقصر: http://maps.me/get?walk";
-
-/* Subject for email sharing news about walking routes */
-"share_walking_routes_email_subject" = "طرق السير الأقصر صارت متاحة";
-
-/* Text for email sharing news about walking routes */
-"share_walking_routes_email_body" = "لقد أصدرتMAPS.ME للتو وظيفة اتجاهات السير والتي تقوم في أساسها على الخريطة الأكثر تفصيلا في العالم! أنها تزودك بأقصر الطرق إلى أي وجهة تنشدها. جربها من: http://maps.me/get?walk_em";
-
-/* Title for walking routes dialog, notifications etc. */
-"title_walking_available" = "!MAPS.ME تريد أن تجربها؟";
-
-/* Text for walking routes dialog */
-"share_walking_routes_first_launch" = "إنها تعطيك الطريق الأقصر إلى أي وجهة تقصدها. ساعد أصدقائك أيضا في توفير وقت السير!";
-
-/* Title for walking routes dialog after 3 built routes */
-"share_walking_routes_congratulations" = "تهانينا!";
-
-/* Text for walking routes dialog after 3 built routes */
-"share_walking_routes_mastering" = "لقد أتقنت وظيفة اتجاهات السير. ساعد أصدقائك أيضا في توفير وقت السير. اخبرهم عن MAPS.ME.";
-
-/* Android notification about walking directions for update users */
-"walking_notification_text" = "تتوفر اتجاهات السير في";
-
-/* Android notification with picture (rich) about walking directions for update users */
-"walking_rich_notification_text" = "إنها تعطيك الطريق الأقصر إلى أي وجهة تقصدها. جربها بنفسك، وساعد أصدقائك في إيجاز وقت السفر.";
 
 "rate_alert_title" = "يعجبك التطبيق؟";
 
@@ -1269,10 +1283,40 @@
 
 "search_history_text" = "الوصول إلى استعلامات البحث الحديثة بسرعة.";
 
-"update_maps_alert_title" = "تصفح الخريطة أصبح أسهل الآن";
-
-"update_maps_alert_message" = "قمنا بتحسين تصاميم الخريطة: الآن أصبحت كل الأشياء واضحة وسهلة الاستخدام. قم بتحديث الخرائط لتحصل على المزيد من التصميم الجديد.";
-
-"update_maps_alert_button_title" = "تحديث الخرائط";
-
 "clear_search" = "مسح تاريخ البحث";
+
+/* Title for settings to enable/disable showcase menu button */
+"showcase_settings_title" = "إظهار الإعلانات";
+
+/* Place Page link to Wikipedia article (if map object has it). */
+"read_in_wikipedia" = "Wikipedia";
+
+"p2p_route_planning" = "تخطيط الطريق";
+
+"p2p_your_location" = "موقعك";
+
+"p2p_from" = "نقطة المغادرة";
+
+"p2p_to" = "نقطة الوصول";
+
+"p2p_start" = "البداية";
+
+"p2p_planning" = "جار التخطيط…";
+
+"p2p_from_here" = "من";
+
+"p2p_to_here" = "إلى";
+
+"p2p_only_from_current" = "تتوافر إمكانية التنقل فقط من خلال موقعك الحالي. هل تريد أن نخطط لك طريقاً بديلاً؟";
+
+"p2p_reroute_from_current" = "هل ترغب في أن نرسم مسار لك من موقعك الحالي؟";
+
+"whats_new_where_to_turn" = "سوف تمكنك MAPS.ME من معرفة أين تتجه";
+
+"whats_new_voice_instructions" = "الأصدقاء الأعزاء، لطالما طالبتم بتوفير تعليمات صوتية أثناء التنقل – لقد قمنا بذلك! سوف يتولى الملاح الخاص بنا الآن تحذيريكم في الوقت المناسب عند قرب المنعطف القادم.";
+
+"whats_new_between_any_points" = "إنشاء الطرق بين أي نقاط";
+
+"whats_new_happy_day" = "يوم سعيد حقا! قم بتخطيط رحلاتك مقدماً مع MAPS.ME.";
+
+"whats_new_next" = "التالي";

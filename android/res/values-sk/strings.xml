@@ -272,7 +272,7 @@
 	<!-- iOS share by Message button text (including SMS) -->
 	<string name="message">Správa</string>
 	<!-- Share by email button text -->
-	<string name="email">E-Mail</string>
+	<string name="email">E-mail</string>
 	<!-- Copy Link -->
 	<string name="copy_link">Skopírovať odkaz</string>
 	<!-- Text for the button that returns to caller application -->
@@ -302,10 +302,23 @@
 	<!-- Length of track in cell that describes route -->
 	<string name="length">Diaľka</string>
 	<string name="share_my_location">Zdielať moje umiestnenie</string>
-	<string name="become_a_pro">Vykonať upgrade</string>
 	<string name="menu_search">Vyhľadávanie</string>
+	<!-- Settings screen: "Map" category title -->
+	<string name="prefs_group_map">Mapa</string>
+	<!-- Settings screen: "Miscellaneous" category title -->
+	<string name="prefs_group_misc">Ostatné nastavenia</string>
+	<string name="prefs_group_route">Navigácia</string>
 	<string name="pref_zoom_title">Tlačítka priblíženia/oddialenia</string>
 	<string name="pref_zoom_summary">Zobraziť na obrazovke</string>
+	<!-- Settings «Route» category: «Tts enabled» title -->
+	<string name="pref_tts_enable_title">Hlasové povely</string>
+	<!-- Settings «Route» category: «Tts language» title -->
+	<string name="pref_tts_language_title">Nastavenia jazyka povelov</string>
+	<!-- Settings «Route» category: «Tts unavailable» subtitle -->
+	<string name="pref_tts_unavailable">Nie je k dispozícii</string>
+	<!-- Title for "Other" section in TTS settings. -->
+	<string name="pref_tts_other_section_title">Iný</string>
+	<string name="pref_tts_how_to_set_up_voice">Ako nastaviť hlas</string>
 	<string name="placepage_distance">Vzdialenosť</string>
 	<string name="placepage_coordinates">Súradnice</string>
 	<string name="placepage_unsorted">Nezaradené</string>
@@ -330,10 +343,6 @@
 	<string name="route">Trasa</string>
 	<!-- category title -->
 	<string name="routes">Trasy</string>
-	<!-- button in the interface -->
-	<string name="choose_starting_point">Zvoliť východisko…</string>
-	<!-- button in the interface -->
-	<string name="choose_destination">Zvoliť cieľ…</string>
 	<!-- Show on first launch. -->
 	<string name="maps_licence_info">Táto aplikácia používa geografické dáta (zahrňujúce mapy, obchodné zoznamy, body záujmov, hranice krajín a regiónov, atď.) prevzaté z OpenStreetMap projektu. Negarantujeme žiadnu jednotnosť, presnosť, úplnosť alebo použiteľnosť dát OpenStreetMap.</string>
 	<!-- Show on first launch. -->
@@ -433,7 +442,7 @@
 	<!-- Context menu item for downloader. -->
 	<string name="downloader_download_map">Stiahnuť mapu</string>
 	<string name="downloader_download_map_no_routing">Stiahnite si mapu bez smerovania</string>
-	<!-- Button for routing PP. -->
+	<!-- Button for routing. -->
 	<string name="routing_go">Štart!</string>
 	<!-- Item status in downloader. -->
 	<string name="downloader_retry">Skúsiť znova</string>
@@ -761,35 +770,9 @@
 	<!-- Failed planning route message in navigation view -->
 	<string name="routing_planning_error">Plánovanie trasy zlyhalo</string>
 	<!-- Arrive routing message in navigation view -->
-	<string name="routing_arrive">Pricestovať</string>
-	<!-- Routing Start button title -->
-	<string name="routing_start">Spustiť</string>
-	<!-- Planning route message in navigation view -->
-	<string name="routing_planning">Plánovanie trasy</string>
+	<string name="routing_arrive">Pricestovať: %s</string>
 	<!-- Text for routing::IRouter::FileTooOld dialog. -->
 	<string name="dialog_routing_download_and_update_maps">Prosím, pre vytvorenie trasy si stiahnite a aktualizujte všetky mapy pozdĺž trasy.</string>
-	<!-- Text for facebook sharing news about walking routes -->
-	<string name="share_walking_routes_facebook">MAPS.ME vám ušetrí čas pri chôdzi. Viac ako 2 milióny kilometrov peších trás, tratí a chodníkov je teraz k dispozícii peším smerom.</string>
-	<!-- Text for messenger sharing news about walking routes -->
-	<string name="share_walking_routes_messenger">MAPS.ME udáva najkratšie pešie trasy po celom svete! Pozrite sa na: http://maps.me/get?walk_im</string>
-	<!-- Text for sms sharing news about walking routes -->
-	<string name="share_walking_routes_sms">MAPS.ME udáva najkratšie pešie trasy: http://maps.me/get?walk</string>
-	<!-- Subject for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_subject">K dispozícii sú najkratšie pešie trasy</string>
-	<!-- Text for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_body">MAPS.ME práve vydala Pešie smery, na základe najpodrobnejšej mapy na svete! Udávajú najkratšiu trasu na akékoľvek miesto. Vyskúšajte si ich: http://maps.me/get?walk_em</string>
-	<!-- Title for walking routes dialog, notifications etc. -->
-	<string name="title_walking_available">Pešie smery sú k dispozícii na MAPS.ME!</string>
-	<!-- Text for walking routes dialog -->
-	<string name="share_walking_routes_first_launch">Udávajú najkratšiu trasu na akékoľvek miesto. Pomôžte aj svojim priateľom ušetriť čas pri chôdzi!</string>
-	<!-- Title for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_congratulations">Blahoželáme!</string>
-	<!-- Text for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_mastering">Zvládli ste funkciu Pešie smery. Pomôžte aj svojim priateľom ušetriť čas pri chôdzi. Povedzte im o MAPS.ME.</string>
-	<!-- Android notification about walking directions for update users -->
-	<string name="walking_notification_text">Chcete si ich vyskúšať?</string>
-	<!-- Android notification with picture (rich) about walking directions for update users -->
-	<string name="walking_rich_notification_text">Udávajú najkratšiu trasu do ľubovoľného cieľového bodu. Vyskúšajte si ich sami a pomôžte svojim priateľom ušetriť čas pri cestovaní.</string>
 	<string name="rate_alert_title">Páči sa vám aplikácia?</string>
 	<string name="rate_alert_default_message">Ďakujeme, že používate MAPS.ME. Prosím, ohodnoťte aplikáciu. Vaše názory nám pomôžu zlepšiť sa.</string>
 	<string name="rate_alert_five_star_message">Hurá! Aj my vás taky páči!</string>
@@ -806,8 +789,22 @@
 	<string name="search_not_found_location">Stiahnite si mapu svojej súčasnej polohy.</string>
 	<string name="search_history_title">História vyhľadávania</string>
 	<string name="search_history_text">Rýchlo pristupujte k nedávnym hľadaným výrazom.</string>
-	<string name="update_maps_alert_title">Prehliadanie máp je teraz jednoduchšie</string>
-	<string name="update_maps_alert_message">Zlepšili sme štýl máp: Teraz všetky objekty vyzerajú priateľskejšie a jasnejšie. Aktualizujte si mapy, aby ste z nového dizajnu získali čo najviac.</string>
-	<string name="update_maps_alert_button_title">Aktualizácia máp</string>
 	<string name="clear_search">Vymazať históriu vyhľadávania</string>
+	<!-- Title for settings to enable/disable showcase menu button -->
+	<string name="showcase_settings_title">Ukázať reklamu</string>
+	<string name="p2p_route_planning">Plánovanie trasy</string>
+	<string name="p2p_your_location">Vaša poloha</string>
+	<string name="p2p_from">Východiskový bod</string>
+	<string name="p2p_to">Cieľový bod</string>
+	<string name="p2p_start">Štart</string>
+	<string name="p2p_planning">Plánovanie…</string>
+	<string name="p2p_from_here">Z</string>
+	<string name="p2p_to_here">Do</string>
+	<string name="p2p_only_from_current">Navigácia je dostupná iba z vašej aktuálnej polohy.</string>
+	<string name="p2p_reroute_from_current">Doriți să vă planificăm o rută având ca punct de pornire locația actuală?</string>
+	<string name="whats_new_where_to_turn">MAPS.ME vám dá vedieť, kde sa obrátiť</string>
+	<string name="whats_new_voice_instructions">Vážení priatelia, už dlhší čas požadujete hlasové pokyny počas navigácie - ma sme vám vyhoveli! Teraz vás náš navigátor včas upozorní na váš ďalší obrat.</string>
+	<string name="whats_new_between_any_points">Vytvorte si trasy medzi ľubovoľnými bodmi</string>
+	<string name="whats_new_happy_day">Naozaj šťastný deň! Plánujte si výlety napred s MAPS.ME.</string>
+	<string name="whats_new_next">Nasledujúca</string>
 </resources>

@@ -2,6 +2,7 @@
 #import <OpenGLES/EAGLDrawable.h>
 #import "Common.h"
 #import "EAGLView.h"
+#import "MWMDirectionView.h"
 
 #include "Framework.h"
 
@@ -22,10 +23,64 @@
 #include "platform/video_timer.hpp"
 
 #include "std/bind.hpp"
+#include "std/limits.hpp"
 
 
 @implementation EAGLView
 
+namespace
+{
+// Returns DPI as exact as possible. It works for iPhone, iPad and iWatch.
+double getExactDPI()
+{
+  float const iPadDPI = 132.f;
+  float const iPhoneDPI = 163.f;
+  float const mDPI = 160.f;
+
+  UIScreen * screen = [UIScreen mainScreen];
+  float const scale = [screen respondsToSelector:@selector(scale)] ? [screen scale] : 1.f;
+    
+  switch (UI_USER_INTERFACE_IDIOM())
+  {
+    case UIUserInterfaceIdiomPhone:
+      return iPhoneDPI * scale;
+    case UIUserInterfaceIdiomPad:
+      return iPadDPI * scale;
+    default:
+      return mDPI * scale;
+  }
+}
+  
+graphics::EDensity getDensityType(int exactDensityDPI, double scale)
+{
+  if (scale > 2)
+    return graphics::EDensityIPhone6Plus;
+      
+  typedef pair<int, graphics::EDensity> P;
+  P dens[] = {
+      //        P(120, graphics::EDensityLDPI),
+      P(160, graphics::EDensityMDPI),
+      P(240, graphics::EDensityHDPI),
+      P(320, graphics::EDensityXHDPI),
+      P(480, graphics::EDensityXXHDPI)
+  };
+    
+  int prevRange = numeric_limits<int>::max();
+  int bestRangeIndex = 0;
+  for (int i = 0; i < ARRAY_SIZE(dens); i++)
+  {
+    int currRange = abs(exactDensityDPI - dens[i].first);
+    if (currRange <= prevRange)
+    {
+      bestRangeIndex = i;
+      prevRange = currRange;
+    }
+    else
+      break;
+  }
+  return dens[bestRangeIndex].second;
+}
+} //  namespace
 
 // You must implement this method
 + (Class)layerClass
@@ -82,9 +137,12 @@
   NSLog(@"EAGLView initRenderPolicy Started");
   
 #ifndef USE_DRAPE
+  int const dpi = static_cast<int>(getExactDPI());
+  
   graphics::ResourceManager::Params rmParams;
   rmParams.m_videoMemoryLimit = GetPlatform().VideoMemoryLimit();
   rmParams.m_texFormat = graphics::Data4Bpp;
+  rmParams.m_exactDensityDPI = dpi;
 
   RenderPolicy::Params rpParams;
 
@@ -95,16 +153,9 @@
 
   rpParams.m_screenWidth = screenRect.size.width * vs;
   rpParams.m_screenHeight = screenRect.size.height * vs;
-
   rpParams.m_skinName = "basic.skn";
-
-  if (vs == 1.0)
-    rpParams.m_density = graphics::EDensityMDPI;
-  else if (vs > 2.0)
-    rpParams.m_density = graphics::EDensityIPhone6Plus;
-  else
-    rpParams.m_density = graphics::EDensityXHDPI;
-
+  rpParams.m_density = getDensityType(dpi, vs);
+  rpParams.m_exactDensityDPI = dpi;
   rpParams.m_videoTimer = videoTimer;
   rpParams.m_useDefaultFB = false;
   rpParams.m_rmParams = rmParams;
@@ -130,6 +181,19 @@
 #endif
 
   NSLog(@"EAGLView initRenderPolicy Ended");
+}
+
+- (void)addSubview:(UIView *)view
+{
+  [super addSubview:view];
+  for (UIView * v in self.subviews)
+  {
+    if ([v isKindOfClass:[MWMDirectionView class]])
+    {
+      [self bringSubviewToFront:v];
+      break;
+    }
+  }
 }
 
 - (void)setMapStyle:(MapStyle)mapStyle

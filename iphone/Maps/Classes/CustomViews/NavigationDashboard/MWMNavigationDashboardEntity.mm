@@ -6,6 +6,8 @@
 #include "geometry/distance_on_sphere.hpp"
 #include "platform/measurement_utils.hpp"
 
+using namespace routing::turns;
+
 @implementation MWMNavigationDashboardEntity
 
 - (void)updateWithFollowingInfo:(location::FollowingInfo const &)info
@@ -49,8 +51,13 @@
 //    _lanes = info.m_lanes;
     _nextTurnImage = image(info.m_nextTurn, true);
   }
-  _turnImage = image(info.m_turn, false);
-  if (info.m_turn == routing::turns::TurnDirection::EnterRoundAbout)
+
+  TurnDirection const turn = info.m_turn;
+  _turnImage = image(turn, false);
+  BOOL const isRound = turn == TurnDirection::EnterRoundAbout ||
+                       turn == TurnDirection::StayOnRoundAbout ||
+                       turn == TurnDirection::LeaveRoundAbout;
+  if (isRound)
     _roundExitNumber = info.m_exitNum;
   else
     _roundExitNumber = 0;
@@ -61,7 +68,6 @@ UIImage * image(routing::turns::TurnDirection t, bool isNextTurn)
   if (GetFramework().GetRouter() == routing::RouterType::Pedestrian)
     return [UIImage imageNamed:@"ic_direction"];
 
-  using namespace routing::turns;
   NSString * imageName;
   switch (t)
   {
@@ -83,21 +89,26 @@ UIImage * image(routing::turns::TurnDirection t, bool isNextTurn)
     case TurnDirection::TurnSharpLeft:
       imageName = @"sharp_left";
       break;
-    case TurnDirection::UTurn:
-      imageName = @"uturn";
+    case TurnDirection::UTurnLeft:
+      imageName = @"uturn_left";
+      break;
+    case TurnDirection::UTurnRight:
+      imageName = @"uturn_right";
       break;
     case TurnDirection::ReachedYourDestination:
       imageName = @"finish_point";
       break;
+    case TurnDirection::LeaveRoundAbout:
     case TurnDirection::EnterRoundAbout:
       imageName = @"round";
       break;
+    case TurnDirection::GoStraight:
+      imageName = @"straight";
+      break;
     case TurnDirection::StartAtEndOfStreet:
-    case TurnDirection::LeaveRoundAbout:
     case TurnDirection::StayOnRoundAbout:
     case TurnDirection::TakeTheExit:
     case TurnDirection::Count:
-    case TurnDirection::GoStraight:
     case TurnDirection::NoTurn:
       imageName = isNextTurn ? nil : @"straight";
       break;

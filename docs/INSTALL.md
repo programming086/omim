@@ -29,7 +29,7 @@ and run
 
 The `build_omim.sh` script basically runs these commands:
 
-    qmake omim.pro -spec linux-clang CONFIG+=debug
+    qmake omim.pro -spec linux-clang-libc++ CONFIG+=debug
     make -j <number_of_processes>
 
 It will compile binaries to the `out` subdirectory of the current directory.
@@ -49,25 +49,40 @@ Install Qt 5.5:
     sudo add-apt-repository ppa:beineri/opt-qt55-trusty
     sudo apt-get update
     sudo apt-get install qt55base
+
+Set up the Qt 5.5 environment:
+
     source /opt/qt55/bin/qt55-env.sh
-
-To run OSRM binaries, you'll need:
-
-    sudo apt-get install libtbb2 libluabind0.9.1 liblua50 libstxxl1
 
 Do a git clone:
 
-    git clone git@github.com:mapsme/omim.git
+    git clone --depth=1 --recursive https://github.com/mapsme/omim.git
     cd omim
     echo | ./configure.sh
 
+On Ubuntu 14.04, you'll need a PPA with an up-to-date version of libc++.
+You shouldn't need this on newer versions.
+
+    sudo add-apt-repository ppa:jhe/llvm-toolchain
+
 Then:
 
-    sudo apt-get install clang-3.5 libboost-iostreams-dev libglu1-mesa-dev
-    sudo apt-get install libtbb-dev libluabind-dev libstxxl-dev libosmpbf-dev libprotobuf-dev
+    sudo apt-get install clang-3.5 libc++-dev libboost-iostreams-dev libglu1-mesa-dev
     sudo ln -s /usr/lib/llvm-3.5/bin/clang /usr/bin/clang
     sudo ln -s /usr/lib/llvm-3.5/bin/clang++ /usr/bin/clang++
-    omim/tools/unix/build_omim.sh
+    tools/unix/build_omim.sh
+
+Prepend with `CONFIG=gtool` if only generator_tool is needed. You would need 1.5 GB of memory
+to compile `stats` module.
+
+The generated binaries appear in `omim-build-<flavour>/out/<flavour>/`.
+Run tests from this directory with `../../../omim/tools/unix/run_tests.sh`.
+
+To build and run OSRM binaries:
+
+    sudo apt-get install libtbb2 libluabind0.9.1 liblua50 libstxxl1
+    sudo apt-get install libtbb-dev libluabind-dev libstxxl-dev libosmpbf-dev libprotobuf-dev
+    tools/unix/build_omim.sh -o
 
 ### Windows
 
@@ -91,7 +106,7 @@ iOS devices, use iTunes.
 into a resource directory, e.g. `/Applications/MAPS.ME/Content/Resources` on Mac OS X.
 Placing these into a maps directory should also work.
 
-For instructions on making your own maps, see [MWM.md](MWM.md).
+For instructions on making your own maps, see [MAPS.md](MAPS.md).
 
 ## Maps Generator
 
@@ -121,7 +136,7 @@ to check it out before following these steps.
 
 ### Building data
 
-* Run `CONFIG="gtool map-designer" omim/tools/unix/build_omim.sh`.
+* Run `CONFIG="gtool map_designer" omim/tools/unix/build_omim.sh`.
 * Generate data as usual (either with `generate_mwm.sh` or `generate_planet.sh`).
 * For MAPS.ME employees, publish planet data to http://designer.mapswithme.com/mac/DATA_VERSION
 (via a ticket to admins, from `mapsme4:/opt/mapsme/designers`).
@@ -146,7 +161,7 @@ easy to type.
 to SDK and NDK. Or specify these in command line:
 
         --sdk /Users/yourusername/Library/Android/sdk \
-        --ndk /Users/yourusername/Library/Android/android-ndk-r10d
+        --ndk /Users/yourusername/Library/Android/ndk
 
 * Go to `omim/android` and run `./gradlew clean assembleWebRelease`.
     * There are `Release`, `Beta` and `Debug` builds.
@@ -177,5 +192,22 @@ For XCode configuration instructions, see [CONTRIBUTING.md](CONTRIBUTING.md).
 * Open "Product → Scheme → Edit Scheme", then "Info" and change build configuration to Simulator.
 * Run the project (Product → Run).
 
-If a script has trouble finding your Qt 5 installation, edit `omim/autobuild/detect_qmake.sh`,
+If a script has trouble finding your Qt 5 installation, edit `omim/tools/autobuild/detect_qmake.sh`,
 adding a path to `qmake` there.
+
+## Map Servers
+
+The "guest" configuration does not have any map server addresses built-in. That means, while your
+application would work well with [downloaded maps](http://direct.mapswithme.com/direct/latest/),
+it won't be able to download them by itself. To fix this, add some servers to
+`DEFAULT_URLS_JSON` define in the `private.h` file. These servers should have mwm files
+in `/maps/151231` paths, symlinked to `/ios`, `/android`, `/mac` and `/win` (depending on operating
+systems from which your maps will be downloaded).
+
+`151231` is a version number, which should be a six-digit integer, usually in form
+`YYMMDD` of the date map data was downloaded. The version and file sizes of all mwm and
+routing files should be put into `data/countries.txt` file.
+
+Android application may also download some resources - fonts and World files - from the same
+servers. It checks sizes of existing files via `external_resources.txt`, and if some of these
+don't match, it considers them obsolete and downloads new resource files.

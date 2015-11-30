@@ -6,6 +6,7 @@
 #import "MWMSearchSuggestionCell.h"
 #import "MWMSearchTableView.h"
 #import "MWMSearchTableViewController.h"
+#import "Statistics.h"
 #import "ToastView.h"
 
 #include "std/vector.hpp"
@@ -91,10 +92,16 @@ LocationObserver>
     dispatch_async(dispatch_get_main_queue(), [=]()
     {
       if (!results.IsEndMarker())
+      {
         searchResults = results;
+        [self updateSearchResultsInTable];
+      }
       else if (results.IsEndedNormal())
+      {
         [self completeSearch];
-      [self updateSearchResults];
+        if (IPAD)
+          GetFramework().UpdateUserViewportChanged();
+      }
     });
   };
 }
@@ -108,7 +115,8 @@ LocationObserver>
   }
   else
   {
-    if (IPAD)
+    MWMRoutingPlaneMode const m = MapsAppDelegate.theApp.routingPlaneMode;
+    if (IPAD || m == MWMRoutingPlaneModeSearchSource || m == MWMRoutingPlaneModeSearchDestination)
       return MWMSearchTableCellTypeCommon;
     else
       return indexPath.row == 0 ? MWMSearchTableCellTypeOnMap : MWMSearchTableCellTypeCommon;
@@ -230,15 +238,13 @@ forRowAtIndexPath:(NSIndexPath *)indexPath
     search::Result const & result = [self searchResultForIndexPath:indexPath];
     if (cellType == MWMSearchTableCellTypeSuggestion)
     {
-      [self.delegate searchText:@(result.GetSuggestionString()) forInputLocale:nil];
+      NSString * suggestionString = @(result.GetSuggestionString());
+      [[Statistics instance] logEvent:kStatEventName(kStatSearch, kStatSelectResult)
+                       withParameters:@{kStatValue : suggestionString, kStatScreen : kStatSearch}];
+      [self.delegate searchText:suggestionString forInputLocale:nil];
     }
     else
-    {
-      Framework & f = GetFramework();
-      f.ShowSearchResult(result);
-      f.SaveSearchQuery(make_pair(searchParams.m_inputLocale, searchParams.m_query));
-      self.delegate.state = MWMSearchManagerStateHidden;
-    }
+      [self.delegate processSearchWithResult:result query:make_pair(searchParams.m_inputLocale, searchParams.m_query)];
   }
 }
 
@@ -261,25 +267,13 @@ forRowAtIndexPath:(NSIndexPath *)indexPath
   }
 }
 
-- (void)updateSearchResultsOnMap
-{
-  if (!self.searchOnMap)
-    return;
-  GetFramework().UpdateSearchResults(searchResults);
-}
-
 - (void)updateSearchResultsInTable
 {
-  if (!IPAD && self.searchOnMap)
+  if (!IPAD && _searchOnMap)
     return;
+
   self.commonSizingCell = nil;
   [self.tableView reloadData];
-}
-
-- (void)updateSearchResults
-{
-  [self updateSearchResultsOnMap];
-  [self updateSearchResultsInTable];
 }
 
 #pragma mark - LocationObserver
@@ -296,11 +290,12 @@ forRowAtIndexPath:(NSIndexPath *)indexPath
 {
   if (!text)
     return;
+
   if (locale)
     searchParams.SetInputLocale(locale.UTF8String);
   searchParams.m_query = text.precomposedStringWithCompatibilityMapping.UTF8String;
   searchParams.SetForceSearch(true);
-  searchResults.Clear();
+
   [self updateSearch];
 }
 
@@ -310,17 +305,14 @@ forRowAtIndexPath:(NSIndexPath *)indexPath
   if (!searchParams.m_query.empty())
   {
     self.watchLocationUpdates = YES;
+
     if (self.searchOnMap)
-    {
       f.StartInteractiveSearch(searchParams);
-      if (searchResults.GetCount())
-        f.ShowAllSearchResults(searchResults);
-      f.UpdateUserViewportChanged();
-    }
-    else
-    {
+
+    if (!_searchOnMap)
       f.Search(searchParams);
-    }
+    else
+      f.ShowAllSearchResults(searchResults);
   }
   else
   {

@@ -142,7 +142,7 @@ protected:
     for (auto const & p : e.tags)
     {
       // Store only this tags to use it in railway stations processing for the particular city.
-      if (p.first == "network" || p.first == "operator" || p.first == "route")
+      if (p.first == "network" || p.first == "operator" || p.first == "route" || p.first == "maxspeed")
         if (!TBase::IsKeyTagExists(p.first))
           TBase::m_current->AddTag(p.first, p.second);
     }
@@ -312,8 +312,8 @@ class OsmToFeatureTranslator
       if (type != ftype::GetEmptyValue() && !ft.GetName().empty())
       {
         m_places.ReplaceEqualInRect(Place(ft, type),
-                                    bind(&Place::IsEqual, _1, _2),
-                                    bind(&Place::IsBetterThan, _1, _2));
+            [](Place const & p1, Place const & p2) { return p1.IsEqual(p2); },
+            [](Place const & p1, Place const & p2) { return p1.IsBetterThan(p2); });
       }
       else
         m_emitter(ft);
@@ -488,6 +488,7 @@ public:
             holes(e.ref);
         }
 
+        auto const & holesGeometry = holes.GetHoles();
         outer.ForEachArea(true, [&] (FeatureBuilder1::TPointSeq const & pts, vector<uint64_t> const & ids)
         {
           FeatureBuilder1 ft;
@@ -499,7 +500,7 @@ public:
             ft.AddPoint(pt);
 
           ft.AddOsmId(osm::Id::Relation(p->id));
-          EmitArea(ft, params, [&holes] (FeatureBuilder1 & ft) {ft.SetAreaAddHoles(holes.GetHoles());});
+          EmitArea(ft, params, [&holesGeometry] (FeatureBuilder1 & ft) {ft.SetAreaAddHoles(holesGeometry);});
         });
 
         state = FeatureState::Ok;

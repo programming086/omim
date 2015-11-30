@@ -1,5 +1,7 @@
 #include "testing/testing.hpp"
 
+#include "types_helper.hpp"
+
 #include "generator/osm_element.hpp"
 #include "generator/osm2type.hpp"
 
@@ -12,21 +14,7 @@
 #include "std/iostream.hpp"
 
 
-namespace
-{
-  void FillXmlElement(char const * arr[][2], size_t count, OsmElement * p)
-  {
-    for (size_t i = 0; i < count; ++i)
-      p->AddTag(arr[i][0], arr[i][1]);
-  }
-
-  template <size_t N> uint32_t GetType(char const * (&arr)[N])
-  {
-    vector<string> path(arr, arr + N);
-    return classif().GetTypeByPath(path);
-  }
-  uint32_t GetType(StringIL const & lst) { return classif().GetTypeByPath(lst); }
-}
+using namespace tests;
 
 UNIT_TEST(OsmType_SkipDummy)
 {
@@ -550,7 +538,7 @@ UNIT_TEST(OsmType_Hwtag)
 
 UNIT_TEST(OsmType_Ferry)
 {
-  routing::CarModel carModel;
+  routing::CarModel const & carModel = routing::CarModel::Instance();
 
   char const * arr[][2] = {
     { "motorcar", "yes" },
@@ -726,5 +714,60 @@ UNIT_TEST(OsmType_Subway)
 
     TEST_EQUAL(params.m_Types.size(), 1, (params));
     TEST(params.IsTypeExist(GetType({"railway", "station", "subway", "london"})), (params));
+  }
+}
+
+UNIT_TEST(OsmType_Hospital)
+{
+  {
+    char const * arr[][2] = {
+      { "building", "hospital" },
+    };
+
+    OsmElement e;
+    FillXmlElement(arr, ARRAY_SIZE(arr), &e);
+
+    FeatureParams params;
+    ftype::GetNameAndType(&e, params);
+
+    TEST_EQUAL(params.m_Types.size(), 1, (params));
+    TEST(params.IsTypeExist(GetType({"building"})), (params));
+  }
+
+  {
+    char const * arr[][2] = {
+      { "building", "yes" },
+      { "amenity", "hospital" },
+    };
+
+    OsmElement e;
+    FillXmlElement(arr, ARRAY_SIZE(arr), &e);
+
+    FeatureParams params;
+    ftype::GetNameAndType(&e, params);
+
+    TEST_EQUAL(params.m_Types.size(), 2, (params));
+    TEST(params.IsTypeExist(GetType({"building"})), (params));
+    TEST(params.IsTypeExist(GetType({"amenity", "hospital"})), (params));
+  }
+}
+
+UNIT_TEST(OsmType_Entrance)
+{
+  {
+    char const * arr[][2] = {
+      { "building", "entrance" },
+      { "barrier", "entrance" },
+    };
+
+    OsmElement e;
+    FillXmlElement(arr, ARRAY_SIZE(arr), &e);
+
+    FeatureParams params;
+    ftype::GetNameAndType(&e, params);
+
+    TEST_EQUAL(params.m_Types.size(), 2, (params));
+    TEST(params.IsTypeExist(GetType({"entrance"})), (params));
+    TEST(params.IsTypeExist(GetType({"barrier", "entrance"})), (params));
   }
 }

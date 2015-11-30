@@ -6,6 +6,8 @@
 #include "map/navigator.hpp"
 #include "map/animator.hpp"
 
+#include "map/api_mark_container.hpp"
+#include "map/api_mark_point.hpp"
 #include "map/bookmark.hpp"
 #include "map/bookmark_manager.hpp"
 #include "map/pin_click_manager.hpp"
@@ -64,6 +66,11 @@ namespace search
   struct AddressInfo;
 }
 
+namespace storage
+{
+class CountryInfoGetter;
+}
+
 namespace gui { class Controller; }
 namespace anim { class Controller; }
 namespace routing { namespace turns{ class Settings; } }
@@ -105,7 +112,10 @@ protected:
 
   StringsBundle m_stringsBundle;
 
-  mutable unique_ptr<search::Engine> m_pSearchEngine;
+  // The order matters here: storage::CountryInfoGetter must be
+  // initialized before search::Engine.
+  unique_ptr<storage::CountryInfoGetter> m_infoGetter;
+  unique_ptr<search::Engine> m_searchEngine;
   search::QuerySaver m_searchQuerySaver;
 
   model::FeaturesFetcher m_model;
@@ -179,7 +189,7 @@ public:
   };
 
   /// @param density - for Retina Display you must use EDensityXHDPI
-  void InitSingleFrameRenderer(graphics::EDensity density);
+  void InitSingleFrameRenderer(graphics::EDensity density, int exactDensityDPI);
   /// @param center - map center in ercator
   /// @param zoomModifier - result zoom calculate like "base zoom" + zoomModifier
   ///                       if we are have search result "base zoom" calculate that my position and search result
@@ -320,7 +330,9 @@ public:
 #endif // USE_DRAPE
 
 private:
-  search::Engine * GetSearchEngine() const;
+  void InitCountryInfoGetter();
+  void InitSearchEngine();
+
   search::SearchParams m_lastSearch;
   uint8_t m_fixedSearchResults;
 
@@ -345,7 +357,7 @@ public:
   size_t ShowAllSearchResults(search::Results const & results);
   void UpdateSearchResults(search::Results const & results);
 
-  void StartInteractiveSearch(search::SearchParams const & params) { m_lastSearch = params; }
+  void StartInteractiveSearch(search::SearchParams const & params);
   bool IsISActive() const { return !m_lastSearch.m_query.empty(); }
   void CancelInteractiveSearch();
 
@@ -581,28 +593,46 @@ public:
   bool IsOnRoute() const { return m_routingSession.IsOnRoute(); }
   bool IsRouteNavigable() const { return m_routingSession.IsNavigable(); }
   void BuildRoute(m2::PointD const & start, m2::PointD const & finish, uint32_t timeoutSec);
+  // FollowRoute has a bug where the router follows the route even if the method hads't been called.
+  // This method was added because we do not want to break the behaviour that is familiar to our users.
+  bool DisableFollowMode();
   void SetRouteBuildingListener(TRouteBuildingCallback const & buildingCallback) { m_routingCallback = buildingCallback; }
   void SetRouteProgressListener(TRouteProgressCallback const & progressCallback) { m_progressCallback = progressCallback; }
   void FollowRoute();
   void CloseRouting();
   void GetRouteFollowingInfo(location::FollowingInfo & info) const { m_routingSession.GetRouteFollowingInfo(info); }
   m2::PointD GetRouteEndPoint() const { return m_routingSession.GetEndPoint(); }
+  routing::RouterType GetLastUsedRouter() const;
   void SetLastUsedRouter(routing::RouterType type);
   /// Returns the most situable router engine type. Bases on distance and the last used router.
   routing::RouterType GetBestRouter(m2::PointD const & startPoint, m2::PointD const & finalPoint);
   // Sound notifications for turn instructions.
   inline void EnableTurnNotifications(bool enable) { m_routingSession.EnableTurnNotifications(enable); }
   inline bool AreTurnNotificationsEnabled() const { return m_routingSession.AreTurnNotificationsEnabled(); }
+  /// \brief Sets a locale for TTS.
+  /// \param locale is a string with locale code. For example "en", "ru", "zh-Hant" and so on.
+  /// \note See sound/tts/languages.txt for the full list of available locales.
   inline void SetTurnNotificationsLocale(string const & locale) { m_routingSession.SetTurnNotificationsLocale(locale); }
+  /// @return current TTS locale. For example "en", "ru", "zh-Hant" and so on.
+  /// In case of error returns an empty string.
+  /// \note The method returns correct locale after SetTurnNotificationsLocale has been called.
+  /// If not, it returns an empty string.
   inline string GetTurnNotificationsLocale() const { return m_routingSession.GetTurnNotificationsLocale(); }
   /// \brief When an end user is going to a turn he gets sound turn instructions.
-  /// If C++ part wants the client to pronounce an instruction GenerateTurnSound (in turnNotifications) returns
-  /// an array of one of more strings. C++ part assumes that all these strings shall be pronounced by the client's TTS.
+  /// If C++ part wants the client to pronounce an instruction GenerateTurnNotifications (in
+  /// turnNotifications) returns
+  /// an array of one of more strings. C++ part assumes that all these strings shall be pronounced
+  /// by the client's TTS.
   /// For example if C++ part wants the client to pronounce "Make a right turn." this method returns
   /// an array with one string "Make a right turn.". The next call of the method returns nothing.
-  /// GenerateTurnSound shall be called by the client when a new position is available.
-  inline void GenerateTurnSound(vector<string> & turnNotifications)
-      { return m_routingSession.GenerateTurnSound(turnNotifications); }
+  /// GenerateTurnNotifications shall be called by the client when a new position is available.
+  inline void GenerateTurnNotifications(vector<string> & turnNotifications)
+  {
+    return m_routingSession.GenerateTurnNotifications(turnNotifications);
+  }
+
+  void SetRouteStartPoint(m2::PointD const & pt, bool isValid);
+  void SetRouteFinishPoint(m2::PointD const & pt, bool isValid);
 
 private:
   void SetRouterImpl(routing::RouterType type);

@@ -8,7 +8,7 @@
 #include "search_query_params.hpp"
 #include "search_string_intersection.hpp"
 
-#include "storage/country_info.hpp"
+#include "storage/country_info_getter.hpp"
 
 #include "indexer/categories_holder.hpp"
 #include "indexer/classificator.hpp"
@@ -68,24 +68,21 @@ TCompareFunction2 g_arrCompare2[] = {
   size_t const kPreResultsCount = 200;
 }
 
-Query::Query(Index const * pIndex, CategoriesHolder const * pCategories,
-             TStringsToSuggestVector const * pStringsToSuggest,
-             storage::CountryInfoGetter const * pInfoGetter)
-  : m_pIndex(pIndex)
-  , m_pCategories(pCategories)
-  , m_pStringsToSuggest(pStringsToSuggest)
-  , m_pInfoGetter(pInfoGetter)
+Query::Query(Index & index, CategoriesHolder const & categories, vector<Suggest> const & suggests,
+             storage::CountryInfoGetter const & infoGetter)
+  : m_index(index)
+  , m_categories(categories)
+  , m_suggests(suggests)
+  , m_infoGetter(infoGetter)
 #ifdef HOUSE_SEARCH_TEST
-  , m_houseDetector(pIndex)
+  , m_houseDetector(&index)
 #endif
 #ifdef FIND_LOCALITY_TEST
-  , m_locality(pIndex)
+  , m_locality(&index)
 #endif
   , m_worldSearch(true)
 {
   // m_viewport is initialized as empty rects
-
-  ASSERT(m_pIndex, ());
 
   // Results queue's initialization.
   static_assert(kQueuesCount == ARRAY_SIZE(g_arrCompare1), "");
@@ -110,10 +107,6 @@ Query::Query(Index const * pIndex, CategoriesHolder const * pCategories,
   SetPreferredLocale("en");
 }
 
-Query::~Query()
-{
-}
-
 void Query::SetLanguage(int id, int8_t lang)
 {
   m_keywordsScorer.SetLanguage(GetLangIndex(id), lang);
@@ -129,7 +122,7 @@ void Query::SetViewport(m2::RectD const & viewport, bool forceUpdate)
   Reset();
 
   TMWMVector mwmsInfo;
-  m_pIndex->GetMwmsInfo(mwmsInfo);
+  m_index.GetMwmsInfo(mwmsInfo);
 
   SetViewportByIndex(mwmsInfo, viewport, CURRENT_V, forceUpdate);
 }
@@ -189,7 +182,7 @@ void Query::SetRankPivot(m2::PointD const & pivot)
   if (!m2::AlmostEqualULPs(pivot, m_pivot))
   {
     storage::CountryInfo ci;
-    m_pInfoGetter->GetRegionInfo(pivot, ci);
+    m_infoGetter.GetRegionInfo(pivot, ci);
     m_region.swap(ci.m_name);
   }
 
@@ -261,7 +254,7 @@ void Query::UpdateViewportOffsets(TMWMVector const & mwmsInfo, m2::RectD const &
     if (rect.IsIntersect(info->m_limitRect))
     {
       MwmSet::MwmId mwmId(info);
-      Index::MwmHandle const mwmHandle = m_pIndex->GetMwmHandleById(mwmId);
+      Index::MwmHandle const mwmHandle = m_index.GetMwmHandleById(mwmId);
       if (MwmValue const * pMwm = mwmHandle.GetValue<MwmValue>())
       {
         TFHeader const & header = pMwm->GetHeader();
@@ -358,27 +351,27 @@ int Query::GetCategoryLocales(int8_t (&arr) [3]) const
 template <class ToDo>
 void Query::ForEachCategoryTypes(ToDo toDo) const
 {
-  if (m_pCategories)
+  int8_t arrLocales[3];
+  int const localesCount = GetCategoryLocales(arrLocales);
+
+  size_t const tokensCount = m_tokens.size();
+  for (size_t i = 0; i < tokensCount; ++i)
   {
-    int8_t arrLocales[3];
-    int const localesCount = GetCategoryLocales(arrLocales);
+    for (int j = 0; j < localesCount; ++j)
+      m_categories.ForEachTypeByName(arrLocales[j], m_tokens[i], bind<void>(ref(toDo), i, _1));
 
-    size_t const tokensCount = m_tokens.size();
-    for (size_t i = 0; i < tokensCount; ++i)
+    ProcessEmojiIfNeeded(m_tokens[i], i, toDo);
+  }
+
+  if (!m_prefix.empty())
+  {
+    for (int j = 0; j < localesCount; ++j)
     {
-      for (int j = 0; j < localesCount; ++j)
-        m_pCategories->ForEachTypeByName(arrLocales[j], m_tokens[i], bind<void>(ref(toDo), i, _1));
-
-      ProcessEmojiIfNeeded(m_tokens[i], i, toDo);
+      m_categories.ForEachTypeByName(arrLocales[j], m_prefix,
+                                     bind<void>(ref(toDo), tokensCount, _1));
     }
 
-    if (!m_prefix.empty())
-    {
-      for (int j = 0; j < localesCount; ++j)
-        m_pCategories->ForEachTypeByName(arrLocales[j], m_prefix, bind<void>(ref(toDo), tokensCount, _1));
-
-      ProcessEmojiIfNeeded(m_prefix, tokensCount, toDo);
-    }
+    ProcessEmojiIfNeeded(m_prefix, tokensCount, toDo);
   }
 }
 
@@ -391,8 +384,8 @@ void Query::ProcessEmojiIfNeeded(strings::UniString const & token, size_t ind, T
   {
     static int8_t const enLocaleCode = CategoriesHolder::MapLocaleToInteger("en");
 
-    m_pCategories->ForEachTypeByName(enLocaleCode, strings::UniString(1, token[0]),
-                                     bind<void>(ref(toDo), ind, _1));
+    m_categories.ForEachTypeByName(enLocaleCode, strings::UniString(1, token[0]),
+                                   bind<void>(ref(toDo), ind, _1));
   }
 }
 
@@ -616,7 +609,7 @@ namespace impl
     void LoadFeature(FeatureID const & id, FeatureType & f, string & name, string & country)
     {
       if (m_pFV.get() == 0 || m_pFV->GetId() != id.m_mwmId)
-        m_pFV.reset(new Index::FeaturesLoaderGuard(*m_query.m_pIndex, id.m_mwmId));
+        m_pFV.reset(new Index::FeaturesLoaderGuard(m_query.m_index, id.m_mwmId));
 
       m_pFV->GetFeatureByIndex(id.m_index, f);
       f.SetID(id);
@@ -661,7 +654,7 @@ namespace impl
         else
         {
           storage::CountryInfo ci;
-          res2->m_region.GetRegion(m_query.m_pInfoGetter, ci);
+          res2->m_region.GetRegion(m_query.m_infoGetter, ci);
           if (ci.IsNotEmpty() && ci.m_name == m_query.GetPivotRegion())
             res2->m_rank *= 1.7;
         }
@@ -794,7 +787,7 @@ void Query::FlushResults(Results & res, bool allMWMs, size_t resCount)
   SortByIndexedValue(indV, CompFactory2());
 
   // Do not process suggestions in additional search.
-  if (!allMWMs)
+  if (!allMWMs || res.GetCount() == 0)
     ProcessSuggestions(indV, res);
 
 #ifdef HOUSE_SEARCH_TEST
@@ -844,10 +837,8 @@ void Query::SearchViewportPoints(Results & res)
     if (IsCancelled())
       break;
 
-    Result r = indV[i]->GeneratePointResult(m_pInfoGetter, m_pCategories,
-                                            &m_prefferedTypes, m_currentLocaleCode);
-    MakeResultHighlight(r);
-    res.AddResultNoChecks(move(r));
+    res.AddResultNoChecks(
+          indV[i]->GeneratePointResult(&m_categories, &m_prefferedTypes, m_currentLocaleCode));
   }
 }
 
@@ -938,7 +929,7 @@ void Query::ProcessSuggestions(vector<T> & vec, Results & res) const
     return;
 
   int added = 0;
-  for (typename vector<T>::iterator i = vec.begin(); i != vec.end();)
+  for (auto i = vec.begin(); i != vec.end();)
   {
     impl::PreResult2 const & r = **i;
 
@@ -963,8 +954,9 @@ void Query::ProcessSuggestions(vector<T> & vec, Results & res) const
 void Query::AddResultFromTrie(TTrieValue const & val, MwmSet::MwmId const & mwmID,
                               ViewportID vID /*= DEFAULT_V*/)
 {
-  // If we are in viewport search mode, check actual "point-in-viewport" criteria.
-  if (m_queuesCount == 1 && !m_viewport[CURRENT_V].IsPointInside(val.m_pt))
+  /// If we are in viewport search mode, check actual "point-in-viewport" criteria.
+  /// @todo Actually, this checks are more-like hack, but not a suitable place to do ...
+  if (m_queuesCount == 1 && vID == CURRENT_V && !m_viewport[CURRENT_V].IsPointInside(val.m_pt))
     return;
 
   impl::PreResult1 res(FeatureID(mwmID, val.m_featureId), val.m_rank,
@@ -1070,7 +1062,7 @@ public:
 
 Result Query::MakeResult(impl::PreResult2 const & r) const
 {
-  Result res = r.GenerateFinalResult(m_pInfoGetter, m_pCategories,
+  Result res = r.GenerateFinalResult(m_infoGetter, &m_categories,
                                      &m_prefferedTypes, m_currentLocaleCode);
   MakeResultHighlight(res);
 
@@ -1472,12 +1464,12 @@ void Query::SearchAddress(Results & res)
 {
   // Find World.mwm and do special search there.
   TMWMVector mwmsInfo;
-  m_pIndex->GetMwmsInfo(mwmsInfo);
+  m_index.GetMwmsInfo(mwmsInfo);
 
   for (shared_ptr<MwmInfo> & info : mwmsInfo)
   {
     MwmSet::MwmId mwmId(info);
-    Index::MwmHandle const mwmHandle = m_pIndex->GetMwmHandleById(mwmId);
+    Index::MwmHandle const mwmHandle = m_index.GetMwmHandleById(mwmId);
     MwmValue const * pMwm = mwmHandle.GetValue<MwmValue>();
     if (pMwm && pMwm->m_cont.IsExist(SEARCH_INDEX_FILE_TAG) &&
         pMwm->GetHeader().GetType() == TFHeader::world)
@@ -1532,10 +1524,10 @@ void Query::SearchAddress(Results & res)
         {
           for (shared_ptr<MwmInfo> & info : mwmsInfo)
           {
-            Index::MwmHandle const handle = m_pIndex->GetMwmHandleById(info);
+            Index::MwmHandle const handle = m_index.GetMwmHandleById(info);
             if (handle.IsAlive() &&
-                m_pInfoGetter->IsBelongToRegion(handle.GetValue<MwmValue>()->GetCountryFileName(),
-                                                region.m_ids))
+                m_infoGetter.IsBelongToRegions(handle.GetValue<MwmValue>()->GetCountryFileName(),
+                                               region.m_ids))
             {
               SearchInMWM(handle, params);
             }
@@ -1613,7 +1605,7 @@ namespace impl
         if (!i->m_enName.empty() && i->IsSuitable(m_query.m_tokens, m_query.m_prefix))
         {
           vector<size_t> vec;
-          m_query.m_pInfoGetter->GetMatchedRegions(i->m_enName, vec);
+          m_query.m_infoGetter.GetMatchedRegions(i->m_enName, vec);
           if (!vec.empty())
           {
             regions.push_back(Region());
@@ -1638,7 +1630,7 @@ namespace impl
       if (dummy.empty())
       {
         // check that locality belong to region
-        return m_query.m_pInfoGetter->IsBelongToRegion(loc.m_value.m_pt, r.m_ids);
+        return m_query.m_infoGetter.IsBelongToRegions(loc.m_value.m_pt, r.m_ids);
       }
 
       return false;
@@ -1813,7 +1805,7 @@ void Query::SearchLocality(MwmValue const * pMwm, impl::Locality & res1, impl::R
 void Query::SearchFeatures()
 {
   TMWMVector mwmsInfo;
-  m_pIndex->GetMwmsInfo(mwmsInfo);
+  m_index.GetMwmsInfo(mwmsInfo);
 
   SearchQueryParams params;
   InitParams(false /* localitySearch */, params);
@@ -1861,7 +1853,7 @@ void Query::SearchFeatures(SearchQueryParams const & params, TMWMVector const & 
   {
     // Search only mwms that intersect with viewport (world always does).
     if (m_viewport[vID].IsIntersect(info->m_limitRect))
-      SearchInMWM(m_pIndex->GetMwmHandleById(info), params, vID);
+      SearchInMWM(m_index.GetMwmHandleById(info), params, vID);
   }
 }
 
@@ -1883,9 +1875,10 @@ void Query::SearchInMWM(Index::MwmHandle const & mwmHandle, SearchQueryParams co
   unique_ptr<trie::DefaultIterator> const trieRoot(
       trie::ReadTrie(SubReaderWrapper<Reader>(searchReader.GetPtr()), trie::ValueReader(cp),
                      trie::TEdgeValueReader()));
+
   MwmSet::MwmId const mwmId = mwmHandle.GetId();
-  FeaturesFilter filter(
-      (viewportId == DEFAULT_V || isWorld) ? 0 : &m_offsetsInViewport[viewportId][mwmId], *this);
+  FeaturesFilter filter(viewportId == DEFAULT_V || isWorld ?
+                          0 : &m_offsetsInViewport[viewportId][mwmId], *this);
   MatchFeaturesInTrie(params, *trieRoot, filter, [&](TTrieValue const & value)
   {
     AddResultFromTrie(value, mwmId, viewportId);
@@ -1894,7 +1887,7 @@ void Query::SearchInMWM(Index::MwmHandle const & mwmHandle, SearchQueryParams co
 
 void Query::SuggestStrings(Results & res)
 {
-  if (m_pStringsToSuggest && !m_prefix.empty())
+  if (!m_prefix.empty())
   {
     int8_t arrLocales[3];
     int const localesCount = GetCategoryLocales(arrLocales);
@@ -1910,7 +1903,7 @@ void Query::SuggestStrings(Results & res)
 void Query::MatchForSuggestionsImpl(strings::UniString const & token, int8_t locale,
                                     string const & prolog, Results & res)
 {
-  for (TSuggest const & suggest : *m_pStringsToSuggest)
+  for (auto const & suggest : m_suggests)
   {
     strings::UniString const & s = suggest.m_name;
     if ((suggest.m_prefixLength <= token.size()) &&
@@ -1953,26 +1946,36 @@ void Query::SearchAdditional(Results & res, size_t resCount)
 {
   ClearQueues();
 
-  string const fileName = m_pInfoGetter->GetRegionFile(m_pivot);
+  string const fileName = m_infoGetter.GetRegionFile(m_pivot);
   if (!fileName.empty())
   {
     LOG(LDEBUG, ("Additional MWM search: ", fileName));
 
     TMWMVector mwmsInfo;
-    m_pIndex->GetMwmsInfo(mwmsInfo);
+    m_index.GetMwmsInfo(mwmsInfo);
 
     SearchQueryParams params;
     InitParams(false /* localitySearch */, params);
 
     for (shared_ptr<MwmInfo> const & info : mwmsInfo)
     {
-      Index::MwmHandle const handle = m_pIndex->GetMwmHandleById(info);
+      Index::MwmHandle const handle = m_index.GetMwmHandleById(info);
       if (handle.IsAlive() &&
           handle.GetValue<MwmValue>()->GetCountryFileName() == fileName)
       {
         SearchInMWM(handle, params);
       }
     }
+
+#ifdef FIND_LOCALITY_TEST
+    m2::RectD rect;
+    for (auto const & r : m_results[0])
+      rect.Add(r.GetCenter());
+
+    // Hack with 90.0 is important for the countries divided by 180 meridian.
+    if (rect.IsValid() && (rect.maxX() - rect.minX()) <= 90.0)
+      m_locality.SetReservedViewportIfNeeded(rect);
+#endif
 
     FlushResults(res, true, resCount);
   }

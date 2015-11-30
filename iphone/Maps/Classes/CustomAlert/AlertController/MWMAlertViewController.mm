@@ -4,7 +4,7 @@
 
 static NSString * const kAlertControllerNibIdentifier = @"MWMAlertViewController";
 
-@interface MWMAlertViewController () <UIGestureRecognizerDelegate, UIAlertViewDelegate>
+@interface MWMAlertViewController () <UIGestureRecognizerDelegate>
 
 @property (weak, nonatomic, readwrite) UIViewController * ownerViewController;
 
@@ -40,7 +40,7 @@ static NSString * const kAlertControllerNibIdentifier = @"MWMAlertViewController
   NSString * openSettings = L(@"settings");
   if (isIOSVersionLessThan(8))
   {
-    UIAlertView * alertView = [[UIAlertView alloc] initWithTitle:title message:nil delegate:self cancelButtonTitle:cancel otherButtonTitles:nil];
+    UIAlertView * alertView = [[UIAlertView alloc] initWithTitle:title message:nil delegate:nil cancelButtonTitle:cancel otherButtonTitles:nil];
     [alertView show];
     return;
   }
@@ -59,6 +59,11 @@ static NSString * const kAlertControllerNibIdentifier = @"MWMAlertViewController
 //    // Test case when location is denied by user on app launch/relaunch
 //    [self displayAlert:MWMAlert.locationAlert];
 //  });
+}
+
+- (void)presentPoint2PointAlertWithOkBlock:(nonnull CloseAlertCompletion)block needToRebuild:(BOOL)needToRebuild
+{
+  [self displayAlert:[MWMAlert point2PointAlertWithOkBlock:block needToRebuild:needToRebuild]];
 }
 
 - (void)presentFacebookAlert
@@ -153,14 +158,5 @@ static NSString * const kAlertControllerNibIdentifier = @"MWMAlertViewController
   if ([a canOpenURL:url])
     [a openURL:url];
 }
-
-#pragma mark - UIAlertViewDelegate
-
-- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex
-{
-  if (buttonIndex == 1)
-    [self openSettings];
-}
-
 
 @end

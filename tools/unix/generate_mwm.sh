@@ -9,8 +9,9 @@
 # - Data path with classificators etc. should be present in $OMIM_PATH/data
 #     Inside it should be at least: categories.txt, classificator.txt, types.txt, drules_proto.bin
 # - Compiled generator_tool somewhere in omim/../build/out/whatever, or supply BUILD_PATH
-# - For routing, compiled OSRM binaries in omim/3party/osrm/osrm-backend/build, or supply OSRM_BUILD_PATH
+# - For routing, compiled OSRM binaries in omim/../osrm-backend-release, or supply OSRM_BUILD_PATH
 # - Target path for mwm is the same as o5m path, or supply TARGET
+# - Set TMPDIR variable if you have no space in the default temporary location.
 
 # Cross-borders routing index is not created, since we don't assume
 # the source file to be one of the pre-defined countries.
@@ -20,7 +21,7 @@ set -e
 
 if [ $# -lt 1 ]; then
   echo
-  echo "Usage: $0 \<file.o5m/bz2/pbf\> [\<routing_profile.lua\>]"
+  echo "Usage: $0 \<file.o5m/osm/bz2/pbf\> [\<routing_profile.lua\>]"
   echo
   echo "Useful environment variables:"
   echo
@@ -45,7 +46,7 @@ find_osmconvert() {
     if [ -e "$OMIM_PATH/tools/osmctools/osmconvert.c" ]; then
       cc -x c -lz -O3 "$OMIM_PATH/tools/osmctools/osmconvert.c" -o "$OSMCONVERT"
     else
-      curl -s http://m.m.i24.cc/osmconvert.c | cc -x c - -lz -O3 -o $OSMCONVERT
+      curl -s https://raw.githubusercontent.com/mapsme/osmctools/master/osmconvert.c | cc -x c - -lz -O3 -o $OSMCONVERT
     fi
   fi
 }
@@ -89,7 +90,7 @@ if [ -f "$COASTS" ]; then
   GENERATE_EVERYTHING="$GENERATE_EVERYTHING --emit_coasts=true --split_by_polygons=true"
 fi
 # Convert everything to o5m
-if [ "$SOURCE_TYPE" == "pbf" -o "$SOURCE_TYPE" == "bz2" ]; then
+if [ "$SOURCE_TYPE" == "pbf" -o "$SOURCE_TYPE" == "bz2" -o "$SOURCE_TYPE" == "osm" ]; then
   find_osmconvert
   if [ "$SOURCE_TYPE" == "bz2" ]; then
     bzcat "$SOURCE_FILE" | $OSMCONVERT - --out-o5m "-o=$INTDIR/$BASE_NAME.o5m" || fail
@@ -113,7 +114,7 @@ fi
 if [ $# -gt 1 ]; then
   # Create .mwm.routing file
   OSRM_PATH="${OSRM_PATH:-$OMIM_PATH/3party/osrm/osrm-backend}"
-  OSRM_BUILD_PATH="${OSRM_BUILD_PATH:-$OSRM_PATH/build}"
+  OSRM_BUILD_PATH="${OSRM_BUILD_PATH:-$OMIM_PATH/../osrm-backend-release}"
   [ ! -x "$OSRM_BUILD_PATH/osrm-extract" -a -x "$SCRIPT_PATH/bin/osrm-extract" ] && OSRM_BUILD_PATH="$SCRIPT_PATH/bin"
   [ ! -x "$OSRM_BUILD_PATH/osrm-extract" ] && fail "Please compile OSRM binaries to $OSRM_BUILD_PATH"
   [ ! -r "$TARGET/$BASE_NAME.mwm" ] && fail "Please build mwm file beforehand"

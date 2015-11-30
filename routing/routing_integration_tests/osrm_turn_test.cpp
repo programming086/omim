@@ -23,7 +23,7 @@ UNIT_TEST(RussiaMoscowLenigradskiy39UturnTurnTest)
 
   integration::GetNthTurn(route, 0)
       .TestValid()
-      .TestOneOfDirections({TurnDirection::TurnSlightLeft, TurnDirection::TurnLeft});
+      .TestDirection(TurnDirection::UTurnLeft);
   integration::GetNthTurn(route, 1)
       .TestValid()
       .TestDirection(TurnDirection::TurnRight);
@@ -138,6 +138,39 @@ UNIT_TEST(RussiaMoscowTTKKashirskoeShosseOutTurnTest)
       {TurnDirection::TurnSlightRight, TurnDirection::TurnRight});
 }
 
+UNIT_TEST(RussiaMoscowSchelkovskoeShosseUTurnTest)
+{
+  TRouteResult const routeResult = integration::CalculateRoute(
+      integration::GetOsrmComponents(),
+      MercatorBounds::FromLatLon(55.80967, 37.78037), {0., 0.},
+      MercatorBounds::FromLatLon(55.80955, 37.78056));
+
+  Route const & route = *routeResult.first;
+  IRouter::ResultCode const result = routeResult.second;
+
+  TEST_EQUAL(result, IRouter::NoError, ());
+  integration::TestTurnCount(route, 1);
+  // Checking a turn in case going from a not-link to a link
+  integration::GetNthTurn(route, 0).TestValid().TestDirection(TurnDirection::UTurnLeft);
+}
+
+UNIT_TEST(RussiaMoscowParallelResidentalUTurnAvoiding)
+{
+  TRouteResult const routeResult = integration::CalculateRoute(
+      integration::GetOsrmComponents(),
+      MercatorBounds::FromLatLon(55.66192, 37.62852), {0., 0.},
+      MercatorBounds::FromLatLon(55.66189, 37.63254));
+
+  Route const & route = *routeResult.first;
+  IRouter::ResultCode const result = routeResult.second;
+
+  TEST_EQUAL(result, IRouter::NoError, ());
+  integration::TestTurnCount(route, 2);
+  // Checking a turn in case going from a not-link to a link
+  integration::GetNthTurn(route, 0).TestValid().TestDirection(TurnDirection::TurnLeft);
+  integration::GetNthTurn(route, 1).TestValid().TestDirection(TurnDirection::TurnLeft);
+}
+
 UNIT_TEST(RussiaMoscowPankratevskiPerBolshaySuharedskazPloschadTurnTest)
 {
   TRouteResult const routeResult = integration::CalculateRoute(
@@ -202,7 +235,7 @@ UNIT_TEST(RussiaHugeRoundaboutTurnTest)
   integration::GetNthTurn(route, 1)
       .TestValid()
       .TestDirection(TurnDirection::LeaveRoundAbout)
-      .TestRoundAboutExitNum(0);
+      .TestRoundAboutExitNum(4);
 }
 
 UNIT_TEST(BelarusMiskProspNezavisimostiMKADTurnTest)
@@ -345,6 +378,21 @@ UNIT_TEST(RussiaMoscowLeningradskiyPrptToTheCenterUTurnTest)
   IRouter::ResultCode const result = routeResult.second;
 
   TEST_EQUAL(result, IRouter::NoError, ());
-  integration::TestTurnCount(route, 2);
-  integration::GetNthTurn(route, 0).TestValid().TestDirection(TurnDirection::TurnLeft);
+  integration::TestTurnCount(route, 1);
+  integration::GetNthTurn(route, 0).TestValid().TestDirection(TurnDirection::UTurnLeft);
+}
+
+// Test case: checking that no unnecessary turn on a serpentine road.
+// This test was written after reducing factors kMaxPointsCount and kMinDistMeters.
+UNIT_TEST(SwitzerlandSamstagernBergstrasseTest)
+{
+  TRouteResult const routeResult = integration::CalculateRoute(
+      integration::GetOsrmComponents(), MercatorBounds::FromLatLon(47.19300, 8.67568), {0., 0.},
+      MercatorBounds::FromLatLon(47.19162, 8.67590));
+
+  Route const & route = *routeResult.first;
+  IRouter::ResultCode const result = routeResult.second;
+
+  TEST_EQUAL(result, IRouter::NoError, ());
+  integration::TestTurnCount(route, 0);
 }

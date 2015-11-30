@@ -11,10 +11,9 @@ include($$ROOT_DIR/common.pri)
 
 QT *= core
 
-INCLUDEPATH *= $$ROOT_DIR/3party/expat/lib
-
 HEADERS += \
     source_data.hpp \
+    types_helper.hpp \
 
 SOURCES += \
     ../../testing/testingmain.cpp \

@@ -84,7 +84,10 @@ jobject ToJavaResult(Result result, bool hasPosition, double lat, double lon)
   env->DeleteLocalRef(cuisine);
 
   jstring name = jni::ToJavaString(env, result.GetString());
-  jobject ret = env->NewObject(g_resultClass, g_resultConstructor, name, desc, ranges);
+
+  double const poiLat = MercatorBounds::YToLat(result.GetFeatureCenter().y);
+  double const poiLon = MercatorBounds::XToLon(result.GetFeatureCenter().x);
+  jobject ret = env->NewObject(g_resultClass, g_resultConstructor, name, desc, poiLat, poiLon, ranges);
   ASSERT(ret, ());
   env->DeleteLocalRef(name);
   env->DeleteLocalRef(desc);
@@ -110,7 +113,8 @@ jobjectArray BuildJavaResults(Results const & results, bool hasPosition, double 
   return jResults;
 }
 
-void OnResults(Results const & results, long long timestamp, bool interactive, bool hasPosition, double lat, double lon)
+void OnResults(Results const & results, long long timestamp, bool isMapAndTable,
+               bool hasPosition, double lat, double lon)
 {
   // Ignore results from obsolete searches.
   if (g_queryTimestamp > timestamp)
@@ -121,15 +125,9 @@ void OnResults(Results const & results, long long timestamp, bool interactive, b
   if (results.IsEndMarker())
   {
     env->CallVoidMethod(g_javaListener, g_endResultsId, static_cast<jlong>(timestamp));
+    if (isMapAndTable && results.IsEndedNormal())
+      g_framework->NativeFramework()->UpdateUserViewportChanged();
     return;
-  }
-
-  if (interactive)
-  {
-    android::Platform::RunOnGuiThreadImpl([results]()
-    {
-      g_framework->NativeFramework()->UpdateSearchResults(results);
-    });
   }
 
   jobjectArray const & jResults = BuildJavaResults(results, hasPosition, lat, lon);
@@ -152,7 +150,7 @@ extern "C"
     ASSERT(g_endResultsId, ());
     g_resultClass = static_cast<jclass>(env->NewGlobalRef(env->FindClass("com/mapswithme/maps/search/SearchResult")));
     ASSERT(g_resultClass, ());
-    g_resultConstructor = env->GetMethodID(g_resultClass, "<init>", "(Ljava/lang/String;Lcom/mapswithme/maps/search/SearchResult$Description;[I)V");
+    g_resultConstructor = env->GetMethodID(g_resultClass, "<init>", "(Ljava/lang/String;Lcom/mapswithme/maps/search/SearchResult$Description;DD[I)V");
     ASSERT(g_resultConstructor, ());
     g_suggestConstructor = env->GetMethodID(g_resultClass, "<init>", "(Ljava/lang/String;Ljava/lang/String;[I)V");
     ASSERT(g_suggestConstructor, ());
@@ -163,12 +161,11 @@ extern "C"
   }
 
   JNIEXPORT jboolean JNICALL
-  Java_com_mapswithme_maps_search_SearchEngine_nativeRunSearch(
-      JNIEnv * env, jobject thiz, jstring query, jstring lang,
-      jlong timestamp, jboolean force, jboolean hasPosition, jdouble lat, jdouble lon)
+  Java_com_mapswithme_maps_search_SearchEngine_nativeRunSearch(JNIEnv * env, jclass clazz, jbyteArray bytes, jstring lang,
+                                                               jlong timestamp, jboolean force, jboolean hasPosition, jdouble lat, jdouble lon)
   {
     search::SearchParams params;
-    params.m_query = jni::ToNativeString(env, query);
+    params.m_query = jni::ToNativeString(env, bytes);
     params.SetInputLocale(ReplaceDeprecatedLanguageCode(jni::ToNativeString(env, lang)));
     params.SetForceSearch(force);
     if (hasPosition)
@@ -182,19 +179,26 @@ extern "C"
   }
 
   JNIEXPORT void JNICALL
-  Java_com_mapswithme_maps_search_SearchEngine_nativeRunInteractiveSearch(JNIEnv * env, jobject thiz, jstring query, jstring lang, jlong timestamp)
+  Java_com_mapswithme_maps_search_SearchEngine_nativeRunInteractiveSearch(JNIEnv * env, jclass clazz, jbyteArray bytes,
+                                                                          jstring lang, jlong timestamp, jboolean isMapAndTable)
   {
     search::SearchParams params;
-    params.m_query = jni::ToNativeString(env, query);
+    params.m_query = jni::ToNativeString(env, bytes);
     params.SetInputLocale(ReplaceDeprecatedLanguageCode(jni::ToNativeString(env, lang)));
-    params.m_callback = bind(&OnResults, _1, timestamp, true, false, 0, 0);
+
     g_framework->NativeFramework()->StartInteractiveSearch(params);
-    g_framework->NativeFramework()->UpdateUserViewportChanged();
-    g_queryTimestamp = timestamp;
+
+    if (isMapAndTable)
+    {
+      params.m_callback = bind(&OnResults, _1, timestamp, isMapAndTable,
+                               false /* hasPosition */, 0, 0);
+      if (g_framework->NativeFramework()->Search(params))
+        g_queryTimestamp = timestamp;
+    }
   }
 
   JNIEXPORT void JNICALL
-  Java_com_mapswithme_maps_search_SearchEngine_nativeShowResult(JNIEnv * env, jobject thiz, jint index)
+  Java_com_mapswithme_maps_search_SearchEngine_nativeShowResult(JNIEnv * env, jclass clazz, jint index)
   {
     lock_guard<mutex> guard(g_resultsMutex);
     g_framework->DontLoadState();
@@ -215,6 +219,15 @@ extern "C"
     android::Platform::RunOnGuiThreadImpl([results=g_results]()
     {
       g_framework->NativeFramework()->ShowAllSearchResults(results);
+    });
+  }
+
+  JNIEXPORT void JNICALL
+  Java_com_mapswithme_maps_search_SearchEngine_nativeCancelInteractiveSearch(JNIEnv * env, jclass clazz)
+  {
+    android::Platform::RunOnGuiThreadImpl([]()
+    {
+      g_framework->NativeFramework()->CancelInteractiveSearch();
     });
   }
 } // extern "C"

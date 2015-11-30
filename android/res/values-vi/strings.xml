@@ -273,7 +273,7 @@
 	<!-- iOS share by Message button text (including SMS) -->
 	<string name="message">Tin nhắn</string>
 	<!-- Share by email button text -->
-	<string name="email">E-Mail</string>
+	<string name="email">E-mail</string>
 	<!-- Copy Link -->
 	<string name="copy_link">Sao chép Liên kết</string>
 	<!-- Text for the button that returns to caller application -->
@@ -304,8 +304,22 @@
 	<string name="length">Độ dài</string>
 	<string name="share_my_location">Chia sẻ Vị trí của tôi</string>
 	<string name="menu_search">Tìm kiếm</string>
+	<!-- Settings screen: "Map" category title -->
+	<string name="prefs_group_map">Bản đồ</string>
+	<!-- Settings screen: "Miscellaneous" category title -->
+	<string name="prefs_group_misc">Khác</string>
+	<string name="prefs_group_route">Điều hướng</string>
 	<string name="pref_zoom_title">Nút Phóng to/Thu nhỏ</string>
 	<string name="pref_zoom_summary">Hiển thị trên màn hình</string>
+	<!-- Settings «Route» category: «Tts enabled» title -->
+	<string name="pref_tts_enable_title">Hướng dẫn bằng Giọng nói</string>
+	<!-- Settings «Route» category: «Tts language» title -->
+	<string name="pref_tts_language_title">Ngôn ngữ Giọng nói</string>
+	<!-- Settings «Route» category: «Tts unavailable» subtitle -->
+	<string name="pref_tts_unavailable">Không có sẵn</string>
+	<!-- Title for "Other" section in TTS settings. -->
+	<string name="pref_tts_other_section_title">Khác</string>
+	<string name="pref_tts_how_to_set_up_voice">Làm thế nào để thiết lập tiếng nói</string>
 	<string name="placepage_distance">Khoảng cách</string>
 	<string name="placepage_coordinates">Tọa độ</string>
 	<string name="placepage_unsorted">Chưa phân loại</string>
@@ -326,10 +340,6 @@
 	<string name="route">Tuyến đường</string>
 	<!-- category title -->
 	<string name="routes">Tuyến đường</string>
-	<!-- button in the interface -->
-	<string name="choose_starting_point">Chọn điểm xuất phát…</string>
-	<!-- button in the interface -->
-	<string name="choose_destination">Chọn điểm đến…</string>
 	<!-- Show on first launch. -->
 	<string name="maps_licence_info">Ứng dụng này sử dụng dữ liệu địa lý (bao gồm bản đồ, thông tin doanh nghiệp, các điểm lưu tâm, biên giới quốc gia và khu vực, v.v...) lấy từ dự án OpenStreetMap. Chúng tôi không đảm bảo bất kỳ sự nhất quán, chính xác, toàn vẹn hay phù hợp nào từ các dữ liệu OpenStreetMap.</string>
 	<!-- Show on first launch. -->
@@ -427,7 +437,7 @@
 	<!-- Context menu item for downloader. -->
 	<string name="downloader_download_map">Tải về bản đồ</string>
 	<string name="downloader_download_map_no_routing">Tải về bản đồ không có chỉ đường</string>
-	<!-- Button for routing PP. -->
+	<!-- Button for routing. -->
 	<string name="routing_go">Tiến hành!</string>
 	<!-- Item status in downloader. -->
 	<string name="downloader_retry">Thử lại</string>
@@ -757,35 +767,9 @@
 	<!-- Failed planning route message in navigation view -->
 	<string name="routing_planning_error">Không thể Lập Lộ trình</string>
 	<!-- Arrive routing message in navigation view -->
-	<string name="routing_arrive">Đến</string>
-	<!-- Routing Start button title -->
-	<string name="routing_start">Xuất phát</string>
-	<!-- Planning route message in navigation view -->
-	<string name="routing_planning">Đang tìm đường</string>
+	<string name="routing_arrive">Đến: %s</string>
 	<!-- Text for routing::IRouter::FileTooOld dialog. -->
 	<string name="dialog_routing_download_and_update_maps">Để tạo đường đi, vui lòng tải về và cập nhật tất cả bản đồ dọc theo tuyến đường.</string>
-	<!-- Text for facebook sharing news about walking routes -->
-	<string name="share_walking_routes_facebook">MAPS.ME tiết kiệm thời gian đi bộ. Hơn 2 triệu km của các tuyến đường dành cho người đi bộ hiện đã có sẵn cho chức năng chỉ đường đi bộ.</string>
-	<!-- Text for messenger sharing news about walking routes -->
-	<string name="share_walking_routes_messenger">MAPS.ME cung cấp các tuyến đường đi bộ ngắn nhất trên toàn thế giới! Hãy dùng thử: http://maps.me/get?walk_im</string>
-	<!-- Text for sms sharing news about walking routes -->
-	<string name="share_walking_routes_sms">MAPS.ME cung cấp tuyến đường đi bộ ngắn nhất: http://maps.me/get?walk</string>
-	<!-- Subject for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_subject">Các tuyến đường đi bộ ngắn nhất hiện đã có sẵn</string>
-	<!-- Text for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_body">MAPS.ME vừa phát hành chức năng Chỉ đường Đi bộ dựa vào bản đồ chi tiết nhất trên thế giới! Chúng cung cấp tuyến đường ngắn nhất tời bất kỳ điểm đến nào. Hãy dùng thử: http://maps.me/get?walk_em</string>
-	<!-- Title for walking routes dialog, notifications etc. -->
-	<string name="title_walking_available">Chỉ đường Đi bộ đã có sẵn trong MAPS.ME!</string>
-	<!-- Text for walking routes dialog -->
-	<string name="share_walking_routes_first_launch">Chúng cung cấp tuyến đường ngắn nhất đến bất kỳ điểm đến nào. Hãy giúp bạn bè tiết kiệm thời gian đi bộ!</string>
-	<!-- Title for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_congratulations">Xin chúc mừng!</string>
-	<!-- Text for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_mastering">Bạn đã làm chủ được các chức năng Chỉ đường Đi bộ. Hãy giúp bạn bè tiết kiệm thời gian đi bộ. Hãy cho họ biết về MAPS.ME.</string>
-	<!-- Android notification about walking directions for update users -->
-	<string name="walking_notification_text">Muốn dùng thử?</string>
-	<!-- Android notification with picture (rich) about walking directions for update users -->
-	<string name="walking_rich_notification_text">Chúng cung cấp tuyến đường ngắn nhất đến điểm đến. Hãy dùng thử và giúp bạn bè tiết kiệm thời gian đi lại.</string>
 	<string name="rate_alert_title">Bạn thích ứng dụng chứ?</string>
 	<string name="rate_alert_default_message">Cám ơn bạn đã sử dụng MAPS.ME. Vui lòng đánh giá ứng dụng. Phản hồi của bạn giúp chúng tôi trở nên tốt hơn.</string>
 	<string name="rate_alert_five_star_message">Hoan hô! Chúng tôi cũng yêu bạn!</string>
@@ -802,8 +786,22 @@
 	<string name="search_not_found_location">Tải về bản đồ vị trí hiện tại của bạn.</string>
 	<string name="search_history_title">Lịch sử tìm kiếm</string>
 	<string name="search_history_text">Truy cập nhanh chóng đến câu hỏi tìm kiếm gần đây.</string>
-	<string name="update_maps_alert_title">Khám phá bản đồ giờ đã dễ hơn</string>
-	<string name="update_maps_alert_message">Chúng tôi đã cải thiện giao diện bản đồ: giờ đây tất cả các đối tượng trông thân thiện và rõ ràng hơn. Cập nhật bản đồ để nhận được nhiều nhất từ thiết kế mới.</string>
-	<string name="update_maps_alert_button_title">cập nhật bản đồ</string>
 	<string name="clear_search">Xóa Lịch sử Tìm kiếm</string>
+	<!-- Title for settings to enable/disable showcase menu button -->
+	<string name="showcase_settings_title">Hiển thị Quảng cáo</string>
+	<string name="p2p_route_planning">Hoạch định đường đi</string>
+	<string name="p2p_your_location">Vị trí của bạn</string>
+	<string name="p2p_from">Điểm khởi hành</string>
+	<string name="p2p_to">Điểm đích</string>
+	<string name="p2p_start">Bắt đầu</string>
+	<string name="p2p_planning">Đang hoạch định…</string>
+	<string name="p2p_from_here">Từ</string>
+	<string name="p2p_to_here">Đến</string>
+	<string name="p2p_only_from_current">Chức năng tìm đường chỉ có sẵn từ vị trí hiện tại của bạn.</string>
+	<string name="p2p_reroute_from_current">Bạn có muốn chúng tôi vạch đường từ vị trí hiện tại của bạn không?</string>
+	<string name="whats_new_where_to_turn">MAPS.ME sẽ cho bạn biết chỗ rẽ</string>
+	<string name="whats_new_voice_instructions">Bạn thân mến, các bạn đã yêu cầu từ lâu về việc chỉ dẫn bằng giọng nói trong khi điều hướng - chúng tôi đã thực hiện điều đó! Bây giờ bộ điều hướng của chúng tôi sẽ kịp thời cảnh báo cho bạn ngã rẽ tiếp theo của bạn.</string>
+	<string name="whats_new_between_any_points">Lập đường đi giữa bất kỳ các điểm nào</string>
+	<string name="whats_new_happy_day">Một ngày thực sự hạnh phúc! Hãy lên kế hoạch trước chuyến đi của bạn với MAPS.ME.</string>
+	<string name="whats_new_next">Tiếp theo</string>
 </resources>

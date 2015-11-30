@@ -478,13 +478,48 @@
 
 "share_my_location" = "Bagikan Lokasi Saya";
 
-"become_a_pro" = "Upgrade";
-
 "menu_search" = "Cari";
+
+/* Settings screen: "Map" category title */
+"prefs_group_map" = "Peta";
+
+/* Settings screen: "Miscellaneous" category title */
+"prefs_group_misc" = "Lain-Lain";
+
+"prefs_group_route" = "Navigasi";
 
 "pref_zoom_title" = "Tombol perbesaran";
 
 "pref_zoom_summary" = "Tampilkan pada layar";
+
+/* Settings «Map» category: «Map style» title */
+"pref_map_style_title" = "Map style";
+
+/* Settings «Map» category: «Map style» summary */
+"pref_map_style_summary" = "Change map presentation";
+
+/* «Map style» entry value */
+"pref_map_style_classic_light" = "Classic light";
+
+/* «Map style» entry value */
+"pref_map_style_classic_dark" = "Classic dark";
+
+/* «Map style» entry value */
+"pref_map_style_modern_light" = "Modern light";
+
+/* Settings «Route» category: «Tts enabled» title */
+"pref_tts_enable_title" = "Petunjuk Suara";
+
+/* Settings «Route» category: «Tts language» title */
+"pref_tts_language_title" = "Bahasa Suara";
+
+/* Settings «Route» category: «Tts unavailable» subtitle */
+"pref_tts_unavailable" = "Tidak Tersedia";
+
+/* Title for "Other" section in TTS settings. */
+"pref_tts_other_section_title" = "Lainnya";
+
+"pref_tts_how_to_set_up_voice" = "Cara mengatur suara";
 
 "placepage_distance" = "Jarak";
 
@@ -524,12 +559,6 @@
 /* category title */
 "routes" = "Rute";
 
-/* button in the interface */
-"choose_starting_point" = "Pilih titik awal…";
-
-/* button in the interface */
-"choose_destination" = "Pilih tujuan…";
-
 /* Show on first launch. */
 "maps_licence_info" = "Aplikasi ini menggunakan data geografis (termasuk peta, daftar perusahaan, lokasi-lokasi menarik, batas-batas negara dan daerah, dll) yang diambil dari proyek OpenStreetMap. Kami tidak menjamin konsistensi, akurasi, kelengkapan atau kesesuaian data OpenStreetMap apa pun.";
 
@@ -558,6 +587,12 @@
 "settings_and_more" = "Setelan &amp; Lebih Banyak";
 
 /* Text in menu */
+"website" = "Website";
+
+/* Text in menu */
+"blog" = "Blog";
+
+/* Text in menu */
 "maps_me_community" = "Komunitas MAPS.ME";
 
 /* Text in menu */
@@ -569,11 +604,26 @@
 /* Text in menu */
 "contact_us" = "Hubungi kami";
 
+/* Settings: Send feedback button and dialog title */
+"feedback" = "Feedback";
+
+/* Settings: "Send general feedback" button */
+"feedback_general" = "General feedback";
+
 /* Text in menu */
 "subscribe_to_news" = "Berlangganan berita kami";
 
 /* Text in menu */
 "rate_the_app" = "Beri nilai aplikasi";
+
+/* Rate in Google Play (Android only) */
+"rate_gp" = "Rate on Google Play";
+
+/* Share with friends: menu item title */
+"tell_friends" = "Tell a Friend";
+
+/* Share with friends: sharing text */
+"tell_friends_text" = "Hi! Install Maps.me!";
 
 /* Text in menu */
 "help" = "Bantuan";
@@ -589,6 +639,9 @@
 
 /* Email body */
 "subscribe_me_body" = "Saya ingin menjadi yang pertama untuk mengetahui kabar dan promosi terbaru. Saya dapat membatalkan langganan saya kapan saja.";
+
+/* About short text (below logo) */
+"about_description" = "Joined efforts of Mail.Ru Group and OpenStreetMap make the most useful application for travelers!";
 
 /* About text */
 "about_text" = "MAPS.ME menawarkan peta offline tercepat dari semua kota, semua negara di dunia. Berpergianlah dengan kepercayaan diri yang penuh: di nana pun Anda berada, MAPS.ME akan membantu Anda mengetahui posisi Anda pada peta, menemukan restoran, hotel, bank, stasiun bahan bakar terdekat, dll. Tidak perlu koneksi internet.Kami selalu membuat fitur-fitur baru dan ingin mendengar pendapat Anda mengenai bagaimana kami dapat membuat MAPS.ME menjadi lebih baik. Jika Anda memiliki masalah apa pun dengan aplikasinya, jangan segan untuk menghubungi kami di support@maps.me. Kami akan merespons setiap permintaan!Apakah Anda menyukai MAPS.ME an ingin membantu kami? Terdapat beberapa cara yang mudah dan sepenuhnya gratis:- tulis ulasan di App Market Anda";
@@ -679,7 +732,7 @@
 
 "downloader_download_map_no_routing" = "Unduh peta tanpa perutean";
 
-/* Button for routing PP. */
+/* Button for routing. */
 "routing_go" = "Mulai!";
 
 /* Item status in downloader. */
@@ -1193,49 +1246,10 @@
 "routing_planning_error" = "Sudah sampai di tujuan";
 
 /* Arrive routing message in navigation view */
-"routing_arrive" = "Kedatangan";
-
-/* Routing Start button title */
-"routing_start" = "Mulai";
-
-/* Planning route message in navigation view */
-"routing_planning" = "Merencanakan Rute";
+"routing_arrive" = "Kedatangan: %s";
 
 /* Text for routing::IRouter::FileTooOld dialog. */
 "dialog_routing_download_and_update_maps" = "Untuk membuat rute, silakan unduh dan perbarui semua peta sepanjang rute.";
-
-/* Text for facebook sharing news about walking routes */
-"share_walking_routes_facebook" = "Jalur terpendek yang pernah ada. MAPS.ME menghemat waktu berjalan Anda. Lebih dari 2 juta km rute, jalan, dan jalur untuk pejalan kaki tersedia untuk petunjuk berjalan sekarang.";
-
-/* Text for messenger sharing news about walking routes */
-"share_walking_routes_messenger" = "MAPS.ME memberikan rute berjalan yang terpendek di seluruh dunia! Ayo lihat: http://maps.me/get?walk_im";
-
-/* Text for sms sharing news about walking routes */
-"share_walking_routes_sms" = "MAPS.ME memberikan rute berjalan yang terpendek: http://maps.me/get?walk";
-
-/* Subject for email sharing news about walking routes */
-"share_walking_routes_email_subject" = "Rute berjalan yang terpendek tersedia";
-
-/* Text for email sharing news about walking routes */
-"share_walking_routes_email_body" = "MAPS.ME baru saja merilis petunjuk berjalan berdasarkan peta dengan perincian yang terlengkap di dunia! Aplikasi ini memberikan rute terpendek ke destinasi mana saja. Ayo dicoba: http://maps.me/get?walk_em";
-
-/* Title for walking routes dialog, notifications etc. */
-"title_walking_available" = "Petunjuk berjalan tersedia di MAPS.ME!";
-
-/* Text for walking routes dialog */
-"share_walking_routes_first_launch" = "Petunjuk berjalan memberikan rute terpendek ke destinasi mana saja. Bantu teman-teman Anda untuk menghemat waktu berjalan juga!";
-
-/* Title for walking routes dialog after 3 built routes */
-"share_walking_routes_congratulations" = "Selamat!";
-
-/* Text for walking routes dialog after 3 built routes */
-"share_walking_routes_mastering" = "Anda telah menguasai fungsi petunjuk berjalan. Bantu teman-teman Anda untuk menghemat waktu berjalan juga. Beri tahu mereka tentang MAPS.ME.";
-
-/* Android notification about walking directions for update users */
-"walking_notification_text" = "Maukah Anda mencobanya?";
-
-/* Android notification with picture (rich) about walking directions for update users */
-"walking_rich_notification_text" = "Petunjuk berjalan memberikan rute terpendek ke titik destinasi mana saja. Ayo coba sendiri dan bantu teman-teman Anda menghemat waktu perjalanan.";
 
 "rate_alert_title" = "Suka aplikasi ini?";
 
@@ -1269,10 +1283,40 @@
 
 "search_history_text" = "Akses kueri pencarian terbaru dengan cepat.";
 
-"update_maps_alert_title" = "Menelusuri peta kini lebih mudah";
-
-"update_maps_alert_message" = "Kami telah mengadakan peningkatan pada gaya peta: sekarang semua objek tampak lebih jelas dan mudah dipahami. Perbarui peta untuk menikmati seluruh manfaat dari desain baru ini.";
-
-"update_maps_alert_button_title" = "Perbarui peta";
-
 "clear_search" = "Bersihkan riwayat pencarian";
+
+/* Title for settings to enable/disable showcase menu button */
+"showcase_settings_title" = "Tampilkan Iklan";
+
+/* Place Page link to Wikipedia article (if map object has it). */
+"read_in_wikipedia" = "Wikipedia";
+
+"p2p_route_planning" = "Perencana Rute";
+
+"p2p_your_location" = "Lokasi Anda";
+
+"p2p_from" = "Titik keberangkatan";
+
+"p2p_to" = "Titik tujuan";
+
+"p2p_start" = "Mulai";
+
+"p2p_planning" = "Merencanakan…";
+
+"p2p_from_here" = "Dari";
+
+"p2p_to_here" = "Ke";
+
+"p2p_only_from_current" = "Navigasi tersedia hanya dari lokasi Anda saat ini.";
+
+"p2p_reroute_from_current" = "Apakah Anda ingin kami merencanakan sebuah rute dari lokasi Anda saat ini?";
+
+"whats_new_where_to_turn" = "MAPS.ME akan memberi tahu Anda tempat untuk berbelok";
+
+"whats_new_voice_instructions" = "Teman-teman, Anda telah lama meminta petunjuk suara selama navigasi - kami telah menyelesaikannya! Sekarang navigator kami secara tepat waktu akan memperingatkan Anda tentang belokan berikutnya.";
+
+"whats_new_between_any_points" = "Buat rute antar titik mana saja";
+
+"whats_new_happy_day" = "Memang hari yang membahagiakan! Rencanakan perjalanan Anda ke depan bersama MAPS.ME.";
+
+"whats_new_next" = "Berikut";

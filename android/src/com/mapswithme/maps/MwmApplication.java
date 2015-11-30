@@ -1,19 +1,19 @@
 package com.mapswithme.maps;
 
+import android.app.Application;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Environment;
 import android.preference.PreferenceManager;
-import android.text.TextUtils;
-import android.text.format.DateUtils;
 import android.util.Log;
 
-import com.google.gsonaltered.Gson;
+import com.google.gson.Gson;
 import com.mapswithme.country.ActiveCountryTree;
 import com.mapswithme.country.CountryItem;
-import com.mapswithme.maps.ads.LikesManager;
 import com.mapswithme.maps.background.Notifier;
 import com.mapswithme.maps.bookmarks.data.BookmarkManager;
+import com.mapswithme.maps.sound.TtsPlayer;
+import com.mapswithme.util.Config;
 import com.mapswithme.util.Constants;
 import com.mapswithme.util.UiUtils;
 import com.mapswithme.util.Yota;
@@ -26,44 +26,41 @@ import com.parse.SaveCallback;
 
 import java.io.File;
 
-public class MwmApplication extends android.app.Application implements ActiveCountryTree.ActiveCountryListener
+public class MwmApplication extends Application
+                         implements ActiveCountryTree.ActiveCountryListener
 {
   private final static String TAG = "MwmApplication";
-  private static final String LAUNCH_NUMBER_SETTING = "LaunchNumber"; // total number of app launches
-  private static final String SESSION_NUMBER_SETTING = "SessionNumber"; // session = number of days, when app was launched
-  private static final String LAST_SESSION_TIMESTAMP_SETTING = "LastSessionTimestamp"; // timestamp of last session
-  private static final String FIRST_INSTALL_VERSION = "FirstInstallVersion";
-  private static final String FIRST_INSTALL_FLAVOR = "FirstInstallFlavor";
+
   // Parse
   private static final String PREF_PARSE_DEVICE_TOKEN = "ParseDeviceToken";
   private static final String PREF_PARSE_INSTALLATION_ID = "ParseInstallationId";
 
-  private static MwmApplication mSelf;
+  private static MwmApplication sSelf;
+  private static SharedPreferences sPrefs;
   private final Gson mGson = new Gson();
-  private static SharedPreferences mPrefs;
 
-  private boolean mAreCountersInitialised;
+  private boolean mAreCountersInitialized;
   private boolean mIsFrameworkInitialized;
 
   public MwmApplication()
   {
     super();
-    mSelf = this;
+    sSelf = this;
   }
 
   public static MwmApplication get()
   {
-    return mSelf;
+    return sSelf;
   }
 
   public static Gson gson()
   {
-    return mSelf.mGson;
+    return sSelf.mGson;
   }
 
   public static SharedPreferences prefs()
   {
-    return mPrefs;
+    return sPrefs;
   }
 
   @Override
@@ -84,9 +81,9 @@ public class MwmApplication extends android.app.Application implements ActiveCou
   public void onCountryGroupChanged(int oldGroup, int oldPosition, int newGroup, int newPosition)
   {
     if (oldGroup == ActiveCountryTree.GROUP_NEW && newGroup == ActiveCountryTree.GROUP_UP_TO_DATE)
-      Statistics.INSTANCE.myTrackerTrackMapDownload();
+      Statistics.INSTANCE.trackMapChanged(Statistics.EventName.MAP_DOWNLOADED);
     else if (oldGroup == ActiveCountryTree.GROUP_OUT_OF_DATE && newGroup == ActiveCountryTree.GROUP_UP_TO_DATE)
-      Statistics.INSTANCE.myTrackerTrackMapUpdate();
+      Statistics.INSTANCE.trackMapChanged(Statistics.EventName.MAP_UPDATED);
   }
 
   @Override
@@ -97,33 +94,32 @@ public class MwmApplication extends android.app.Application implements ActiveCou
   {
     super.onCreate();
 
+    initPaths();
+    nativeInitPlatform(getApkPath(), getDataStoragePath(), getTempPath(), getObbGooglePath(),
+                       BuildConfig.FLAVOR, BuildConfig.BUILD_TYPE,
+                       Yota.isFirstYota(), UiUtils.isSmallTablet() || UiUtils.isBigTablet());
     initParse();
-    mPrefs = getSharedPreferences(getString(R.string.pref_file_name), MODE_PRIVATE);
+    sPrefs = getSharedPreferences(getString(R.string.pref_file_name), MODE_PRIVATE);
   }
 
-  public synchronized void initNativeCore()
+  public void initNativeCore()
   {
     if (mIsFrameworkInitialized)
       return;
 
-    initPaths();
-    nativeInit(getApkPath(), getDataStoragePath(), getTempPath(), getObbGooglePath(),
-               BuildConfig.FLAVOR, BuildConfig.BUILD_TYPE,
-               Yota.isFirstYota(), UiUtils.isSmallTablet() || UiUtils.isBigTablet());
+    nativeInitFramework();
     ActiveCountryTree.addListener(this);
     initNativeStrings();
     BookmarkManager.getIcons(); // init BookmarkManager (automatically loads bookmarks)
+    TtsPlayer.INSTANCE.init(this);
     mIsFrameworkInitialized = true;
   }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")
   private void initPaths()
   {
-    final String extStoragePath = getDataStoragePath();
-    final String extTmpPath = getTempPath();
-
-    new File(extStoragePath).mkdirs();
-    new File(extTmpPath).mkdirs();
+    new File(getDataStoragePath()).mkdirs();
+    new File(getTempPath()).mkdirs();
   }
 
   private void initNativeStrings()
@@ -187,40 +183,17 @@ public class MwmApplication extends android.app.Application implements ActiveCou
     System.loadLibrary("mapswithme");
   }
 
-  private native void nativeInit(String apkPath, String storagePath,
-                                 String tmpPath, String obbGooglePath,
-                                 String flavorName, String buildType,
-                                 boolean isYota, boolean isTablet);
+  /**
+   * Initializes native Platform with paths. Should be called before usage of any other native components.
+   */
+  private native void nativeInitPlatform(String apkPath, String storagePath, String tmpPath, String obbGooglePath,
+                                         String flavorName, String buildType, boolean isYota, boolean isTablet);
+
+  private native void nativeInitFramework();
 
   public native boolean nativeIsBenchmarking();
 
   private native void nativeAddLocalization(String name, String value);
-
-  // Dealing with Settings
-  public native boolean nativeGetBoolean(String name, boolean defaultValue);
-
-  public native void nativeSetBoolean(String name, boolean value);
-
-  public native int nativeGetInt(String name, int defaultValue);
-
-  public native void nativeSetInt(String name, int value);
-
-  public native long nativeGetLong(String name, long defaultValue);
-
-  public native void nativeSetLong(String name, long value);
-
-  public native double nativeGetDouble(String name, double defaultValue);
-
-  public native void nativeSetDouble(String name, double value);
-
-  public native String nativeGetString(String name, String defaultValue);
-
-  public native void nativeSetString(String name, String value);
-
-  /**
-   * Check if device have at least {@code size} bytes free.
-   */
-  public native boolean hasFreeSpace(long size);
 
   /*
    * init Parse SDK
@@ -253,77 +226,16 @@ public class MwmApplication extends android.app.Application implements ActiveCou
 
   public void initCounters()
   {
-    if (!mAreCountersInitialised)
+    if (!mAreCountersInitialized)
     {
-      mAreCountersInitialised = true;
-      updateLaunchNumbers();
-      updateSessionsNumber();
-      PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
+      mAreCountersInitialized = true;
+      Config.updateLaunchCounter();
+      PreferenceManager.setDefaultValues(this, R.xml.prefs_misc, false);
     }
   }
 
   public void onUpgrade()
   {
-    nativeSetInt(LAUNCH_NUMBER_SETTING, 0);
-    nativeSetInt(SESSION_NUMBER_SETTING, 0);
-    nativeSetLong(LAST_SESSION_TIMESTAMP_SETTING, 0);
-    nativeSetInt(LikesManager.LAST_RATED_SESSION, 0);
-    updateSessionsNumber();
-  }
-
-  private void updateLaunchNumbers()
-  {
-    final int currentLaunches = nativeGetInt(LAUNCH_NUMBER_SETTING, 0);
-    if (currentLaunches == 0)
-    {
-      final int installedVersion = getFirstInstallVersion();
-      if (installedVersion == 0)
-        nativeSetInt(FIRST_INSTALL_VERSION, BuildConfig.VERSION_CODE);
-
-      final String installedFlavor = getFirstInstallFlavor();
-      if (TextUtils.isEmpty(installedFlavor))
-        nativeSetString(FIRST_INSTALL_FLAVOR, BuildConfig.FLAVOR);
-    }
-
-    nativeSetInt(LAUNCH_NUMBER_SETTING, currentLaunches + 1);
-  }
-
-  private void updateSessionsNumber()
-  {
-    final int sessionNum = nativeGetInt(SESSION_NUMBER_SETTING, 0);
-    final long lastSessionTimestamp = nativeGetLong(LAST_SESSION_TIMESTAMP_SETTING, 0);
-    if (!DateUtils.isToday(lastSessionTimestamp))
-    {
-      nativeSetInt(SESSION_NUMBER_SETTING, sessionNum + 1);
-      nativeSetLong(LAST_SESSION_TIMESTAMP_SETTING, System.currentTimeMillis());
-    }
-  }
-
-  /**
-   * @return total number of application launches
-   */
-  public int getLaunchesNumber()
-  {
-    return nativeGetInt(LAUNCH_NUMBER_SETTING, 0);
-  }
-
-  /**
-   * Session = single day, when app was started any number of times.
-   *
-   * @return number of sessions.
-   */
-  public int getSessionsNumber()
-  {
-    return nativeGetInt(SESSION_NUMBER_SETTING, 0);
-  }
-
-  public int getFirstInstallVersion()
-  {
-    return nativeGetInt(FIRST_INSTALL_VERSION, 0);
-  }
-
-  public String getFirstInstallFlavor()
-  {
-    return nativeGetString(FIRST_INSTALL_FLAVOR, "");
+    Config.resetAppSessionCounters();
   }
 }

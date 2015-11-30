@@ -1,6 +1,4 @@
-#import <Foundation/Foundation.h>
-
-#include "map/user_mark.hpp"
+#include "Framework.h"
 
 @class MWMPlacePageEntity, MWMPlacePageNavigationBar;
 @protocol MWMPlacePageViewManagerProtocol;
@@ -19,7 +17,10 @@
 - (void)showPlacePageWithUserMark:(unique_ptr<UserMarkCopy>)userMark;
 - (void)refreshPlacePage;
 - (void)dismissPlacePage;
+- (void)hidePlacePage;
 - (void)buildRoute;
+- (void)routeFrom;
+- (void)routeTo;
 - (void)share;
 - (void)addBookmark;
 - (void)removeBookmark;
@@ -28,10 +29,12 @@
 - (void)viewWillTransitionToSize:(CGSize)size
        withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator;
 - (void)reloadBookmark;
-- (void)dragPlacePage:(CGPoint)point;
+- (void)changeBookmarkCategory:(BookmarkAndCategory)bac;
+- (void)dragPlacePage:(CGRect)frame;
 - (void)showDirectionViewWithTitle:(NSString *)title type:(NSString *)type;
 - (void)hideDirectionView;
 - (void)addSubviews:(NSArray *)views withNavigationController:(UINavigationController *)controller;
+- (void)changeHeight:(CGFloat)height;
 
 - (instancetype)init __attribute__((unavailable("call initWithViewController: instead")));
 

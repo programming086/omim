@@ -478,13 +478,48 @@
 
 "share_my_location" = "分享我的位置";
 
-"become_a_pro" = "升級";
-
 "menu_search" = "搜尋";
+
+/* Settings screen: "Map" category title */
+"prefs_group_map" = "地圖";
+
+/* Settings screen: "Miscellaneous" category title */
+"prefs_group_misc" = "其他";
+
+"prefs_group_route" = "導航";
 
 "pref_zoom_title" = "縮放按鈕";
 
 "pref_zoom_summary" = "在螢幕上顯示";
+
+/* Settings «Map» category: «Map style» title */
+"pref_map_style_title" = "Map style";
+
+/* Settings «Map» category: «Map style» summary */
+"pref_map_style_summary" = "Change map presentation";
+
+/* «Map style» entry value */
+"pref_map_style_classic_light" = "Classic light";
+
+/* «Map style» entry value */
+"pref_map_style_classic_dark" = "Classic dark";
+
+/* «Map style» entry value */
+"pref_map_style_modern_light" = "Modern light";
+
+/* Settings «Route» category: «Tts enabled» title */
+"pref_tts_enable_title" = "語音指示";
+
+/* Settings «Route» category: «Tts language» title */
+"pref_tts_language_title" = "語音語言";
+
+/* Settings «Route» category: «Tts unavailable» subtitle */
+"pref_tts_unavailable" = "無法使用";
+
+/* Title for "Other" section in TTS settings. */
+"pref_tts_other_section_title" = "其他";
+
+"pref_tts_how_to_set_up_voice" = "如何設置語音";
 
 "placepage_distance" = "距离";
 
@@ -524,12 +559,6 @@
 /* category title */
 "routes" = "路線";
 
-/* button in the interface */
-"choose_starting_point" = "選擇起點…";
-
-/* button in the interface */
-"choose_destination" = "選擇目的地…";
-
 /* Show on first launch. */
 "maps_licence_info" = "此應用程序使用從OpenStreetMap專案擷取之地理數據（包括地圖、商家資訊、興趣點、國家和地區邊界等）。我們不保證OpenStreetMap數據的一致性、準確性、完整性、或適用性。";
 
@@ -558,6 +587,12 @@
 "settings_and_more" = "設定及更多";
 
 /* Text in menu */
+"website" = "Website";
+
+/* Text in menu */
+"blog" = "Blog";
+
+/* Text in menu */
 "maps_me_community" = "MAPS.ME社區";
 
 /* Text in menu */
@@ -569,11 +604,26 @@
 /* Text in menu */
 "contact_us" = "聯絡我們";
 
+/* Settings: Send feedback button and dialog title */
+"feedback" = "Feedback";
+
+/* Settings: "Send general feedback" button */
+"feedback_general" = "General feedback";
+
 /* Text in menu */
 "subscribe_to_news" = "訂閱我們的新聞";
 
 /* Text in menu */
 "rate_the_app" = "為該應用打分";
+
+/* Rate in Google Play (Android only) */
+"rate_gp" = "Rate on Google Play";
+
+/* Share with friends: menu item title */
+"tell_friends" = "Tell a Friend";
+
+/* Share with friends: sharing text */
+"tell_friends_text" = "Hi! Install Maps.me!";
 
 /* Text in menu */
 "help" = "幫助";
@@ -589,6 +639,9 @@
 
 /* Email body */
 "subscribe_me_body" = "我想搶先了解最新新聞、更新和促銷活動。我可以隨時取消我的訂閱。";
+
+/* About short text (below logo) */
+"about_description" = "Joined efforts of Mail.Ru Group and OpenStreetMap make the most useful application for travelers!";
 
 /* About text */
 "about_text" = "MAPS.ME提供全球所有國家和所有城市的最快速的離線地圖。充滿自信地出行：無論您在哪， MAPS.ME都能夠幫助您在地圖上找到您自己的位置，找到最近的餐館、酒店、銀行、加油站，等等。無需網路連接。 我們始終在為添加新功能而努力，并希望能夠聽到您對我們應如何改進MAPS.ME的想法。若您在使用本應用時遇到任何問題，請隨時聯繫我們：support@maps.me。我們會回覆每一條請求！\n\n您喜歡MAPS.ME并希望支持我們嗎？以下為一些簡單且完全免費的方法：\n- 在您的App Market上發表評論\n- 在我們的Facebook頁面http://www.facebook.com/mapswithme上贊我們\n- 或者向您的母親、朋友，以及同事介紹 MAPS.ME :)\n\n感謝您與我們在一起。非常感謝您的支持。\n\n附言：我們從OpenStreetMap獲取地圖信息，這是一個類似于Wikipedia的地圖繪製項目，能夠讓用戶創建并編輯地圖。若您看到地圖上缺少了什麽或者有什麽錯誤，可以直接在http://openstreetmap.org上進行糾正。在下一個版本發佈時，您做出的更改便會出現在MAPS.ME應用中。";
@@ -679,7 +732,7 @@
 
 "downloader_download_map_no_routing" = "下載不帶路線的地圖";
 
-/* Button for routing PP. */
+/* Button for routing. */
 "routing_go" = "開始！";
 
 /* Item status in downloader. */
@@ -1193,49 +1246,10 @@
 "routing_planning_error" = "路線計劃失敗";
 
 /* Arrive routing message in navigation view */
-"routing_arrive" = "抵達";
-
-/* Routing Start button title */
-"routing_start" = "開始";
-
-/* Planning route message in navigation view */
-"routing_planning" = "計劃路線";
+"routing_arrive" = "抵達:%s";
 
 /* Text for routing::IRouter::FileTooOld dialog. */
 "dialog_routing_download_and_update_maps" = "要創建路線，請下載並更新所有沿路線的地圖。";
-
-/* Text for facebook sharing news about walking routes */
-"share_walking_routes_facebook" = "MAPS.ME為您節省步行時間。現在，《步行路線》提供超過2百萬公里的步行路線、路徑，以及游徑。";
-
-/* Text for messenger sharing news about walking routes */
-"share_walking_routes_messenger" = "MAPS.ME提供全世界各地的最短步行路線！來看看：http://maps.me/get?walk_im";
-
-/* Text for sms sharing news about walking routes */
-"share_walking_routes_sms" = "MAPS.ME 提供最短的步行路線：http://maps.me/get?walk";
-
-/* Subject for email sharing news about walking routes */
-"share_walking_routes_email_subject" = "提供最短的步行路線";
-
-/* Text for email sharing news about walking routes */
-"share_walking_routes_email_body" = "MAPS.ME 剛剛推出了以世界上最詳細的地圖為基礎的《步行路線》！它們提供至任何目的地的最短路線。嘗試一下：http://maps.me/get?walk_em";
-
-/* Title for walking routes dialog, notifications etc. */
-"title_walking_available" = "MAPS.ME中推出《步行路線》了！";
-
-/* Text for walking routes dialog */
-"share_walking_routes_first_launch" = "它們會給出至任何目的地的最短路線。幫助您的朋友也節省步行時間！";
-
-/* Title for walking routes dialog after 3 built routes */
-"share_walking_routes_congratulations" = "祝賀您！";
-
-/* Text for walking routes dialog after 3 built routes */
-"share_walking_routes_mastering" = "您已經掌握了步行路線的功能了。幫助您的朋友也節省步行時間。告訴他們關於MAPS.ME的信息。";
-
-/* Android notification about walking directions for update users */
-"walking_notification_text" = "想要嘗試嗎？";
-
-/* Android notification with picture (rich) about walking directions for update users */
-"walking_rich_notification_text" = "它們提供至任何目的地的最短路線。您自己來嘗試一下，並且幫助您的朋友節省旅行時間。";
 
 "rate_alert_title" = "喜歡這個應用嗎？";
 
@@ -1269,10 +1283,40 @@
 
 "search_history_text" = "快速存取最近搜尋的問題。";
 
-"update_maps_alert_title" = "探索地圖現在變得更加容易";
-
-"update_maps_alert_message" = "我們完善了地圖風格：現在，所有物件外觀更好看、更清楚。更新地圖以充分利用全新設計。";
-
-"update_maps_alert_button_title" = "更新地圖";
-
 "clear_search" = "清除搜尋記錄";
+
+/* Title for settings to enable/disable showcase menu button */
+"showcase_settings_title" = "顯示廣告";
+
+/* Place Page link to Wikipedia article (if map object has it). */
+"read_in_wikipedia" = "Wikipedia";
+
+"p2p_route_planning" = "路線計劃";
+
+"p2p_your_location" = "您的位置";
+
+"p2p_from" = "出發地點";
+
+"p2p_to" = "目的地點";
+
+"p2p_start" = "開始";
+
+"p2p_planning" = "計劃中…";
+
+"p2p_from_here" = "從";
+
+"p2p_to_here" = "到";
+
+"p2p_only_from_current" = "導航只能從您目前的位置開始。";
+
+"p2p_reroute_from_current" = "你是否想要規劃當前位置的路線？";
+
+"whats_new_where_to_turn" = "MAPS.ME 會讓您知道應該在哪裡轉彎";
+
+"whats_new_voice_instructions" = "親愛的朋友，您一直要求在導航時提供語音指示 - 我們已經做到了！現在，我們的導航儀會及時在您下一次轉變之前發出警示。";
+
+"whats_new_between_any_points" = "創建任何點之間的路線";
+
+"whats_new_happy_day" = "真是愉快的一天！使用MAPS.ME提前計劃您的旅行。";
+
+"whats_new_next" = "下一頁";

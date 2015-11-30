@@ -17,6 +17,8 @@ extern NSString * const kRateAlertEventName = @"rateAlertEvent";
 static NSString * const kRateAlertNibName = @"MWMRateAlert";
 static NSString * const kRateEmail = @"rating@maps.me";
 
+static NSString * const kStatisticsEvent = @"Rate Alert";
+
 @interface MWMRateAlert () <MFMailComposeViewControllerDelegate>
 
 @property (nonatomic) IBOutletCollection(UIButton) NSArray * buttons;
@@ -31,7 +33,7 @@ static NSString * const kRateEmail = @"rating@maps.me";
 
 + (instancetype)alert
 {
-  [Statistics.instance logEvent:[NSString stringWithFormat:@"%@ - %@", kRateAlertEventName, @"open"]];
+  [[Statistics instance] logEvent:kStatisticsEvent withParameters:@{kStatAction : kStatOpen}];
   MWMRateAlert * alert = [[[NSBundle mainBundle] loadNibNamed:kRateAlertNibName owner:self options:nil] firstObject];
   [alert configureButtons];
   return alert;
@@ -110,7 +112,7 @@ static NSString * const kRateEmail = @"rating@maps.me";
 
 - (IBAction)doneTap
 {
-  [Statistics.instance logEvent:[NSString stringWithFormat:@"%@ - %@", kRateAlertEventName, @"notNowTap"]];
+  [[Statistics instance] logEvent:kStatisticsEvent withParameters:@{kStatAction : kStatClose}];
   [Alohalytics logEvent:kRateAlertEventName withValue:@"notNowTap"];
   [self close];
 }
@@ -118,7 +120,8 @@ static NSString * const kRateEmail = @"rating@maps.me";
 - (IBAction)rateTap
 {
   NSUInteger const tag = self.selectedTag;
-  [Statistics.instance logEvent:[NSString stringWithFormat:@"%@ - %@", kRateAlertEventName, [@(tag).stringValue stringByAppendingString:@"_StarTap"]]];
+  [[Statistics instance] logEvent:kStatEventName(kStatisticsEvent, kStatRate)
+                   withParameters:@{kStatValue : @(tag).stringValue}];
   if (tag == 5)
   {
     [[UIApplication sharedApplication] rateVersionFrom:@"ios_pro_popup"];
@@ -141,8 +144,8 @@ static NSString * const kRateEmail = @"rating@maps.me";
 
 - (void)sendFeedback
 {
+  [[Statistics instance] logEvent:kStatEventName(kStatisticsEvent, kStatSendEmail)];
   [Alohalytics logEvent:kRateAlertEventName withValue:@"sendFeedback"];
-  [Statistics.instance logEvent:[NSString stringWithFormat:@"%@ - %@", kRateAlertEventName, @"sendFeedback"]];
   self.alpha = 0.;
   self.alertController.view.alpha = 0.;
   if ([MFMailComposeViewController canSendMail])
@@ -191,10 +194,9 @@ static NSString * const kRateEmail = @"rating@maps.me";
           didFinishWithResult:(MFMailComposeResult)result
                         error:(NSError *)error
 {
-  [Statistics.instance logEvent:[NSString stringWithFormat:@"%@ - %@", kRateAlertEventName, @"mailComposeController"]];
   [self.alertController.ownerViewController dismissViewControllerAnimated:YES completion:^
    {
-     [Statistics.instance logEvent:[NSString stringWithFormat:@"%@ - %@", kRateAlertEventName, @"close"]];
+     [[Statistics instance] logEvent:kStatEventName(kStatisticsEvent, kStatClose)];
      [self close];
    }];
 }

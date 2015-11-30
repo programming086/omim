@@ -273,7 +273,7 @@
 	<!-- iOS share by Message button text (including SMS) -->
 	<string name="message">Tin nhắn</string>
 	<!-- Share by email button text -->
-	<string name="email">E-Mail</string>
+	<string name="email">E-mail</string>
 	<!-- Copy Link -->
 	<string name="copy_link">Copiați link-ul</string>
 	<!-- Text for the button that returns to caller application -->
@@ -304,8 +304,22 @@
 	<string name="length">Lungime</string>
 	<string name="share_my_location">Partajează-mi poziția</string>
 	<string name="menu_search">Căutare</string>
+	<!-- Settings screen: "Map" category title -->
+	<string name="prefs_group_map">Hartă</string>
+	<!-- Settings screen: "Miscellaneous" category title -->
+	<string name="prefs_group_misc">Diverse</string>
+	<string name="prefs_group_route">Navigație</string>
 	<string name="pref_zoom_title">Butoane zoom</string>
 	<string name="pref_zoom_summary">Afișare pe ecran</string>
+	<!-- Settings «Route» category: «Tts enabled» title -->
+	<string name="pref_tts_enable_title">Instrucțiuni vocale</string>
+	<!-- Settings «Route» category: «Tts language» title -->
+	<string name="pref_tts_language_title">Limba ghidului vocal</string>
+	<!-- Settings «Route» category: «Tts unavailable» subtitle -->
+	<string name="pref_tts_unavailable">Nu există</string>
+	<!-- Title for "Other" section in TTS settings. -->
+	<string name="pref_tts_other_section_title">Alta</string>
+	<string name="pref_tts_how_to_set_up_voice">Modalitatea de configurare a vocii</string>
 	<string name="placepage_distance">Distanță</string>
 	<string name="placepage_coordinates">Coordonate</string>
 	<string name="placepage_unsorted">Nesortate</string>
@@ -326,10 +340,6 @@
 	<string name="route">Traseu</string>
 	<!-- category title -->
 	<string name="routes">Trasee</string>
-	<!-- button in the interface -->
-	<string name="choose_starting_point">Alegeți punctul de pornire…</string>
-	<!-- button in the interface -->
-	<string name="choose_destination">Alegeți destinația…</string>
 	<!-- Show on first launch. -->
 	<string name="maps_licence_info">Această aplicație utilizează date geografice (inclusiv hărți, liste de firme, puncte de interes, frontiere de țări și regiuni etc.) preluate din proiectul OpenStreetMap. Nu garantăm uniformitatea, acuratețea, integralitatea sau aplicabilitatea datelor OpenStreetMap.</string>
 	<!-- Show on first launch. -->
@@ -425,7 +435,7 @@
 	<!-- Context menu item for downloader. -->
 	<string name="downloader_download_map">Descărcați harta</string>
 	<string name="downloader_download_map_no_routing">Descărcare hartă fără rutare</string>
-	<!-- Button for routing PP. -->
+	<!-- Button for routing. -->
 	<string name="routing_go">Pornește!</string>
 	<!-- Item status in downloader. -->
 	<string name="downloader_retry">Reîncercare</string>
@@ -754,35 +764,9 @@
 	<!-- Failed planning route message in navigation view -->
 	<string name="routing_planning_error">Planificarea rutei a eșuat</string>
 	<!-- Arrive routing message in navigation view -->
-	<string name="routing_arrive">Sosire</string>
-	<!-- Routing Start button title -->
-	<string name="routing_start">Incepeți</string>
-	<!-- Planning route message in navigation view -->
-	<string name="routing_planning">Se determină ruta</string>
+	<string name="routing_arrive">Sosire: %s</string>
 	<!-- Text for routing::IRouter::FileTooOld dialog. -->
 	<string name="dialog_routing_download_and_update_maps">Pentru a crea o rută, vă rugăm să descărcați și să actualizați toate hărțile de pe parcursul rutei.</string>
-	<!-- Text for facebook sharing news about walking routes -->
-	<string name="share_walking_routes_facebook">MAPS.ME vă reduce timpul de mers pe jos. Peste 2 milioane de kilometri de rute pietonale, trasee și itinerarii sunt disponibile acum la indicațiile pentru deplasarea pietonală.</string>
-	<!-- Text for messenger sharing news about walking routes -->
-	<string name="share_walking_routes_messenger">MAPS.ME oferă cele mai scurte rute de deplasare pietonală din întreaga lume! Vizitați http://maps.me/get?walk_im</string>
-	<!-- Text for sms sharing news about walking routes -->
-	<string name="share_walking_routes_sms">MAPS.ME oferă cele mai scurte rute de deplasare pietonală: http://maps.me/get?walk</string>
-	<!-- Subject for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_subject">Sunt disponibile cele mai scurte rute de mers de jos</string>
-	<!-- Text for email sharing news about walking routes -->
-	<string name="share_walking_routes_email_body">MAPS.ME tocmai a lansat rute de mers pe jos, bazată pe cea mai detaliată hartă din lume! Ea vă oferă cea mai scurtă rută către orice destinație. Încercați-o: http://maps.me/get?walk_em</string>
-	<!-- Title for walking routes dialog, notifications etc. -->
-	<string name="title_walking_available">Rute de mers pe jos este disponibilă în MAPS.ME!</string>
-	<!-- Text for walking routes dialog -->
-	<string name="share_walking_routes_first_launch">Ea vă oferă cea mai scurtă rută către orice destinație. Ajutați-i și pe prietenii dvs. să-și reducă timpul de deplasare pe jos!</string>
-	<!-- Title for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_congratulations">Felicitări!</string>
-	<!-- Text for walking routes dialog after 3 built routes -->
-	<string name="share_walking_routes_mastering">Ați utilizat cu succes rute de mers pe jos. Ajutați-i și pe prietenii dvs. să-și reducă timpul de deplasare pe jos. Spuneți-le despre MAPS.ME.</string>
-	<!-- Android notification about walking directions for update users -->
-	<string name="walking_notification_text">Doriți să o încercați?</string>
-	<!-- Android notification with picture (rich) about walking directions for update users -->
-	<string name="walking_rich_notification_text">Ea vă oferă cea mai scurtă rută către orice punct de destinație. Încercați-o și ajutați-vă prietenii să-și reducă timpul de deplasare.</string>
 	<string name="rate_alert_title">Vă place aplicația?</string>
 	<string name="rate_alert_default_message">Vă mulțumim că folosiți MAPS.ME. Vă rugăm să dați o notă aplicației. Comentariile dvs. ne ajută să devenim mai buni.</string>
 	<string name="rate_alert_five_star_message">Ura! Și noi vă iubim!</string>
@@ -799,8 +783,22 @@
 	<string name="search_not_found_location">Descărcați harta locului în care vă aflați acum.</string>
 	<string name="search_history_title">Istoricul căutărilor</string>
 	<string name="search_history_text">Accesare rapidă a căutărilor recente.</string>
-	<string name="update_maps_alert_title">Explorarea hărții a devenit mai simplă acum</string>
-	<string name="update_maps_alert_message">Stilurile hărții au fost îmbunătățite: acum toate obiectivele sunt prezentate într-un mod mai clar și atractiv. Actualizează hărțile pentru a beneficia din plin de noul design.</string>
-	<string name="update_maps_alert_button_title">Actualizare hărți</string>
 	<string name="clear_search">Ștergere istoric de căutare</string>
+	<!-- Title for settings to enable/disable showcase menu button -->
+	<string name="showcase_settings_title">Afișare reclame</string>
+	<string name="p2p_route_planning">Planificare rută</string>
+	<string name="p2p_your_location">Locația dvs.</string>
+	<string name="p2p_from">Punctul de plecare</string>
+	<string name="p2p_to">Punctul de sosire</string>
+	<string name="p2p_start">Start</string>
+	<string name="p2p_planning">Se planifică…</string>
+	<string name="p2p_from_here">Din</string>
+	<string name="p2p_to_here">În</string>
+	<string name="p2p_only_from_current">Navigația este disponibilă doar având ca punct de pornire locațiacctuală.</string>
+	<string name="p2p_reroute_from_current">Doriți să vă planificăm o rută având ca punct de pornire locația actuală?</string>
+	<string name="whats_new_where_to_turn">MAPS.ME vă va spune unde să cotiți</string>
+	<string name="whats_new_voice_instructions">Dragi prieteni, ați solicitat în repetate rânduri indicații audio în timpul navigării – iar noi am realizat acest lucru! Noul dvs. copilot vă va avertiza la timp despre manevre.</string>
+	<string name="whats_new_between_any_points">Elaborați un traseu între orice obiecte</string>
+	<string name="whats_new_happy_day">Da, da, e adevărat! Astăzi este o zi fericită cu încă o îmbunătățire! Planificați-vă călătoria din timp cu MAPS.ME.</string>
+	<string name="whats_new_next">Următoarea</string>
 </resources>

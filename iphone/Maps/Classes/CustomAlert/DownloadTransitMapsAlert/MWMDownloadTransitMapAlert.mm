@@ -89,7 +89,7 @@ static NSString * const kStatisticsEvent = @"Map download Alert";
                                  routes:(vector<storage::TIndex> const &)routes
                                    code:(routing::IRouter::ResultCode)code
 {
-  [Statistics.instance logEvent:[NSString stringWithFormat:@"%@ - %@", kStatisticsEvent, @"open"]];
+  [[Statistics instance] logEvent:kStatisticsEvent withParameters:@{kStatAction : kStatOpen}];
   MWMDownloadTransitMapAlert * alert = [self alertWithMaps:maps routes:routes];
   switch (code)
   {
@@ -156,13 +156,13 @@ static NSString * const kStatisticsEvent = @"Map download Alert";
 
 - (IBAction)notNowButtonTap:(id)sender
 {
-  [Statistics.instance logEvent:[NSString stringWithFormat:@"%@ - %@", kStatisticsEvent, @"notNowButtonTap"]];
+  [[Statistics instance] logEvent:kStatisticsEvent withParameters:@{kStatAction : kStatClose}];
   [self close];
 }
 
 - (IBAction)downloadButtonTap:(id)sender
 {
-  [Statistics.instance logEvent:[NSString stringWithFormat:@"%@ - %@", kStatisticsEvent, @"downloadButtonTap"]];
+  [[Statistics instance] logEvent:kStatisticsEvent withParameters:@{kStatAction : kStatApply}];
   [self downloadMaps];
 }
 

@@ -11,7 +11,7 @@ using namespace routing::turns;
 
 /// The order is important. Starting with the most frequent tokens according to
 /// taginfo.openstreetmap.org we minimize the number of the comparisons in ParseSingleLane().
-array<pair<LaneWay, string>, static_cast<size_t>(LaneWay::Count)> const g_laneWayNames = {
+array<pair<LaneWay, char const *>, static_cast<size_t>(LaneWay::Count)> const g_laneWayNames = {
     {{LaneWay::Through, "through"},
      {LaneWay::Left, "left"},
      {LaneWay::Right, "right"},
@@ -26,7 +26,7 @@ array<pair<LaneWay, string>, static_cast<size_t>(LaneWay::Count)> const g_laneWa
 static_assert(g_laneWayNames.size() == static_cast<size_t>(LaneWay::Count),
               "Check the size of g_laneWayNames");
 
-array<pair<TurnDirection, string>, static_cast<size_t>(TurnDirection::Count)> const g_turnNames = {
+array<pair<TurnDirection, char const *>, static_cast<size_t>(TurnDirection::Count)> const g_turnNames = {
     {{TurnDirection::NoTurn, "NoTurn"},
      {TurnDirection::GoStraight, "GoStraight"},
      {TurnDirection::TurnRight, "TurnRight"},
@@ -35,7 +35,8 @@ array<pair<TurnDirection, string>, static_cast<size_t>(TurnDirection::Count)> co
      {TurnDirection::TurnLeft, "TurnLeft"},
      {TurnDirection::TurnSharpLeft, "TurnSharpLeft"},
      {TurnDirection::TurnSlightLeft, "TurnSlightLeft"},
-     {TurnDirection::UTurn, "UTurn"},
+     {TurnDirection::UTurnLeft, "UTurnLeft"},
+     {TurnDirection::UTurnRight, "UTurnRight"},
      {TurnDirection::TakeTheExit, "TakeTheExit"},
      {TurnDirection::EnterRoundAbout, "EnterRoundAbout"},
      {TurnDirection::LeaveRoundAbout, "LeaveRoundAbout"},
@@ -66,6 +67,15 @@ string DebugPrint(TurnItem const & turnItem)
       << ", m_targetName = " << turnItem.m_targetName
       << ", m_keepAnyway = " << turnItem.m_keepAnyway
       << ", m_pedestrianDir = " << DebugPrint(turnItem.m_pedestrianTurn)
+      << " ]" << endl;
+  return out.str();
+}
+
+string DebugPrint(TurnItemDist const & turnItemDist)
+{
+  stringstream out;
+  out << "TurnItemDist [ m_turnItem = " << DebugPrint(turnItemDist.m_turnItem)
+      << ", m_distMeters = " << turnItemDist.m_distMeters
       << " ]" << endl;
   return out.str();
 }
@@ -129,7 +139,8 @@ bool IsLaneWayConformedTurnDirection(LaneWay l, TurnDirection t)
       return l == LaneWay::SharpLeft;
     case TurnDirection::TurnSlightLeft:
       return l == LaneWay::SlightLeft;
-    case TurnDirection::UTurn:
+    case TurnDirection::UTurnLeft:
+    case TurnDirection::UTurnRight:
       return l == LaneWay::Reverse;
   }
 }
@@ -154,7 +165,8 @@ bool IsLaneWayConformedTurnDirectionApproximately(LaneWay l, TurnDirection t)
       return l == LaneWay::SharpLeft || l == LaneWay::Left;
     case TurnDirection::TurnSlightLeft:
       return l == LaneWay::SlightLeft || l == LaneWay::Through || l == LaneWay::Left;
-    case TurnDirection::UTurn:
+    case TurnDirection::UTurnLeft:
+    case TurnDirection::UTurnRight:
       return l == LaneWay::Reverse;
   }
 }

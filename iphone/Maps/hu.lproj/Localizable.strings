@@ -478,13 +478,48 @@
 
 "share_my_location" = "Helyzetem megosztása";
 
-"become_a_pro" = "Frissítés most";
-
 "menu_search" = "Keresés";
+
+/* Settings screen: "Map" category title */
+"prefs_group_map" = "Térkép";
+
+/* Settings screen: "Miscellaneous" category title */
+"prefs_group_misc" = "Egyéb";
+
+"prefs_group_route" = "Navigáció";
 
 "pref_zoom_title" = "Nagyítás/kicsinyítés gombok";
 
 "pref_zoom_summary" = "Mutassa a kijelzőn";
+
+/* Settings «Map» category: «Map style» title */
+"pref_map_style_title" = "Map style";
+
+/* Settings «Map» category: «Map style» summary */
+"pref_map_style_summary" = "Change map presentation";
+
+/* «Map style» entry value */
+"pref_map_style_classic_light" = "Classic light";
+
+/* «Map style» entry value */
+"pref_map_style_classic_dark" = "Classic dark";
+
+/* «Map style» entry value */
+"pref_map_style_modern_light" = "Modern light";
+
+/* Settings «Route» category: «Tts enabled» title */
+"pref_tts_enable_title" = "Hangutasítások";
+
+/* Settings «Route» category: «Tts language» title */
+"pref_tts_language_title" = "A hang nyelve";
+
+/* Settings «Route» category: «Tts unavailable» subtitle */
+"pref_tts_unavailable" = "Nem áll rendelkezésre";
+
+/* Title for "Other" section in TTS settings. */
+"pref_tts_other_section_title" = "Egyéb";
+
+"pref_tts_how_to_set_up_voice" = "Így állítsd be a hangot";
 
 "placepage_distance" = "Távolság";
 
@@ -524,12 +559,6 @@
 /* category title */
 "routes" = "Útvonalak";
 
-/* button in the interface */
-"choose_starting_point" = "Válasszon kiindulási pontot…";
-
-/* button in the interface */
-"choose_destination" = "Válasszon úti célt…";
-
 /* Show on first launch. */
 "maps_licence_info" = "This applications uses geographical data (including maps, business listings, points of interest, borders of countries and regions, etc.) taken from the OpenStreetMap project. We do not warrant any consistency, accuracy, completeness or applicability of the OpenStreetMap data.";
 
@@ -558,6 +587,12 @@
 "settings_and_more" = "Beállítások és egyéb";
 
 /* Text in menu */
+"website" = "Website";
+
+/* Text in menu */
+"blog" = "Blog";
+
+/* Text in menu */
 "maps_me_community" = "MAPS.ME közösség";
 
 /* Text in menu */
@@ -569,11 +604,26 @@
 /* Text in menu */
 "contact_us" = "Kapcsolat";
 
+/* Settings: Send feedback button and dialog title */
+"feedback" = "Feedback";
+
+/* Settings: "Send general feedback" button */
+"feedback_general" = "General feedback";
+
 /* Text in menu */
 "subscribe_to_news" = "Iratkozz fel hírlevelünkre";
 
 /* Text in menu */
 "rate_the_app" = "Értékeld az alkalmazást";
+
+/* Rate in Google Play (Android only) */
+"rate_gp" = "Rate on Google Play";
+
+/* Share with friends: menu item title */
+"tell_friends" = "Tell a Friend";
+
+/* Share with friends: sharing text */
+"tell_friends_text" = "Hi! Install Maps.me!";
 
 /* Text in menu */
 "help" = "Segítség";
@@ -589,6 +639,9 @@
 
 /* Email body */
 "subscribe_me_body" = "Elsőként szeretnék értesülni a legújabb hírekről frissítésekről és promóciókról. A feliratkozásom bármikor törölhetem.";
+
+/* About short text (below logo) */
+"about_description" = "Joined efforts of Mail.Ru Group and OpenStreetMap make the most useful application for travelers!";
 
 /* About text */
 "about_text" = "A MAPS.ME kínálja a leggyorsabb offline térképeket, a világ összes városáról és országáról. Utazz magabiztosan: bárhol is vagy, a MAPS.ME segít, hogy megtaláld magad a térképen, valamint segít a legközelebbi étterem, hotel, bank, benzinkút stb. felkutatásában is. Nem igényel internet kapcsolatot.\n\nMindig dolgozunk új fejlesztéseken és örömmel vennénk a te véleményedet is arról, hogyan tudnánk tovább fejleszteni a MAPS.ME-t. Bármely probléma esetén írj nekünk a support@maps.me e-mail címre. Minden levélre válaszolunk!\n\nSzereted a MAPS.ME-t és szeretnél támogatni minket? Van erre pár egyszerű és teljesen ingyenes lehetőséged:\n\n- írj rólunk értékelést az App Market-en\n- kedveld a Facebook oldalunkat: http://www.facebook.com/mapswithme\n- vagy csak mesélj a MAPS.ME-ről anyukádnak, barátaidnak és munkatársaidnak :)\n\nKöszönjük, hogy velünk vagy. Nagyra értékeljük támogatásodat!\n\nU.i: Adatainkat az OpenStreetMap-ről vesszük, ami egy, a Wikipedia-hoz hasonló térképes projekt, ami megengedi felhasználóinak a térképek létrehozását és szerkesztését. Ha bármi hiányzik vagy rossz a térképpel, közvetlenül te is kijavíthatod a http://openstreetmap.org-on és változtatásaid a MAPS.ME következő verziójában már meg fognak jelenni.";
@@ -679,7 +732,7 @@
 
 "downloader_download_map_no_routing" = "Térkép letöltése útvonal nélkül";
 
-/* Button for routing PP. */
+/* Button for routing. */
 "routing_go" = "Indulás!";
 
 /* Item status in downloader. */
@@ -1193,49 +1246,10 @@
 "routing_planning_error" = "Sikertelen útvonaltervezés";
 
 /* Arrive routing message in navigation view */
-"routing_arrive" = "Megérkezik";
-
-/* Routing Start button title */
-"routing_start" = "Indítás";
-
-/* Planning route message in navigation view */
-"routing_planning" = "Útvonal tervezése";
+"routing_arrive" = "Megérkezik: %s";
 
 /* Text for routing::IRouter::FileTooOld dialog. */
 "dialog_routing_download_and_update_maps" = "Útvonal létrehozásához kérjük, töltse le és frissítse az összes térképet az útvonal mentén.";
-
-/* Text for facebook sharing news about walking routes */
-"share_walking_routes_facebook" = "A MAPS.ME segít a séta menetidő spórolásában. Több mint kétmillió km gyalogos szakasz, táv és ösvény érhető el a séta útszakaszokhoz.";
-
-/* Text for messenger sharing news about walking routes */
-"share_walking_routes_messenger" = "A MAPS.ME világszerte a lehető legrövidebb séta szakaszt adja meg! Nézze meg itt: http://maps.me/get?walk_im";
-
-/* Text for sms sharing news about walking routes */
-"share_walking_routes_sms" = "A MAPS.ME a legrövidebb séta szakaszt adja meg: http://maps.me/get?walk";
-
-/* Subject for email sharing news about walking routes */
-"share_walking_routes_email_subject" = "A lehető legrövidebb útszakaszok érhetők el";
-
-/* Text for email sharing news about walking routes */
-"share_walking_routes_email_body" = "A MAPS.ME épp most adta ki a séta útvonalakat, méghozzá a világ legrészletesebb térképe alapján! Bármely úti célhoz a legrövidebb útvonalat adják meg. Próbálja ki őket: http://maps.me/get?walk_em";
-
-/* Title for walking routes dialog, notifications etc. */
-"title_walking_available" = "A séta útvonalak elérhetők a MAPS.ME-n!";
-
-/* Text for walking routes dialog */
-"share_walking_routes_first_launch" = "A legrövidebb útvonalat adják meg bármely megadott úti célhoz. Próbálja ki saját maga, és segítsen a barátainak is időt spórolni!";
-
-/* Title for walking routes dialog after 3 built routes */
-"share_walking_routes_congratulations" = "Gratulálunk!";
-
-/* Text for walking routes dialog after 3 built routes */
-"share_walking_routes_mastering" = "Elsajátította a séta útvonalak funkciót. Segítsen a barátainak is séta menetidőt spórolni. Számoljon be nekik a MAPS.ME-ről.";
-
-/* Android notification about walking directions for update users */
-"walking_notification_text" = "Ki akarja próbálni őket?";
-
-/* Android notification with picture (rich) about walking directions for update users */
-"walking_rich_notification_text" = "A legrövidebb útvonalat adják meg bármely megszabott úti célhoz. Próbálja ki saját maga, és segítsen a barátainak időt spórolni.";
 
 "rate_alert_title" = "Tetszik az app?";
 
@@ -1269,10 +1283,40 @@
 
 "search_history_text" = "Aktuális keresés gyors elérése.";
 
-"update_maps_alert_title" = "Egyszerűbbé vált a navigálás";
-
-"update_maps_alert_message" = "Javítottunk a térképek stílusán: mostantól minden objektum barátságosabban és érthetőbben néz ki. Frissítse fel a térképeket az új design összes előnyének kihasználása érdekében.";
-
-"update_maps_alert_button_title" = "Térképek frissítése";
-
 "clear_search" = "A keresési előzmények törlése";
+
+/* Title for settings to enable/disable showcase menu button */
+"showcase_settings_title" = "Hirdetés mutatása";
+
+/* Place Page link to Wikipedia article (if map object has it). */
+"read_in_wikipedia" = "Wikipedia";
+
+"p2p_route_planning" = "Útvonaltervezés";
+
+"p2p_your_location" = "Az Ön helyzete";
+
+"p2p_from" = "Az indulás helye";
+
+"p2p_to" = "Az érkezés helye";
+
+"p2p_start" = "Indítás";
+
+"p2p_planning" = "Tervezés…";
+
+"p2p_from_here" = "Innen";
+
+"p2p_to_here" = "Ide";
+
+"p2p_only_from_current" = "A navigáció csak a jelenlegi helyzetéből érhető el.";
+
+"p2p_reroute_from_current" = "Szeretne útvonaltervet készíttetni a jelenlegi pozíciójától?";
+
+"whats_new_where_to_turn" = "A MAPS.ME segítségével tudni fogod, hogy merre kanyarodj";
+
+"whats_new_voice_instructions" = "Kedves barátaink! Már régóta kértétek tőlünk a hangirányítás hozzáadását a navigációhoz, most végre kész lett! Most a navigátor időben figyelmeztet, hogy mikor kell legközelebb kanyarodnod.";
+
+"whats_new_between_any_points" = "Alakíts ki egy útvonalat két tetszőleges pont között";
+
+"whats_new_happy_day" = "Micsoda boldog nap ez! Tervezd meg az utaidat előre a MAPS.ME-vel!";
+
+"whats_new_next" = "Következő";

@@ -103,8 +103,6 @@ public class Framework
 
   public native static void injectData(SearchResult searchResult, long index);
 
-  public native static void cleanSearchLayerOnMap();
-
   public native static void invalidate();
 
   public native static void deactivatePopup();
@@ -136,25 +134,21 @@ public class Framework
 
   public native static void nativeFollowRoute();
 
+  public native static void nativeDisableFollowing();
+
   public native static RoutingInfo nativeGetRouteFollowingInfo();
 
   // When an end user is going to a turn he gets sound turn instructions.
-  // If C++ part wants the client to pronounce an instruction nativeGenerateTurnSound returns
+  // If C++ part wants the client to pronounce an instruction nativeGenerateTurnNotifications returns
   // an array of one of more strings. C++ part assumes that all these strings shall be pronounced by the client's TTS.
   // For example if C++ part wants the client to pronounce "Make a right turn." this method returns
   // an array with one string "Make a right turn.". The next call of the method returns nothing.
-  // nativeGenerateTurnSound shall be called by the client when a new position is available.
-  public native static String[] nativeGenerateTurnSound();
+  // nativeGenerateTurnNotifications shall be called by the client when a new position is available.
+  public native static String[] nativeGenerateTurnNotifications();
 
   public native static void nativeSetRoutingListener(RoutingListener listener);
 
   public native static void nativeSetRouteProgressListener(RoutingProgressListener listener);
-
-  // TODO consider implementing other model of listeners connection, and implement methods below then
-//  public native static void nativeRemoveRoutingListener();
-//
-//  public native static void nativeRemoveRouteProgressListener();
-  //
 
   public native static String nativeGetCountryNameIfAbsent(double lat, double lon);
 
@@ -171,14 +165,22 @@ public class Framework
 
   public native static void setMapStyle(int mapStyle);
 
-  public native static void setRouter(int routerType);
+  public native static int getMapStyle();
 
-  public native static int getRouter();
+  public native static void nativeSetRouter(int routerType);
+
+  public native static int nativeGetRouter();
+
+  public native static int nativeGetLastUsedRouter();
 
   /**
    * @return {@link Framework#ROUTER_TYPE_VEHICLE} or {@link Framework#ROUTER_TYPE_PEDESTRIAN}
    */
   public native static int nativeGetBestRouter(double srcLat, double srcLon, double dstLat, double dstLon);
+
+  public native static void nativeSetRouteStartPoint(double lat, double lon, boolean valid);
+
+  public native static void nativeSetRouteEndPoint(double lat, double lon, boolean valid);
 
   public native static void setWidgetPivot(int widget, int pivotX, int pivotY);
 

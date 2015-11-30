@@ -11,8 +11,12 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
+import android.support.annotation.DimenRes;
 import android.support.v4.app.NavUtils;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.AbsoluteSizeSpan;
 import android.util.Log;
 import android.view.Window;
 import android.widget.Toast;
@@ -264,12 +268,30 @@ public class Utils
     }
   }
 
+  public static void showFacebookPage(Activity activity)
+  {
+    try
+    {
+      // Exception is thrown if we don't have installed Facebook application.
+      activity.getPackageManager().getPackageInfo(Constants.Package.FB_PACKAGE, 0);
+      activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Constants.Url.FB_MAPSME_COMMUNITY_NATIVE)));
+    } catch (final Exception e)
+    {
+      activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Constants.Url.FB_MAPSME_COMMUNITY_HTTP)));
+    }
+  }
+
+  public static void showTwitterPage(Activity activity)
+  {
+    activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Constants.Url.TWITTER_MAPSME_HTTP)));
+  }
+
   public static void sendSupportMail(Activity activity, String subject)
   {
     final Intent intent = new Intent(Intent.ACTION_SEND);
     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-    intent.putExtra(Intent.EXTRA_EMAIL, new String[]{BuildConfig.SUPPORT_MAIL});
-    intent.putExtra(Intent.EXTRA_SUBJECT, "[android] " + subject);
+    intent.putExtra(Intent.EXTRA_EMAIL, new String[] { Constants.Email.SUPPORT });
+    intent.putExtra(Intent.EXTRA_SUBJECT, "[" + BuildConfig.VERSION_NAME + "] " + subject);
     intent.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + Utils.saveLogToFile()));
     intent.putExtra(Intent.EXTRA_TEXT, ""); // do this so some email clients don't complain about empty body.
     intent.setType("message/rfc822");
@@ -288,5 +310,13 @@ public class Utils
       ((CustomNavigateUpListener) activity).customOnNavigateUp();
     else
       NavUtils.navigateUpFromSameTask(activity);
+  }
+
+  public static SpannableStringBuilder formatUnitsText(@DimenRes int size, @DimenRes int units, String dimension, String unitText)
+  {
+    final SpannableStringBuilder res = new SpannableStringBuilder(dimension).append(" ").append(unitText);
+    res.setSpan(new AbsoluteSizeSpan(UiUtils.dimen(size), false), 0, dimension.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    res.setSpan(new AbsoluteSizeSpan(UiUtils.dimen(units), false), dimension.length(), res.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    return res;
   }
 }
