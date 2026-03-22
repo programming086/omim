@@ -1,11 +1,13 @@
 #pragma once
+
 #include "coding/reader.hpp"
 
 #include "base/assert.hpp"
 #include "base/exception.hpp"
 
-#include "std/type_traits.hpp"
-#include "std/iterator_facade.hpp"
+#include <type_traits>
+
+#include <boost/iterator/iterator_facade.hpp>
 
 // Disk-driven vector.
 template <typename T, class TReader, typename TSize = uint32_t>
@@ -14,7 +16,7 @@ class DDVector
 public:
   typedef T value_type;
   typedef TSize size_type;
-  typedef typename make_signed<size_type>::type difference_type;
+  typedef std::make_signed_t<size_type> difference_type;
   typedef TReader ReaderType;
 
   DECLARE_EXCEPTION(OpenException, RootException);
@@ -42,10 +44,10 @@ public:
     return ReadPrimitiveFromPos<T>(m_reader, static_cast<uint64_t>(i) * sizeof(T));
   }
 
-  class const_iterator : public iterator_facade<
+  class const_iterator : public boost::iterator_facade<
       const_iterator,
       value_type const,
-      random_access_traversal_tag>
+      boost::random_access_traversal_tag>
   {
   public:
     const_iterator() : m_pReader(NULL), m_I(0), m_bValueRead(false)
@@ -120,7 +122,7 @@ public:
   private:
     ReaderType const * m_pReader;
     size_type m_I;
-    mutable T m_Value;
+    mutable T m_Value = {};
     mutable bool m_bValueRead;
 #ifdef DEBUG
     size_type m_Size;
@@ -143,7 +145,6 @@ public:
 #else
     return const_iterator(&m_reader, m_Size);
 #endif
-
   }
 
   void Read(size_type i, T & result) const

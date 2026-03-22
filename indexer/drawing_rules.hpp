@@ -2,23 +2,25 @@
 
 #include "indexer/drawing_rule_def.hpp"
 #include "indexer/drules_selector.hpp"
+#include "indexer/map_style.hpp"
 
 #include "base/base.hpp"
 #include "base/buffer_vector.hpp"
 
-#include "std/map.hpp"
-#include "std/vector.hpp"
-#include "std/array.hpp"
-#include "std/string.hpp"
-#include "std/iostream.hpp"
 #include "std/target_os.hpp"
 
+#include <array>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 class LineDefProto;
 class AreaRuleProto;
 class SymbolRuleProto;
 class CaptionDefProto;
-class CircleRuleProto;
 class ShieldRuleProto;
 class ContainerProto;
 class FeatureType;
@@ -31,7 +33,7 @@ namespace drule
     mutable buffer_vector<uint32_t, 4> m_id1;
     char m_type;      // obsolete for new styles, can be removed
 
-    unique_ptr<ISelector> m_selector;
+    std::unique_ptr<ISelector> m_selector;
 
   public:
     static uint32_t const empty_id = 0xFFFFFFFF;
@@ -55,29 +57,30 @@ namespace drule
     virtual SymbolRuleProto const * GetSymbol() const;
     virtual CaptionDefProto const * GetCaption(int) const;
     virtual text_type_t GetCaptionTextType(int) const;
-    virtual CircleRuleProto const * GetCircle() const;
     virtual ShieldRuleProto const * GetShield() const;
 
     // Test feature by runtime feature style selector
     // Returns true if rule is applicable for feature, otherwise it returns false
-    bool TestFeature(FeatureType const & ft, int zoom) const;
+    bool TestFeature(FeatureType & ft, int zoom) const;
 
     // Set runtime feature style selector
-    void SetSelector(unique_ptr<ISelector> && selector);
+    void SetSelector(std::unique_ptr<ISelector> && selector);
   };
 
   class RulesHolder
   {
     // container of rules by type
-    typedef vector<BaseRule*> rule_vec_t;
-    array<rule_vec_t, count_of_rules> m_container;
+    using RuleVec = std::vector<BaseRule*>;
+    std::array<RuleVec, count_of_rules> m_container;
 
     /// scale -> array of rules by type -> index of rule in m_container
-    typedef map<int32_t, array<vector<uint32_t>, count_of_rules> > rules_map_t;
-    rules_map_t m_rules;
+    using RulesMap = std::map<int32_t, std::array<std::vector<uint32_t>, count_of_rules>>;
+    RulesMap m_rules;
 
     /// background color for scales in range [0...scales::UPPER_STYLE_SCALE]
-    vector<uint32_t> m_bgColors;
+    std::vector<uint32_t> m_bgColors;
+
+    std::unordered_map<std::string, uint32_t> m_colors;
 
   public:
     RulesHolder();
@@ -93,21 +96,22 @@ namespace drule
     BaseRule const * Find(Key const & k) const;
 
     uint32_t GetBgColor(int scale) const;
+    uint32_t GetColor(std::string const & name) const;
 
 #ifdef OMIM_OS_DESKTOP
-    void LoadFromTextProto(string const & buffer);
-    static void SaveToBinaryProto(string const & buffer, ostream & s);
+    void LoadFromTextProto(std::string const & buffer);
+    static void SaveToBinaryProto(std::string const & buffer, std::ostream & s);
 #endif
 
-    void LoadFromBinaryProto(string const & s);
+    void LoadFromBinaryProto(std::string const & s);
 
     template <class ToDo> void ForEachRule(ToDo toDo)
     {
-      for (rules_map_t::const_iterator i = m_rules.begin(); i != m_rules.end(); ++i)
+      for (RulesMap::const_iterator i = m_rules.begin(); i != m_rules.end(); ++i)
       {
         for (int j = 0; j < count_of_rules; ++j)
         {
-          vector<uint32_t> const & v = i->second[j];
+          std::vector<uint32_t> const & v = i->second[j];
           for (size_t k = 0; k < v.size(); ++k)
           {
             // scale, type, rule
@@ -119,6 +123,7 @@ namespace drule
 
   private:
     void InitBackgroundColors(ContainerProto const & cp);
+    void InitColors(ContainerProto const & cp);
   };
 
   RulesHolder & rules();

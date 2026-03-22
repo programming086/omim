@@ -1,6 +1,6 @@
 United Kingdom: UK
 
-United States of America: US, USA
+United States of America: US, USA, США
 Alabama: AL
 Alaska: AK
 Arizona: AZ
@@ -52,17 +52,52 @@ West Virginia: WV
 Wisconsin: WI
 Wyoming: WY
 
-
 Alberta: AB
-British Columbia:	BC
+British Columbia: BC
 Manitoba: MB
 New Brunswick: NB
 Newfoundland and Labrador: NL
-Northwest Territories	NT
+Northwest Territories: NT
 Nova Scotia: NS
-Nunavut	NU
+Nunavut: NU
 Ontario: ON
-Prince Edward Island:	PE
+Prince Edward Island: PE
 Quebec: QC
-Saskatchewan:	SK
-Yukon	YT
+Saskatchewan: SK
+Yukon: YT
+
+Россия: РФ
+
+Китайская Народная Република: Китай, КНР
+Китай: КНР
+People's Republic of China: China, PRC
+China: PRC
+
+Australia: AU
+New South Wales: NSW
+Queensland: QLD
+South Australia: SA
+Tasmania: TAS
+Victoria: VIC
+Western Australia: WA
+Australian Capital Territory: ACT
+Jervis Bay Territory: JBT
+Northern Territory: NT
+
+New Zealand: NZ
+Auckland: AUK
+Bay of Plenty: BOP
+Canterbury: CAN
+Gisborne: GIS
+Hawke's Bay: HKB
+Marlborough: MBH
+Manawatu-Wanganui: MWT
+Nelson: NSN	
+Northland: NTL
+Otago: OTA
+Southland: STL	
+Taranaki: TKI	
+Waikato: WKO		
+Wellington: WGN	
+West Coast: WTC	
+Chatham Islands: CIT

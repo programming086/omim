@@ -1,19 +1,17 @@
 #pragma once
 
-#include "drape/gpu_buffer.hpp"
+#include "drape/data_buffer.hpp"
 
 namespace dp
 {
-
-class IndexBuffer : public GPUBuffer
+class IndexBuffer : public DataBuffer
 {
 public:
-  IndexBuffer(uint16_t capacity);
+  explicit IndexBuffer(uint32_t capacity);
 
-  /// check size of buffer and size of uploaded data
-  void UploadData(uint16_t const * data, uint16_t size);
-  /// resize buffer to new size, and discard old data
-  void UpdateData(uint16_t const * data, uint16_t size);
+  // Check size of buffer and size of uploaded data.
+  void UploadData(ref_ptr<GraphicsContext> context, void const * data, uint32_t size);
+  // Resize buffer to new size, and discard old data.
+  void UpdateData(ref_ptr<GraphicsContext> context, void const * data, uint32_t size);
 };
-
-} // namespace dp
+}  // namespace dp

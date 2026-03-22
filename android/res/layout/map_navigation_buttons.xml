@@ -1,34 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:tools="http://schemas.android.com/tools"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:orientation="vertical"
-              android:gravity="right"
-              android:paddingLeft="@dimen/margin_navigation_buttons"
-              android:paddingRight="0dp"
-              android:paddingTop="@dimen/margin_navigation_buttons"
-              android:paddingBottom="@dimen/margin_navigation_buttons">
-  <ImageButton android:id="@+id/yop_it"
-               style="@style/MwmWidget.MapButton"
-               android:layout_marginRight="@dimen/margin_quarter"
-               android:src="@drawable/ic_btn_yota_ptb"
-               android:visibility="gone"
-               tools:visibility="visible"/>
+<RelativeLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:padding="@dimen/nav_frame_padding"
+  android:theme="?navButtonsTheme">
 
-  <android.support.v4.widget.Space
-      android:id="@+id/space_bottom"
-      android:layout_width="0dp"
-      android:layout_height="0dp"
-      android:layout_weight="1"/>
+  <ImageButton
+    android:id="@+id/traffic"
+    style="@style/MwmWidget.MapButton.Traffic"
+    android:layout_alignParentStart="true"
+    android:layout_alignParentTop="true"
+    android:visibility="invisible"
+    tools:src="@drawable/anim_traffic_loading"/>
 
-  <ImageButton android:id="@+id/map_button_plus"
-               style="@style/MwmWidget.MapButton"
-               android:layout_marginRight="@dimen/margin_quarter"
-               android:src="@drawable/zoom_in"/>
+  <ImageButton
+    android:id="@+id/subway"
+    style="@style/MwmWidget.MapButton.Traffic"
+    android:layout_alignParentStart="true"
+    android:layout_alignParentTop="true"
+    android:visibility="invisible"
+    android:background="?attr/nav_bg_subway"
+    tools:src="@drawable/anim_traffic_loading"/>
 
-  <ImageButton android:id="@+id/map_button_minus"
-               style="@style/MwmWidget.MapButton"
-               android:layout_marginRight="@dimen/margin_quarter"
-               android:src="@drawable/zoom_out"/>
-</LinearLayout>
+  <ImageButton
+    android:id="@+id/isolines"
+    style="@style/MwmWidget.MapButton.Traffic"
+    android:layout_alignParentStart="true"
+    android:layout_alignParentTop="true"
+    android:visibility="invisible"
+    android:background="?nav_bg_isolines"/>
+
+  <ImageButton
+    android:id="@+id/guides"
+    style="@style/MwmWidget.MapButton.Traffic"
+    android:layout_alignParentStart="true"
+    android:layout_alignParentTop="true"
+    android:visibility="invisible"
+    android:background="?guidesIcon"/>
+
+  <ImageButton
+    android:id="@+id/my_position"
+    style="@style/MwmWidget.MapButton"
+    android:layout_alignParentEnd="true"
+    android:layout_alignParentBottom="true"
+    android:layout_marginBottom="@dimen/nav_my_position_bottom"
+    android:contentDescription="@string/core_my_position"
+    android:tint="@null"/>
+
+  <ImageButton
+    android:id="@+id/nav_zoom_out"
+    style="@style/MwmWidget.MapButton"
+    android:layout_alignParentEnd="true"
+    android:layout_below="@+id/nav_zoom_in"
+    android:src="@drawable/ic_zoom_out"/>
+
+  <ImageButton
+    android:id="@id/nav_zoom_in"
+    style="@style/MwmWidget.MapButton"
+    android:src="@drawable/ic_zoom_in"
+    android:layout_marginTop="@dimen/nav_zoom_top"
+    android:layout_alignParentTop="true"
+    android:layout_alignParentEnd="true"/>
+
+  <FrameLayout
+    android:id="@+id/subs_screen_btn_container"
+    android:layout_centerVertical="true"
+    android:layout_alignBottom="@id/nav_zoom_in"
+    android:layout_alignParentStart="true"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+
+    <ImageView
+      android:id="@+id/dog_btn_bg"
+      android:layout_gravity="center"
+      android:layout_height="wrap_content"
+      android:layout_width="wrap_content"
+      style="@style/MwmWidget.MapButton.Traffic"
+      android:src="?attr/bgDogBtn"/>
+
+    <ImageView
+      android:id="@+id/onboarding_btn"
+      android:layout_height="wrap_content"
+      android:layout_width="wrap_content"
+      android:layout_gravity="center"
+      android:src="@drawable/ic_dog"/>
+  </FrameLayout>
+</RelativeLayout>

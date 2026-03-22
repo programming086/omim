@@ -1,69 +1,132 @@
 #pragma once
 
-#include "drape/index_buffer_mutator.hpp"
 #include "drape/attribute_buffer_mutator.hpp"
-#include "drape/pointers.hpp"
-#include "drape/index_buffer.hpp"
-#include "drape/data_buffer.hpp"
 #include "drape/binding_info.hpp"
+#include "drape/data_buffer.hpp"
 #include "drape/gpu_program.hpp"
+#include "drape/index_buffer.hpp"
+#include "drape/index_buffer_mutator.hpp"
+#include "drape/pointers.hpp"
 
-#include "std/map.hpp"
+#include <cstdint>
+#include <map>
+#include <vector>
 
 namespace dp
 {
+struct IndicesRange
+{
+  uint32_t m_idxStart;
+  uint32_t m_idxCount;
+
+  IndicesRange() : m_idxStart(0), m_idxCount(0) {}
+  IndicesRange(uint32_t idxStart, uint32_t idxCount) : m_idxStart(idxStart), m_idxCount(idxCount) {}
+  bool IsValid() const { return m_idxCount != 0; }
+};
+
+using BuffersMap = std::map<BindingInfo, drape_ptr<DataBuffer>>;
+
+class VertexArrayBufferImpl
+{
+public:
+  virtual ~VertexArrayBufferImpl() = default;
+  virtual bool Build(ref_ptr<GpuProgram> program) = 0;
+  virtual bool Bind() = 0;
+  virtual void Unbind() = 0;
+  virtual void BindBuffers(BuffersMap const & buffers) const = 0;
+  virtual void RenderRange(ref_ptr<GraphicsContext> context,
+                           bool drawAsLine, IndicesRange const & range) = 0;
+
+  virtual void AddBindingInfo(dp::BindingInfo const & bindingInfo) {}
+};
+
+namespace metal
+{
+class MetalVertexArrayBufferImpl;
+}  // namespace metal
+
+namespace vulkan
+{
+class VulkanVertexArrayBufferImpl;
+}  // namespace vulkan
 
 class VertexArrayBuffer
 {
-  typedef map<BindingInfo, MasterPointer<DataBuffer> > TBuffersMap;
+  friend class metal::MetalVertexArrayBufferImpl;
+  friend class vulkan::VulkanVertexArrayBufferImpl;
 public:
-  VertexArrayBuffer(uint32_t indexBufferSize, uint32_t dataBufferSize);
+  VertexArrayBuffer(uint32_t indexBufferSize, uint32_t dataBufferSize, uint64_t batcherHash);
   ~VertexArrayBuffer();
 
-  /// This method must be call on reading thread, before VAO will be transfer on render thread
-  void Preflush();
+  // This method must be called on a reading thread, before VAO will be transferred to the render thread.
+  void Preflush(ref_ptr<GraphicsContext> context);
 
-  ///{@
-  /// On devices where implemented OES_vertex_array_object extensions we use it for build VertexArrayBuffer
-  /// OES_vertex_array_object create OpenGL resource that belong only one GL context (which was created by)
-  /// by this reason Build/Bind and Render must be called only on Frontendrendere thread
-  void Render();
-  void Build(RefPointer<GpuProgram> program);
-  ///@}
+  // OES_vertex_array_object create OpenGL resource that belong only one GL context (which was
+  // created by). By this reason Build/Bind and Render must be called only on FrontendRenderer
+  // thread.
+  void Render(ref_ptr<GraphicsContext> context, bool drawAsLine);
+  void RenderRange(ref_ptr<GraphicsContext> context, bool drawAsLine, IndicesRange const & range);
+  void Build(ref_ptr<GraphicsContext> context, ref_ptr<GpuProgram> program);
 
-  uint16_t GetAvailableVertexCount() const;
-  uint16_t GetAvailableIndexCount() const;
-  uint16_t GetStartIndexValue() const;
-  uint16_t GetDynamicBufferOffset(BindingInfo const & bindingInfo);
-  bool IsFilled() const;
+  uint32_t GetAvailableVertexCount() const;
+  uint32_t GetAvailableIndexCount() const;
+  uint32_t GetStartIndexValue() const;
+  uint32_t GetDynamicBufferOffset(BindingInfo const & bindingInfo);
+  uint32_t GetIndexCount() const;
 
-  void UploadData(BindingInfo const & bindingInfo, void const * data, uint16_t count);
-  void UploadIndexes(uint16_t const * data, uint16_t count);
+  void UploadData(ref_ptr<GraphicsContext> context, BindingInfo const & bindingInfo,
+                  void const * data, uint32_t count);
+  void UploadIndices(ref_ptr<GraphicsContext> context, void const * data, uint32_t count);
 
-  void ApplyMutation(RefPointer<IndexBufferMutator> indexMutator,
-                     RefPointer<AttributeBufferMutator> attrMutator);
+  void ApplyMutation(ref_ptr<GraphicsContext> context,
+                     ref_ptr<IndexBufferMutator> indexMutator,
+                     ref_ptr<AttributeBufferMutator> attrMutator);
+
+  void ResetChangingTracking() { m_isChanged = false; }
+  bool IsChanged() const { return m_isChanged; }
+  bool HasBuffers() const { return !m_staticBuffers.empty() || !m_dynamicBuffers.empty(); }
 
 private:
-  RefPointer<DataBuffer> GetOrCreateStaticBuffer(BindingInfo const & bindingInfo);
-  RefPointer<DataBuffer> GetOrCreateDynamicBuffer(BindingInfo const & bindingInfo);
-  RefPointer<DataBuffer> GetDynamicBuffer(BindingInfo const & bindingInfo) const;
+  ref_ptr<DataBuffer> GetOrCreateStaticBuffer(BindingInfo const & bindingInfo);
+  ref_ptr<DataBuffer> GetOrCreateDynamicBuffer(BindingInfo const & bindingInfo);
+  ref_ptr<DataBuffer> GetDynamicBuffer(BindingInfo const & bindingInfo) const;
 
-  RefPointer<DataBuffer> GetOrCreateBuffer(BindingInfo const & bindingInfo, bool isDynamic);
-  RefPointer<DataBuffer> GetBuffer(BindingInfo const & bindingInfo, bool isDynamic) const;
-  void Bind() const;
+  ref_ptr<DataBuffer> GetOrCreateBuffer(BindingInfo const & bindingInfo, bool isDynamic);
+  ref_ptr<DataBuffer> GetBuffer(BindingInfo const & bindingInfo, bool isDynamic) const;
+  bool Bind() const;
+  void Unbind() const;
   void BindStaticBuffers() const;
   void BindDynamicBuffers() const;
-  void BindBuffers(TBuffersMap const & buffers) const;
+  void BindBuffers(BuffersMap const & buffers) const;
 
-private:
-  int m_VAO;
-  TBuffersMap m_staticBuffers;
-  TBuffersMap m_dynamicBuffers;
+  ref_ptr<DataBufferBase> GetIndexBuffer() const;
 
-  MasterPointer<IndexBuffer> m_indexBuffer;
-  uint32_t m_dataBufferSize;
+  void PreflushImpl(ref_ptr<GraphicsContext> context);
 
-  RefPointer<GpuProgram> m_program;
+  void CollectBindingInfo(dp::BindingInfo const & bindingInfo);
+
+  // Definition of this method is in a .mm-file.
+  drape_ptr<VertexArrayBufferImpl> CreateImplForMetal(ref_ptr<VertexArrayBuffer> buffer);
+
+  // Definition of this method is in a separate .cpp-file.
+  drape_ptr<VertexArrayBufferImpl> CreateImplForVulkan(ref_ptr<GraphicsContext> context,
+                                                       ref_ptr<VertexArrayBuffer> buffer,
+                                                       BindingInfoArray && bindingInfo,
+                                                       uint8_t bindingInfoCount);
+
+  uint32_t const m_dataBufferSize;
+  uint64_t const m_batcherHash;
+
+  drape_ptr<VertexArrayBufferImpl> m_impl;
+  BuffersMap m_staticBuffers;
+  BuffersMap m_dynamicBuffers;
+
+  drape_ptr<IndexBuffer> m_indexBuffer;
+
+  bool m_isPreflushed = false;
+  bool m_moveToGpuOnBuild = false;
+  bool m_isChanged = false;
+  BindingInfoArray m_bindingInfo;
+  uint8_t m_bindingInfoCount = 0;
 };
-
-} // namespace dp
+}  // namespace dp

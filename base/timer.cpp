@@ -1,18 +1,25 @@
 #include "base/timer.hpp"
+
 #include "base/assert.hpp"
+#include "base/get_time.hpp"
+#include "base/gmtime.hpp"
+#include "base/logging.hpp"
 #include "base/macros.hpp"
 #include "base/timegm.hpp"
 
 #include "std/target_os.hpp"
-#include "std/systime.hpp"
-#include "std/cstdio.hpp"
-#include "std/sstream.hpp"
-#include "std/iomanip.hpp"
-#include "std/algorithm.hpp"
 
-namespace my
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cstdio>
+#include <iomanip>
+#include <sstream>
+
+#include <sys/time.h>
+
+namespace base
 {
-
 Timer::Timer(bool start/* = true*/)
 {
   if (start)
@@ -37,10 +44,10 @@ double Timer::LocalTime()
 #endif
 }
 
-string FormatCurrentTime()
+std::string FormatCurrentTime()
 {
   time_t t = time(NULL);
-  string s(ctime(&t));
+  std::string s(ctime(&t));
 
   replace(s.begin(), s.end(), ' ', '_');
 
@@ -49,21 +56,55 @@ string FormatCurrentTime()
   return s;
 }
 
-uint32_t GenerateTimestamp(int year, int month, int day)
+uint32_t GenerateYYMMDD(int year, int month, int day)
 {
-  return (year - 100) * 10000 + (month + 1) * 100 + day;
+  uint32_t result = (year - 100) * 100;
+  result = (result + month + 1) * 100;
+  result = result + day;
+  return result;
 }
 
-uint32_t TodayAsYYMMDD()
+uint32_t GenerateYYMMDD(uint64_t secondsSinceEpoch)
 {
-  time_t rawTime = time(NULL);
-  tm const * const pTm = gmtime(&rawTime);
-  CHECK(pTm, ("Can't get current date."));
-  return GenerateTimestamp(pTm->tm_year, pTm->tm_mon, pTm->tm_mday);
+  auto const tm = GmTime(SecondsSinceEpochToTimeT(secondsSinceEpoch));
+  return GenerateYYMMDD(tm.tm_year, tm.tm_mon, tm.tm_mday);
 }
 
-string TimestampToString(time_t time)
+uint64_t YYMMDDToSecondsSinceEpoch(uint32_t yymmdd)
 {
+  auto constexpr partsCount = 3;
+  // From left to right YY MM DD.
+  std::array<int, partsCount> parts{};  // Initialize with zeros.
+  for (auto i = partsCount - 1; i >= 0; --i)
+  {
+    parts[i] = yymmdd % 100;
+    yymmdd /= 100;
+  }
+  ASSERT_EQUAL(yymmdd, 0, ("Version is too big."));
+
+  ASSERT_GREATER_OR_EQUAL(parts[1], 1, ("Month should be in range [1, 12]"));
+  ASSERT_LESS_OR_EQUAL(parts[1], 12, ("Month should be in range [1, 12]"));
+  ASSERT_GREATER_OR_EQUAL(parts[2], 1, ("Day should be in range [1, 31]"));
+  ASSERT_LESS_OR_EQUAL(parts[2], 31, ("Day should be in range [1, 31]"));
+
+  std::tm tm{};
+  tm.tm_year = parts[0] + 100;
+  tm.tm_mon = parts[1] - 1;
+  tm.tm_mday = parts[2];
+
+  return TimeTToSecondsSinceEpoch(TimeGM(tm));
+}
+
+uint64_t SecondsSinceEpoch()
+{
+  return TimeTToSecondsSinceEpoch(::time(nullptr));
+}
+
+std::string TimestampToString(time_t time)
+{
+  if (time == INVALID_TIME_STAMP)
+    return std::string("INVALID_TIME_STAMP");
+
   tm * t = gmtime(&time);
   char buf[21] = { 0 };
 #ifdef OMIM_OS_WINDOWS
@@ -77,9 +118,13 @@ string TimestampToString(time_t time)
   return buf;
 }
 
+std::string SecondsSinceEpochToString(uint64_t secondsSinceEpoch)
+{
+  return TimestampToString(SecondsSinceEpochToTimeT(secondsSinceEpoch));
+}
+
 namespace
 {
-
 bool IsValid(tm const & t)
 {
   /// @todo Funny thing, but "00" month is accepted as valid in get_time function.
@@ -87,10 +132,9 @@ bool IsValid(tm const & t)
   return (t.tm_mday >= 1 && t.tm_mday <= 31 &&
           t.tm_mon >= 0 && t.tm_mon <= 11);
 }
-
 }
 
-time_t StringToTimestamp(string const & s)
+time_t StringToTimestamp(std::string const & s)
 {
   // Return current time in the case of failure
   time_t res = INVALID_TIME_STAMP;
@@ -99,8 +143,8 @@ time_t StringToTimestamp(string const & s)
   {
     // Parse UTC format: 1970-01-01T00:00:00Z
     tm t{};
-    istringstream ss(s);
-    ss >> get_time(&t, "%Y-%m-%dT%H:%M:%SZ");
+    std::istringstream ss(s);
+    ss >> base::get_time(&t, "%Y-%m-%dT%H:%M:%SZ");
 
     if (!ss.fail() && IsValid(t))
       res = base::TimeGM(t);
@@ -110,8 +154,8 @@ time_t StringToTimestamp(string const & s)
     // Parse custom time zone offset format: 2012-12-03T00:38:34+03:30
     tm t1{}, t2{};
     char sign;
-    istringstream ss(s);
-    ss >> get_time(&t1, "%Y-%m-%dT%H:%M:%S") >> sign >> get_time(&t2, "%H:%M");
+    std::istringstream ss(s);
+    ss >> base::get_time(&t1, "%Y-%m-%dT%H:%M:%S") >> sign >> base::get_time(&t2, "%H:%M");
 
     if (!ss.fail() && IsValid(t1))
     {
@@ -136,12 +180,56 @@ HighResTimer::HighResTimer(bool start/* = true*/)
 
 void HighResTimer::Reset()
 {
-  m_start = high_resolution_clock::now();
+  m_start = std::chrono::high_resolution_clock::now();
 }
 
 uint64_t HighResTimer::ElapsedNano() const
 {
-  return duration_cast<nanoseconds>(high_resolution_clock::now() - m_start).count();
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_start).count();
 }
 
+uint64_t HighResTimer::ElapsedMillis() const
+{
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - m_start).count();
 }
+
+double HighResTimer::ElapsedSeconds() const
+{
+  return std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - m_start).count();
+}
+
+time_t SecondsSinceEpochToTimeT(uint64_t secondsSinceEpoch)
+{
+  std::chrono::time_point<std::chrono::system_clock> const tpoint{std::chrono::seconds(secondsSinceEpoch)};
+  return std::chrono::system_clock::to_time_t(tpoint);
+}
+
+uint64_t TimeTToSecondsSinceEpoch(time_t time)
+{
+  auto const tpoint = std::chrono::system_clock::from_time_t(time);
+  return std::chrono::duration_cast<std::chrono::seconds>(tpoint.time_since_epoch()).count();
+}
+
+ScopedTimerWithLog::ScopedTimerWithLog(std::string const & timerName, Measure measure)
+  : m_name(timerName), m_measure(measure)
+{
+}
+
+ScopedTimerWithLog::~ScopedTimerWithLog()
+{
+  switch (m_measure)
+  {
+  case Measure::MilliSeconds:
+  {
+    LOG(LINFO, (m_name, "time:", m_timer.ElapsedMillis(), "ms"));
+    return;
+  }
+  case Measure::Seconds:
+  {
+    LOG(LINFO, (m_name, "time:", m_timer.ElapsedSeconds(), "s"));
+    return;
+  }
+  }
+  UNREACHABLE();
+}
+}  // namespace base

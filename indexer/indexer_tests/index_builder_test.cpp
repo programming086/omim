@@ -1,20 +1,24 @@
 #include "testing/testing.hpp"
 
-#include "indexer/index.hpp"
-#include "indexer/index_builder.hpp"
 #include "indexer/classificator_loader.hpp"
+#include "indexer/data_source.hpp"
 #include "indexer/features_vector.hpp"
+#include "indexer/index_builder.hpp"
 #include "indexer/scales.hpp"
 
 #include "defines.hpp"
 
 #include "platform/platform.hpp"
 
-#include "coding/file_container.hpp"
+#include "coding/files_container.hpp"
 
 #include "base/macros.hpp"
-#include "base/stl_add.hpp"
+#include "base/stl_helpers.hpp"
 
+#include <string>
+#include <vector>
+
+using namespace std;
 
 UNIT_TEST(BuildIndexTest)
 {
@@ -28,7 +32,7 @@ UNIT_TEST(BuildIndexTest)
   {
     FeaturesVectorTest features(originalContainer);
 
-    MemWriter<vector<char> > serialWriter(serialIndex);
+    MemWriter<vector<char>> serialWriter(serialIndex);
     indexer::BuildIndex(features.GetHeader(), features.GetVector(), serialWriter, "build_index_test");
   }
 
@@ -41,7 +45,7 @@ UNIT_TEST(BuildIndexTest)
   {
     FilesContainerW containerWriter(filePath);
     vector<string> tags;
-    originalContainer.ForEachTag(MakeBackInsertFunctor(tags));
+    originalContainer.ForEachTag(base::MakeBackInsertFunctor(tags));
     for (size_t i = 0; i < tags.size(); ++i)
     {
       if (tags[i] != INDEX_FILE_TAG)
@@ -52,12 +56,11 @@ UNIT_TEST(BuildIndexTest)
 
   {
     // Check that index actually works.
-    Index index;
-    UNUSED_VALUE(index.Register(platform::LocalCountryFile::MakeForTesting("build_index_test")));
+    FrozenDataSource dataSource;
+    UNUSED_VALUE(dataSource.Register(platform::LocalCountryFile::MakeForTesting("build_index_test")));
 
     // Make sure that index is actually parsed.
-    NoopFunctor fn;
-    index.ForEachInScale(fn, 15);
+    dataSource.ForEachInScale([](FeatureType &) { return; }, 15);
   }
 
   // Clean after the test.

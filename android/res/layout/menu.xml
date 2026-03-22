@@ -12,36 +12,15 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal">
-    <Space
-      android:id="@+id/animation_spacer"
-      android:layout_width="0dp"
-      android:layout_height="0dp"/>
 
     <FrameLayout
       android:id="@+id/line_frame"
       android:layout_width="match_parent"
       android:layout_height="wrap_content">
-      <ImageView
-        android:id="@+id/my_position"
-        style="@style/MwmTheme.Menu.Line.Button"
-        android:background="@drawable/menu_button_left"
-        android:layout_width="@dimen/menu_line_button_width_edge"
-        android:layout_height="@dimen/menu_line_height"
-        android:paddingLeft="@dimen/margin_half"
-        android:paddingRight="@dimen/margin_half_plus"
-        tools:src="@drawable/anim_myposition_pending"
-        tools:layout_marginTop="60dp"/>
 
       <ImageView
         android:id="@+id/toggle"
-        style="@style/MwmTheme.Menu.Line.Button"
-        android:layout_width="@dimen/menu_line_button_width_edge"
-        android:layout_height="@dimen/menu_line_height"
-        android:layout_gravity="right"
-        android:paddingLeft="@dimen/margin_half_plus"
-        android:paddingRight="@dimen/margin_half"
-        android:src="@drawable/ic_menu_open"
-        android:background="@drawable/menu_button_right"
+        style="@style/MwmTheme.Menu.Line.Button.Toggle"
         tools:layout_marginTop="60dp"/>
 
       <include
@@ -49,33 +28,19 @@
         layout="@layout/menu_buttons_line"/>
 
       <include
-        android:id="@+id/navigation_frame"
-        layout="@layout/menu_navigation_line"
+        android:id="@+id/routing_plan_frame"
+        layout="@layout/menu_route_plan_line"
         tools:layout_width="match_parent"
         tools:layout_height="@dimen/menu_line_height"
         tools:layout_marginTop="60dp"/>
 
       <include
-        android:id="@+id/routing_plan_frame"
-        layout="@layout/menu_route_plan_line"
+        android:id="@+id/routing_action_frame"
+        layout="@layout/routing_action_panel"
+        android:visibility="gone"
         tools:layout_width="match_parent"
-        tools:layout_height="@dimen/menu_line_height"
-        tools:layout_marginTop="120dp"/>
+        tools:layout_height="wrap_content"
+        tools:layout_marginTop="60dp"/>
     </FrameLayout>
   </LinearLayout>
-
-  <FrameLayout
-    android:id="@+id/content_frame"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:visibility="invisible"
-    tools:visibility="visible">
-    <View
-      android:layout_width="match_parent"
-      android:layout_height="1dp"
-      android:background="@color/divider_standard"/>
-
-    <include
-      layout="@layout/menu_content"/>
-  </FrameLayout>
 </LinearLayout>

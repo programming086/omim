@@ -1,156 +1,84 @@
 package com.mapswithme.maps.background;
 
-import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
-import android.location.Location;
-import android.location.LocationManager;
-import android.os.Handler;
+import androidx.annotation.NonNull;
+import androidx.core.app.JobIntentService;
 import android.text.TextUtils;
+import android.util.Log;
 
-import com.mapswithme.maps.Framework;
 import com.mapswithme.maps.MwmApplication;
-import com.mapswithme.maps.R;
-import com.mapswithme.util.LocationUtils;
-import com.mapswithme.util.statistics.Statistics;
+import com.mapswithme.maps.editor.Editor;
+import com.mapswithme.maps.scheduling.JobIdMap;
+import com.mapswithme.maps.ugc.UGC;
+import com.mapswithme.util.CrashlyticsUtils;
+import com.mapswithme.util.log.Logger;
+import com.mapswithme.util.log.LoggerFactory;
 
-public class WorkerService extends IntentService
+public class WorkerService extends JobIntentService
 {
-  private static final String ACTION_CHECK_UPDATE = "com.mapswithme.maps.action.update";
-  private static final String ACTION_DOWNLOAD_COUNTRY = "com.mapswithme.maps.action.download_country";
-
-  private static final MwmApplication APP = MwmApplication.get();
-  private static final SharedPreferences PREFS = MwmApplication.prefs();
-
-  /**
-   * Starts this service to check map updates available with the given parameters. If the
-   * service is already performing a task this action will be queued.
-   *
-   * @see IntentService
-   */
-  public static void startActionCheckUpdate(Context context)
-  {
-    Intent intent = new Intent(context, WorkerService.class);
-    intent.setAction(ACTION_CHECK_UPDATE);
-    context.startService(intent);
-  }
+  private static final Logger LOGGER = LoggerFactory.INSTANCE.getLogger(LoggerFactory.Type.MISC);
+  private static final String TAG = WorkerService.class.getSimpleName();
+  private static final String ACTION_UPLOAD_OSM_CHANGES = "com.mapswithme.maps.action.upload_osm_changes";
+  private static final String ACTION_UPLOAD_UGC = "com.mapswithme.maps.action.upload_ugc";
 
   /**
-   * Starts this service to check if map download for current location is available. If the
-   * service is already performing a task this action will be queued.
-   *
-   * @see IntentService
+   * Starts this service to upload map edits to osm servers.
    */
-  public static void startActionDownload(Context context)
+  public static void startActionUploadOsmChanges(@NonNull Context context)
   {
     final Intent intent = new Intent(context, WorkerService.class);
-    intent.setAction(WorkerService.ACTION_DOWNLOAD_COUNTRY);
-    context.startService(intent);
+    intent.setAction(WorkerService.ACTION_UPLOAD_OSM_CHANGES);
+    JobIntentService.enqueueWork(context.getApplicationContext(), WorkerService.class,
+                                 JobIdMap.getId(WorkerService.class), intent);
   }
 
-  public WorkerService()
+  /**
+   * Starts this service to upload UGC to our servers.
+   */
+  public static void startActionUploadUGC(@NonNull Context context)
   {
-    super("WorkerService");
+    final Intent intent = new Intent(context, WorkerService.class);
+    intent.setAction(WorkerService.ACTION_UPLOAD_UGC);
+    final int jobId = JobIdMap.getId(WorkerService.class);
+    JobIntentService.enqueueWork(context, WorkerService.class, jobId, intent);
   }
 
   @Override
-  public void onCreate()
+  protected void onHandleWork(@NonNull Intent intent)
   {
-    super.onCreate();
-    MwmApplication.get().initNativeCore();
-  }
+    final Context context = getApplicationContext();
+    String msg = "onHandleIntent: " + intent + " app in background = "
+                 + !MwmApplication.backgroundTracker(context).isForeground();
+    LOGGER.i(TAG, msg);
+    CrashlyticsUtils.INSTANCE.log(Log.INFO, TAG, msg);
+    final String action = intent.getAction();
 
-  @Override
-  protected void onHandleIntent(Intent intent)
-  {
-    if (intent != null)
-    {
-      final String action = intent.getAction();
-
-      switch (action)
-      {
-      case ACTION_CHECK_UPDATE:
-        handleActionCheckUpdate();
-        break;
-      case ACTION_DOWNLOAD_COUNTRY:
-        handleActionCheckLocation();
-        break;
-      }
-    }
-  }
-
-  private static void handleActionCheckUpdate()
-  {
-    if (!Framework.nativeIsDataVersionChanged())
+    if (TextUtils.isEmpty(action))
       return;
 
-    final String countriesToUpdate = Framework.nativeGetOutdatedCountriesString();
-    if (!TextUtils.isEmpty(countriesToUpdate))
-      Notifier.notifyUpdateAvailable(countriesToUpdate);
-    // We are done with current version
-    Framework.nativeUpdateSavedDataVersion();
-  }
+    if (!MwmApplication.from(context).arePlatformAndCoreInitialized())
+      return;
 
-  private void handleActionCheckLocation()
-  {
-    final long delayMillis = 60000; // 60 seconds
-    boolean isLocationValid = processLocation();
-    Statistics.INSTANCE.trackWifiConnected(isLocationValid);
-    if (!isLocationValid)
+    switch (action)
     {
-      final Handler handler = new Handler();
-      handler.postDelayed(new Runnable()
-      {
-        @Override
-        public void run()
-        {
-          Statistics.INSTANCE.trackWifiConnectedAfterDelay(processLocation(), delayMillis);
-        }
-      }, delayMillis);
+      case ACTION_UPLOAD_OSM_CHANGES:
+        handleActionUploadOsmChanges(context);
+        break;
+
+      case ACTION_UPLOAD_UGC:
+        handleUploadUGC();
+        break;
     }
   }
 
-  /**
-   * Adds notification if current location isnt expired.
-   *
-   * @return whether notification was added
-   */
-  private boolean processLocation()
+  private static void handleActionUploadOsmChanges(@NonNull Context context)
   {
-    final LocationManager manager = (LocationManager) getApplication().getSystemService(Context.LOCATION_SERVICE);
-    final Location l = manager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER);
-    if (l != null && !LocationUtils.isExpired(l, l.getTime(), LocationUtils.LOCATION_EXPIRATION_TIME_MILLIS_LONG))
-    {
-      placeDownloadNotification(l);
-      return true;
-    }
-
-    return false;
+    Editor.uploadChanges(context);
   }
 
-  /**
-   * Adds notification with download country suggest.
-   */
-  private void placeDownloadNotification(Location l)
+  private static void handleUploadUGC()
   {
-    final String country = Framework.nativeGetCountryNameIfAbsent(l.getLatitude(), l.getLongitude());
-    if (!TextUtils.isEmpty(country))
-    {
-
-      final String lastNotification = PREFS.getString(country, null);
-      if (lastNotification != null)
-      {
-        // Do not place notification if it was displayed less than 180 days ago.
-        final long timeStamp = Long.valueOf(lastNotification);
-        final long outdatedMillis = 180L * 24 * 60 * 60 * 1000;
-        if (System.currentTimeMillis() - timeStamp < outdatedMillis)
-          return;
-      }
-
-      Notifier.notifyDownloadSuggest(country, String.format(APP.getString(R.string.download_location_country), country),
-          Framework.nativeGetCountryIndex(l.getLatitude(), l.getLongitude()));
-      PREFS.edit().putString(country, String.valueOf(System.currentTimeMillis())).apply();
-    }
+    UGC.nativeUploadUGC();
   }
 }

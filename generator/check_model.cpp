@@ -8,20 +8,20 @@
 
 #include "base/logging.hpp"
 
+#include <vector>
 
 using namespace feature;
 
 namespace check_model
 {
-  void ReadFeatures(string const & fName)
+  void ReadFeatures(std::string const & fName)
   {
     Classificator const & c = classif();
 
-    FeaturesVectorTest(fName).GetVector().ForEach([&] (FeatureType const & ft, uint32_t)
-    {
+    FeaturesVectorTest(fName).GetVector().ForEach([&](FeatureType & ft, uint32_t) {
       TypesHolder types(ft);
 
-      vector<uint32_t> vTypes;
+      std::vector<uint32_t> vTypes;
       for (uint32_t t : types)
       {
         CHECK_EQUAL(c.GetTypeForIndex(c.GetIndexForType(t)), t, ());
@@ -34,11 +34,11 @@ namespace check_model
       m2::RectD const r = ft.GetLimitRect(FeatureType::BEST_GEOMETRY);
       CHECK(r.IsValid(), ());
 
-      EGeomType const type = ft.GetFeatureType();
-      if (type == GEOM_LINE)
+      GeomType const type = ft.GetGeomType();
+      if (type == GeomType::Line)
         CHECK_GREATER(ft.GetPointsCount(), 1, ());
 
-      IsDrawableLike(vTypes, ft.GetFeatureType());
+      IsDrawableLike(vTypes, ft.GetGeomType());
     });
 
     LOG(LINFO, ("OK"));

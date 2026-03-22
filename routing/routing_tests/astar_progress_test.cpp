@@ -8,75 +8,75 @@ using namespace routing;
 
 UNIT_TEST(DirectedAStarProgressCheck)
 {
-  m2::PointD start = m2::PointD(0, 1);
-  m2::PointD finish = m2::PointD(0, 3);
-  m2::PointD middle = m2::PointD(0, 2);
+  ms::LatLon start = ms::LatLon(0.0, 1.0);
+  ms::LatLon finish = ms::LatLon(0.0, 3.0);
+  ms::LatLon middle = ms::LatLon(0.0, 2.0);
 
-  AStarProgress progress(0, 100);
-  progress.Initialize(start, finish);
-  TEST_LESS(progress.GetProgressForDirectedAlgo(start), 0.1f, ());
-  TEST_LESS(progress.GetProgressForDirectedAlgo(middle), 50.5f, ());
-  TEST_GREATER(progress.GetProgressForDirectedAlgo(middle), 49.5f, ());
-  TEST_GREATER(progress.GetProgressForDirectedAlgo(finish), 99.9f, ());
+  AStarProgress progress;
+  progress.AppendSubProgress({start, finish, 1.0 /* contributionCoef */});
+  TEST_LESS(progress.UpdateProgress(start, finish), 0.1, ());
+  TEST_LESS(progress.UpdateProgress(middle, finish), 51.0, ());
+  TEST_GREATER(progress.UpdateProgress(middle, finish), 49.0, ());
+
+  static auto constexpr kEps = 0.001;
+  TEST_GREATER(progress.UpdateProgress(finish, finish),
+               AStarProgress::kMaxPercent - kEps,
+               ());
+
+  progress.PushAndDropLastSubProgress();
 }
 
 UNIT_TEST(DirectedAStarDegradationCheck)
 {
-  m2::PointD start = m2::PointD(0, 1);
-  m2::PointD finish = m2::PointD(0, 3);
-  m2::PointD middle = m2::PointD(0, 2);
+  ms::LatLon start = ms::LatLon(0.0, 1.0);
+  ms::LatLon finish = ms::LatLon(0.0, 3.0);
+  ms::LatLon middle = ms::LatLon(0.0, 2.0);
 
-  AStarProgress progress(0, 100);
-  progress.Initialize(start, finish);
-  auto value1 = progress.GetProgressForDirectedAlgo(middle);
-  auto value2 = progress.GetProgressForDirectedAlgo(start);
+  AStarProgress progressFirst;
+  progressFirst.AppendSubProgress({start, finish, 1.0 /* contributionCoef */});
+  auto value1 = progressFirst.UpdateProgress(middle, finish);
+  auto value2 = progressFirst.UpdateProgress(start, finish);
   TEST_LESS_OR_EQUAL(value1, value2, ());
 
-  progress.Initialize(start, finish);
-  auto value3 = progress.GetProgressForDirectedAlgo(start);
+  AStarProgress progressSecond;
+  progressSecond.AppendSubProgress({start, finish, 1.0 /* contributionCoef */});
+  auto value3 = progressSecond.UpdateProgress(start, finish);
   TEST_GREATER_OR_EQUAL(value1, value3, ());
+
+  progressFirst.PushAndDropLastSubProgress();
+  progressSecond.PushAndDropLastSubProgress();
 }
 
 UNIT_TEST(RangeCheckTest)
 {
-  m2::PointD start = m2::PointD(0, 1);
-  m2::PointD finish = m2::PointD(0, 3);
-  m2::PointD preStart = m2::PointD(0, 0);
-  m2::PointD postFinish = m2::PointD(0, 6);
+  ms::LatLon start = ms::LatLon(0.0, 1.0);
+  ms::LatLon finish = ms::LatLon(0.0, 3.0);
+  ms::LatLon preStart = ms::LatLon(0.0, 0.0);
+  ms::LatLon postFinish = ms::LatLon(0.0, 6.0);
 
-  AStarProgress progress(0, 100);
-  progress.Initialize(start, finish);
-  TEST_EQUAL(progress.GetProgressForDirectedAlgo(preStart), 0.0, ());
-  TEST_EQUAL(progress.GetProgressForDirectedAlgo(postFinish), 0.0, ());
-  TEST_EQUAL(progress.GetProgressForDirectedAlgo(finish), 100.0, ());
-}
+  AStarProgress progress;
+  progress.AppendSubProgress({start, finish, 1.0 /* contributionCoef */});
+  TEST_EQUAL(progress.UpdateProgress(preStart, finish), 0.0, ());
+  TEST_EQUAL(progress.UpdateProgress(postFinish, finish), 0.0, ());
+  TEST_EQUAL(progress.UpdateProgress(finish, finish), AStarProgress::kMaxPercent, ());
 
-UNIT_TEST(DirectedAStarProgressCheckAtShiftedInterval)
-{
-  m2::PointD start = m2::PointD(0, 1);
-  m2::PointD finish = m2::PointD(0, 3);
-  m2::PointD middle = m2::PointD(0, 2);
-
-  AStarProgress progress(50, 250);
-  progress.Initialize(start, finish);
-  TEST_LESS(progress.GetProgressForDirectedAlgo(start), 50.1f, ());
-  TEST_LESS(progress.GetProgressForDirectedAlgo(middle), 150.5f, ());
-  TEST_GREATER(progress.GetProgressForDirectedAlgo(middle), 145.5f, ());
-  TEST_GREATER(progress.GetProgressForDirectedAlgo(finish), 245.9f, ());
+  progress.PushAndDropLastSubProgress();
 }
 
 UNIT_TEST(BidirectedAStarProgressCheck)
 {
-  m2::PointD start = m2::PointD(0, 0);
-  m2::PointD finish = m2::PointD(0, 4);
-  m2::PointD fWave = m2::PointD(0, 1);
-  m2::PointD bWave = m2::PointD(0, 3);
+  ms::LatLon start = ms::LatLon(0.0, 0.0);
+  ms::LatLon finish = ms::LatLon(0.0, 4.0);
+  ms::LatLon fWave = ms::LatLon(0.0, 1.0);
+  ms::LatLon bWave = ms::LatLon(0.0, 3.0);
 
-  AStarProgress progress(0.0f, 100.0f);
-  progress.Initialize(start, finish);
-  progress.GetProgressForBidirectedAlgo(fWave, finish);
-  float result = progress.GetProgressForBidirectedAlgo(bWave, start);
-  TEST_GREATER(result, 49.5, ());
-  TEST_LESS(result, 50.5, ());
+  AStarProgress progress;
+  progress.AppendSubProgress({start, finish, 1.0 /* contributionCoef */});
+  progress.UpdateProgress(fWave, finish);
+  float result = progress.UpdateProgress(bWave, start);
+  TEST_GREATER(result, 49.0, ());
+  TEST_LESS(result, 51.0, ());
+
+  progress.PushAndDropLastSubProgress();
 }
 } //  namespace routing_test

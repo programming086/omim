@@ -1,23 +1,23 @@
 #pragma once
+
 #include "geometry/covering_utils.hpp"
 #include "geometry/point2d.hpp"
+
 #include "base/assert.hpp"
 #include "base/base.hpp"
 #include "base/logging.hpp"
 #include "base/set_operations.hpp"
-#include "base/stl_add.hpp"
-#include "std/algorithm.hpp"
-#include "std/array.hpp"
-#include "std/functional.hpp"
-#include "std/iterator.hpp"
-#include "std/map.hpp"
-#include "std/queue.hpp"
-#include "std/utility.hpp"
-#include "std/vector.hpp"
+#include "base/stl_helpers.hpp"
+
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <iterator>
+#include <map>
+#include <vector>
 
 namespace covering
 {
-
 template <class CellIdT>
 class Covering
 {
@@ -27,12 +27,9 @@ public:
 
   Covering() : m_Size(0) {}
 
-  explicit Covering(CellId cell) : m_Size(1)
-  {
-    m_Covering[cell.Level()].push_back(cell);
-  }
+  explicit Covering(CellId cell) : m_Size(1) { m_Covering[cell.Level()].push_back(cell); }
 
-  explicit Covering(vector<CellId> const & v)
+  explicit Covering(std::vector<CellId> const & v)
   {
     for (size_t i = 0; i < v.size(); ++i)
       m_Covering[v[i].Level()].push_back(v[i]);
@@ -75,13 +72,13 @@ public:
     m_Size = CalculateSize();
   }
 
-  void OutputToVector(vector<CellId> & result) const
+  void OutputToVector(std::vector<CellId> & result) const
   {
     for (int level = 0; level < CellId::DEPTH_LEVELS; ++level)
-        result.insert(result.end(), m_Covering[level].begin(), m_Covering[level].end());
+      result.insert(result.end(), m_Covering[level].begin(), m_Covering[level].end());
   }
 
-  void OutputToVector(vector<int64_t> & result, int cellDepth) const
+  void OutputToVector(std::vector<int64_t> & result, int cellDepth) const
   {
     for (int level = 0; level < CellId::DEPTH_LEVELS; ++level)
       for (size_t i = 0; i < m_Covering[level].size(); ++i)
@@ -90,15 +87,16 @@ public:
 
   void Simplify()
   {
-    int cellsSimplified = 0;
-    int const initialSize = m_Size;
+    size_t cellsSimplified = 0;
+    auto const initialSize = m_Size;
     for (int level = CellId::DEPTH_LEVELS - 1; level > 1; --level)
     {
       if (m_Covering[level].size() >= 2)
       {
-        int const initialLevelSize = static_cast<int>(m_Covering[level].size());
+        auto const initialLevelSize = m_Covering[level].size();
         SimplifyLevel(level);
-        cellsSimplified += initialLevelSize - static_cast<int>(m_Covering[level].size());
+        ASSERT_GREATER_OR_EQUAL(initialLevelSize, m_Covering[level].size(), ());
+        cellsSimplified += initialLevelSize - m_Covering[level].size();
         if (cellsSimplified > initialSize / 2)
           break;
       }
@@ -109,35 +107,36 @@ public:
   }
 
 private:
-
   void SimplifyLevel(int level)
   {
-    map<CellId, uint32_t, LessLevelOrder> parentCellCounts;
-    typedef typename vector<CellId>::const_iterator ConstIteartor;
-    for (ConstIteartor it = m_Covering[level].begin(); it != m_Covering[level].end(); ++it)
-        ++parentCellCounts[it->Parent()];
+    std::map<CellId, uint32_t, LessLevelOrder> parentCellCounts;
+    using ConstIterator = typename std::vector<CellId>::const_iterator;
+    for (ConstIterator it = m_Covering[level].begin(); it != m_Covering[level].end(); ++it)
+      ++parentCellCounts[it->Parent()];
 
-    vector<CellId> parentCells, childCells;
-    for (ConstIteartor it = m_Covering[level].begin(); it != m_Covering[level].end(); ++it)
+    std::vector<CellId> parentCells;
+    std::vector<CellId> childCells;
+    for (ConstIterator it = m_Covering[level].begin(); it != m_Covering[level].end(); ++it)
     {
       if (parentCellCounts[it->Parent()] > 1)
         parentCells.push_back(it->Parent());
       else
         childCells.push_back(*it);
     }
-    ASSERT(IsSorted(parentCells.begin(), parentCells.end(), LessLevelOrder()), (parentCells));
-    ASSERT(IsSorted(childCells.begin(), childCells.end(), LessLevelOrder()), (childCells));
+    ASSERT(std::is_sorted(parentCells.begin(), parentCells.end(), LessLevelOrder()), (parentCells));
+    ASSERT(std::is_sorted(childCells.begin(), childCells.end(), LessLevelOrder()), (childCells));
     m_Covering[level].swap(childCells);
-    parentCells.erase(unique(parentCells.begin(), parentCells.end()), parentCells.end());
+    parentCells.erase(std::unique(parentCells.begin(), parentCells.end()), parentCells.end());
     AppendToVector(m_Covering[level - 1], parentCells);
   }
 
-  static void AppendToVector(vector<CellId> & a, vector<CellId> const & b)
+  static void AppendToVector(std::vector<CellId> & a, std::vector<CellId> const & b)
   {
-    ASSERT(IsSortedAndUnique(a.begin(), a.end(), LessLevelOrder()), (a));
-    ASSERT(IsSortedAndUnique(b.begin(), b.end(), LessLevelOrder()), (b));
-    vector<CellId> merged;
-    set_union(a.begin(), a.end(), b.begin(), b.end(), back_inserter(merged), LessLevelOrder());
+    ASSERT(base::IsSortedAndUnique(a.begin(), a.end(), LessLevelOrder()), (a));
+    ASSERT(base::IsSortedAndUnique(b.begin(), b.end(), LessLevelOrder()), (b));
+    std::vector<CellId> merged;
+    std::set_union(a.begin(), a.end(), b.begin(), b.end(), std::back_inserter(merged),
+                   LessLevelOrder());
     a.swap(merged);
   }
 
@@ -146,7 +145,7 @@ private:
   {
     explicit CompareCellsAtLevel(int level) : m_Level(level) {}
 
-    bool operator() (CellId id1, CellId id2) const
+    bool operator()(CellId id1, CellId id2) const
     {
       return m_Comp(id1.AncestorAtLevel(m_Level), id2.AncestorAtLevel(m_Level));
     }
@@ -164,16 +163,16 @@ private:
   void Sort()
   {
     for (int level = 0; level < CellId::DEPTH_LEVELS; ++level)
-      sort(m_Covering[level].begin(), m_Covering[level].end(), LessLevelOrder());
+      std::sort(m_Covering[level].begin(), m_Covering[level].end(), LessLevelOrder());
   }
 
   void Unique()
   {
     for (int level = 0; level < CellId::DEPTH_LEVELS; ++level)
     {
-      vector<CellId> & covering = m_Covering[level];
-      ASSERT(IsSorted(covering.begin(), covering.end(), LessLevelOrder()), (covering));
-      covering.erase(unique(covering.begin(), covering.end()), covering.end());
+      std::vector<CellId> & covering = m_Covering[level];
+      ASSERT(std::is_sorted(covering.begin(), covering.end(), LessLevelOrder()), (covering));
+      covering.erase(std::unique(covering.begin(), covering.end()), covering.end());
     }
   }
 
@@ -182,7 +181,7 @@ private:
     RemoveDuplicateChildrenImpl();
 #ifdef DEBUG
     // Assert that all duplicate children were removed.
-    vector<CellId> v1, v2;
+    std::vector<CellId> v1, v2;
     OutputToVector(v1);
     RemoveDuplicateChildrenImpl();
     OutputToVector(v2);
@@ -199,38 +198,39 @@ private:
       for (int childLevel = parentLevel + 1; childLevel < static_cast<int>(m_Covering.size());
            ++childLevel)
       {
-        vector<CellId> substracted;
+        std::vector<CellId> subtracted;
         CompareCellsAtLevel<LessLevelOrder> comparator(parentLevel);
-        ASSERT(IsSorted(m_Covering[childLevel].begin(), m_Covering[childLevel].end(), comparator),
+        ASSERT(std::is_sorted(m_Covering[childLevel].begin(), m_Covering[childLevel].end(),
+                              comparator),
                (m_Covering[childLevel]));
-        ASSERT(IsSorted(m_Covering[parentLevel].begin(), m_Covering[parentLevel].end(), comparator),
+        ASSERT(std::is_sorted(m_Covering[parentLevel].begin(), m_Covering[parentLevel].end(),
+                              comparator),
                (m_Covering[parentLevel]));
         SetDifferenceUnlimited(m_Covering[childLevel].begin(), m_Covering[childLevel].end(),
                                m_Covering[parentLevel].begin(), m_Covering[parentLevel].end(),
-                               back_inserter(substracted), comparator);
-        m_Covering[childLevel].swap(substracted);
+                               std::back_inserter(subtracted), comparator);
+        m_Covering[childLevel].swap(subtracted);
       }
     }
   }
 
   void RemoveFullSquares()
   {
-    vector<CellId> cellsToAppend;
-    for (int level = m_Covering.size() - 1; level >= 0; --level)
+    std::vector<CellId> cellsToAppend;
+    for (int level = static_cast<int>(m_Covering.size()) - 1; level >= 0; --level)
     {
       // a -> b + parents
-      vector<CellId> const & a = m_Covering[level];
-      vector<CellId> b;
-      vector<CellId> parents;
+      std::vector<CellId> const & a = m_Covering[level];
+      std::vector<CellId> b;
+      std::vector<CellId> parents;
       b.reserve(a.size());
       for (size_t i = 0; i < a.size(); ++i)
       {
         if (i + 3 < a.size())
         {
           CellId const parent = a[i].Parent();
-          if (parent == a[i+1].Parent() &&
-              parent == a[i+2].Parent() &&
-              parent == a[i+3].Parent())
+          if (parent == a[i + 1].Parent() && parent == a[i + 2].Parent() &&
+              parent == a[i + 3].Parent())
           {
             parents.push_back(parent);
             i += 3;
@@ -279,10 +279,7 @@ private:
       CoverTriangleImpl(info, cell.Child(child));
   }
 
-
-  array<vector<CellId>, CellId::DEPTH_LEVELS> m_Covering; // Covering by level.
+  std::array<std::vector<CellId>, CellId::DEPTH_LEVELS> m_Covering;  // Covering by level.
   size_t m_Size;
 };
-
-
-}
+}  // namespace covering

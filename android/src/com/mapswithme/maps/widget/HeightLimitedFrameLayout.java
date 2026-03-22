@@ -5,7 +5,7 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import com.mapswithme.maps.MwmApplication;
+
 import com.mapswithme.maps.R;
 import com.mapswithme.util.UiUtils;
 
@@ -18,7 +18,7 @@ import java.util.List;
  */
 public class HeightLimitedFrameLayout extends FrameLayout
 {
-  private static final String TAG_LIMIT = MwmApplication.get().getString(R.string.tag_height_limited);
+  private String mTag;
   private final List<View> mLimitedViews = new ArrayList<>();
 
   public HeightLimitedFrameLayout(Context context, AttributeSet attrs)
@@ -28,7 +28,10 @@ public class HeightLimitedFrameLayout extends FrameLayout
 
   private void collectViews(View v)
   {
-    if (TAG_LIMIT.equals(v.getTag()))
+    if (mTag == null)
+      mTag = v.getContext().getString(R.string.tag_height_limited);
+
+    if (mTag.equals(v.getTag()))
     {
       mLimitedViews.add(v);
       return;

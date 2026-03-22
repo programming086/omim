@@ -1,4 +1,4 @@
-#import "Macros.h"
+#import <CoreApi/MWMTypes.h>
 
 static inline CGPoint SubtractCGPoint(CGPoint p1, CGPoint p2)
 {
@@ -23,17 +23,7 @@ static inline CGFloat LengthCGPoint(CGPoint point)
 @interface NSObject (Optimized)
 
 + (NSString *)className;
-- (void)performAfterDelay:(NSTimeInterval)delayInSec block:(void (^)(void))block;
-
-@end
-
-
-@interface UIColor (HexColor)
-
-+ (UIColor *)colorWithColorCode:(NSString *)colorCode;
-+ (UIColor *)applicationBackgroundColor;
-+ (UIColor *)applicationColor;
-+ (UIColor *)navigationBarColor;
+- (void)performAfterDelay:(NSTimeInterval)delayInSec block:(MWMVoidBlock)block;
 
 @end
 
@@ -50,57 +40,31 @@ static inline CGFloat LengthCGPoint(CGPoint point)
 @property (nonatomic) CGFloat height;
 @property (nonatomic) CGSize size;
 
-+ (void)animateWithDuration:(NSTimeInterval)duration delay:(NSTimeInterval)delay damping:(double)dampingRatio initialVelocity:(double)springVelocity options:(UIViewAnimationOptions)options animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion;
 - (void)sizeToIntegralFit;
 
 @end
 
+@interface UIView (Refresh)
+
+@end
 
 @interface UIApplication (URLs)
 
-- (void)rateVersionFrom:(NSString *)launchPlaceName;
+- (void)rateApp;
 
 @end
-
-
-@interface NSString (Size)
-
-- (CGSize)sizeWithDrawSize:(CGSize)size font:(UIFont *)font;
-
-@end
-
 
 @interface SolidTouchView : UIView
 
 @end
 
-
 @interface SolidTouchImageView : UIImageView
 
 @end
 
+@interface UIViewController (Safari)
 
-typedef void (^MWMAlertViewBlock) (UIAlertView * alertView);
-typedef void (^MWMAlertViewCompletionBlock) (UIAlertView * alertView, NSInteger buttonIndex);
-
-@interface UIAlertView (Blocks)
-
-@property (copy, nonatomic) MWMAlertViewCompletionBlock tapBlock;
-@property (copy, nonatomic) MWMAlertViewCompletionBlock willDismissBlock;
-@property (copy, nonatomic) MWMAlertViewCompletionBlock didDismissBlock;
-
-@property (copy, nonatomic) MWMAlertViewBlock willPresentBlock;
-@property (copy, nonatomic) MWMAlertViewBlock didPresentBlock;
-@property (copy, nonatomic) MWMAlertViewBlock cancelBlock;
-
-@property (copy, nonatomic) BOOL(^shouldEnableFirstOtherButtonBlock)(UIAlertView * alertView);
-
-@end
-
-@interface UINavigationController (Autorotate)
-
-- (BOOL)shouldAutorotate;
-- (NSUInteger)supportedInterfaceOrientations;
+- (void)openUrl:(NSURL *)url;
 
 @end
 

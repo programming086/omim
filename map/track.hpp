@@ -1,101 +1,59 @@
 #pragma once
 
-#include "geometry/polyline2d.hpp"
-#include "geometry/screenbase.hpp"
+#include "kml/types.hpp"
 
-#include "graphics/color.hpp"
-#include "graphics/defines.hpp"
+#include "drape_frontend/user_marks_provider.hpp"
 
-#include "std/noncopyable.hpp"
+#include <string>
 
-#include "base/buffer_vector.hpp"
-
-
-class Navigator;
-namespace graphics
+class Track : public df::UserLineMark
 {
-  class Screen;
-  class DisplayList;
-}
-namespace location
-{
-  class RouteMatchingInfo;
-}
-
-template <class T> class DoLeftProduct
-{
-  T const & m_t;
+  using Base = df::UserLineMark;
 public:
-  DoLeftProduct(T const & t) : m_t(t) {}
-  template <class X> X operator() (X const & x) const { return x * m_t; }
-};
+  Track(kml::TrackData && data, bool interactive);
 
-typedef math::Matrix<double, 3, 3> MatrixT;
-typedef buffer_vector<m2::PointD, 32> PointContainerT;
+  kml::MarkGroupId GetGroupId() const override { return m_groupID; }
 
-class Track : private noncopyable
-{
-public:
-  typedef m2::PolylineD PolylineD;
+  bool IsDirty() const override { return m_isDirty; }
+  void ResetChanges() const override { m_isDirty = false; }
 
-  Track() {}
-  virtual ~Track();
+  kml::TrackData const & GetData() const { return m_data; }
 
-  explicit Track(PolylineD const & polyline)
-    : m_polyline(polyline)
-  {
-    ASSERT_GREATER(polyline.GetSize(), 1, ());
-
-    m_rect = m_polyline.GetLimitRect();
-  }
-
-  /// @note Move semantics is used here.
-  virtual Track * CreatePersistent();
-  float GetMainWidth() const;
-  graphics::Color const & GetMainColor() const;
-
-  virtual void Draw(graphics::Screen * pScreen, MatrixT const & matrix) const;
-  virtual void CreateDisplayList(graphics::Screen * dlScreen, MatrixT const & matrix, bool isScaleChanged,
-                         int, double, location::RouteMatchingInfo const &) const;
-  virtual void CleanUp() const;
-  virtual bool HasDisplayLists() const;
-
-  /// @name Simple Getters-Setter
-  //@{
-
-  struct TrackOutline
-  {
-    float m_lineWidth;
-    graphics::Color m_color;
-  };
-
-  void AddOutline(TrackOutline const * outline, size_t arraySize);
-
-  string const & GetName() const { return m_name; }
-  void SetName(string const & name) { m_name = name; }
-
-  PolylineD const & GetPolyline() const { return m_polyline; }
-  m2::RectD const & GetLimitRect() const { return m_rect; }
-  //@}
+  std::string GetName() const;
+  m2::RectD GetLimitRect() const;
   double GetLengthMeters() const;
+  double GetLengthMeters(size_t pointIndex) const;
+  bool IsInteractive() const;
 
-protected:
-  graphics::DisplayList * GetDisplayList() const { return m_dList; }
-  void SetDisplayList(graphics::DisplayList * dl) const { m_dList = dl; }
-  void CreateDisplayListPolyline(graphics::Screen * dlScreen, PointContainerT const & pts2) const;
-  void Swap(Track & rhs);
-  void DeleteDisplayList() const;
+  int GetMinZoom() const override { return 1; }
+  df::DepthLayer GetDepthLayer() const override;
+  size_t GetLayerCount() const override;
+  dp::Color GetColor(size_t layerIndex) const override;
+  float GetWidth(size_t layerIndex) const override;
+  float GetDepth(size_t layerIndex) const override;
+  std::vector<m2::PointD> GetPoints() const override;
+  std::vector<geometry::PointWithAltitude> const & GetPointsWithAltitudes() const;
+
+  void Attach(kml::MarkGroupId groupId);
+  void Detach();
+
+  bool GetPoint(double distanceInMeters, m2::PointD & pt) const;
 
 private:
-  string m_name;
+  void CacheDataForInteraction();
+  bool HasAltitudes() const;
+  std::vector<double> GetLengthsImpl() const;
+  m2::RectD GetLimitRectImpl() const;
 
-  vector<TrackOutline> m_outlines;
-  PolylineD m_polyline;
-  m2::RectD m_rect;
+  kml::TrackData m_data;
+  kml::MarkGroupId m_groupID = kml::kInvalidMarkGroupId;
 
-  mutable graphics::DisplayList * m_dList = nullptr;
+  struct InteractionData
+  {
+    std::vector<double> m_lengths;
+    m2::RectD m_limitRect;
+  };
+  std::optional<InteractionData> m_interactionData;
+
+  mutable bool m_isDirty = true;
 };
-
-void TransformPolyline(Track::PolylineD const & polyline, MatrixT const & matrix, PointContainerT & pts);
-void TransformAndSymplifyPolyline(Track::PolylineD const & polyline, MatrixT const & matrix,
-                                  double width, PointContainerT & pts);

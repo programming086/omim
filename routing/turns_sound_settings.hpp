@@ -2,9 +2,11 @@
 
 #include "routing/turns.hpp"
 
-#include "platform/settings.hpp"
+#include "platform/measurement_utils.hpp"
 
-#include "std/vector.hpp"
+#include <cstdint>
+#include <utility>
+#include <vector>
 
 namespace routing
 {
@@ -36,9 +38,13 @@ class Settings
   /// meters before the turn (for the second voice notification).
   /// When m_startBeforeSeconds * TurnsSound::m_speedMetersPerSecond is too small or too large
   /// we use m_{min|max}StartBeforeMeters to clamp the value.
-  uint32_t m_startBeforeSeconds;
-  uint32_t m_minStartBeforeMeters;
-  uint32_t m_maxStartBeforeMeters;
+  uint32_t m_startBeforeSecondsVehicle;
+  uint32_t m_minStartBeforeMetersVehicle;
+  uint32_t m_maxStartBeforeMetersVehicle;
+
+  uint32_t m_startBeforeSecondsPedestrian = 0;
+  uint32_t m_minStartBeforeMetersPedestrian = 0;
+  uint32_t m_maxStartBeforeMetersPedestrian = 0;
 
   /// m_minDistToSayNotificationMeters is minimum distance between two turns
   /// when pronouncing the first notification about the second turn makes sense.
@@ -46,21 +52,22 @@ class Settings
 
   /// \brief m_distancesToPronounce is a list of distances in m_lengthUnits
   ///  which are ready to be pronounced.
-  vector<uint32_t> m_soundedDistancesUnits;
-  ::Settings::Units m_lengthUnits;
+  std::vector<uint32_t> m_soundedDistancesUnits;
+  measurement_utils::Units m_lengthUnits;
 
   // This constructor is for testing only.
   Settings(uint32_t notificationTimeSeconds, uint32_t minNotificationDistanceUnits,
            uint32_t maxNotificationDistanceUnits, uint32_t startBeforeSeconds,
            uint32_t minStartBeforeMeters, uint32_t maxStartBeforeMeters,
-           uint32_t minDistToSayNotificationMeters, vector<uint32_t> const & soundedDistancesUnits,
-           ::Settings::Units lengthUnits)
+           uint32_t minDistToSayNotificationMeters,
+           std::vector<uint32_t> const & soundedDistancesUnits,
+           measurement_utils::Units lengthUnits)
     : m_timeSeconds(notificationTimeSeconds)
     , m_minDistanceUnits(minNotificationDistanceUnits)
     , m_maxDistanceUnits(maxNotificationDistanceUnits)
-    , m_startBeforeSeconds(startBeforeSeconds)
-    , m_minStartBeforeMeters(minStartBeforeMeters)
-    , m_maxStartBeforeMeters(maxStartBeforeMeters)
+    , m_startBeforeSecondsVehicle(startBeforeSeconds)
+    , m_minStartBeforeMetersVehicle(minStartBeforeMeters)
+    , m_maxStartBeforeMetersVehicle(maxStartBeforeMeters)
     , m_minDistToSayNotificationMeters(minDistToSayNotificationMeters)
     , m_soundedDistancesUnits(soundedDistancesUnits)
     , m_lengthUnits(lengthUnits)
@@ -69,22 +76,28 @@ class Settings
   }
 
 public:
-  Settings(uint32_t startBeforeSeconds, uint32_t minStartBeforeMeters,
-           uint32_t maxStartBeforeMeters, uint32_t minDistToSayNotificationMeters)
+  Settings(uint32_t startBeforeSecondsVehicle, uint32_t minStartBeforeMetersVehicle,
+           uint32_t maxStartBeforeMetersVehicle, uint32_t minDistToSayNotificationMeters,
+           uint32_t startBeforeSecondsPedestrian, uint32_t minStartBeforeMetersPedestrian,
+           uint32_t maxStartBeforeMetersPedestrian)
     : m_timeSeconds(0)
     , m_minDistanceUnits(0)
     , m_maxDistanceUnits(0)
-    , m_startBeforeSeconds(startBeforeSeconds)
-    , m_minStartBeforeMeters(minStartBeforeMeters)
-    , m_maxStartBeforeMeters(maxStartBeforeMeters)
+    , m_startBeforeSecondsVehicle(startBeforeSecondsVehicle)
+    , m_minStartBeforeMetersVehicle(minStartBeforeMetersVehicle)
+    , m_maxStartBeforeMetersVehicle(maxStartBeforeMetersVehicle)
+    , m_startBeforeSecondsPedestrian(startBeforeSecondsPedestrian)
+    , m_minStartBeforeMetersPedestrian(minStartBeforeMetersPedestrian)
+    , m_maxStartBeforeMetersPedestrian(maxStartBeforeMetersPedestrian)
     , m_minDistToSayNotificationMeters(minDistToSayNotificationMeters)
-    , m_lengthUnits(::Settings::Metric)
+    , m_lengthUnits(measurement_utils::Units::Metric)
   {
   }
 
   void SetState(uint32_t notificationTimeSeconds, uint32_t minNotificationDistanceUnits,
                 uint32_t maxNotificationDistanceUnits,
-                vector<uint32_t> const & soundedDistancesUnits, ::Settings::Units lengthUnits);
+                std::vector<uint32_t> const & soundedDistancesUnits,
+                measurement_utils::Units lengthUnits);
 
   /// \brief IsValid checks if Settings data is consistent.
   /// \warning The complexity is up to linear in size of m_soundedDistancesUnits.
@@ -99,7 +112,7 @@ public:
 
   /// \brief computes the distance which will be passed at the |speedMetersPerSecond|
   /// while pronouncing turn sound notification.
-  uint32_t ComputeDistToPronounceDistM(double speedMetersPerSecond) const;
+  uint32_t ComputeDistToPronounceDistM(double speedMetersPerSecond, bool pedestrian = false) const;
 
   /// @return true if distToTurnMeters is too short to start pronouncing first turn notification.
   bool TooCloseForFisrtNotification(double distToTurnMeters) const;
@@ -112,8 +125,8 @@ public:
   /// The result will be one of the m_soundedDistancesUnits values.
   uint32_t RoundByPresetSoundedDistancesUnits(uint32_t turnNotificationUnits) const;
 
-  inline ::Settings::Units GetLengthUnits() const { return m_lengthUnits; }
-  inline void SetLengthUnits(::Settings::Units units) { m_lengthUnits = units; }
+  inline measurement_utils::Units GetLengthUnits() const { return m_lengthUnits; }
+  inline void SetLengthUnits(measurement_utils::Units units) { m_lengthUnits = units; }
   double ConvertMetersPerSecondToUnitsPerSecond(double speedInMetersPerSecond) const;
   double ConvertUnitsToMeters(double distanceInUnits) const;
   double ConvertMetersToUnits(double distanceInMeters) const;
@@ -132,30 +145,48 @@ struct Notification
   /// if m_useThenInsteadOfDistance == true the m_distanceUnits is ignored.
   /// The word "Then" shall be pronounced intead of the distance.
   bool m_useThenInsteadOfDistance;
-  TurnDirection m_turnDir;
-  ::Settings::Units m_lengthUnits;
+  CarDirection m_turnDir = CarDirection::None;
+  PedestrianDirection m_turnDirPedestrian = PedestrianDirection::None;
+  measurement_utils::Units m_lengthUnits;
 
   Notification(uint32_t distanceUnits, uint8_t exitNum, bool useThenInsteadOfDistance,
-               TurnDirection turnDir, ::Settings::Units lengthUnits)
-      : m_distanceUnits(distanceUnits),
-        m_exitNum(exitNum),
-        m_useThenInsteadOfDistance(useThenInsteadOfDistance),
-        m_turnDir(turnDir),
-        m_lengthUnits(lengthUnits)
+               CarDirection turnDir, measurement_utils::Units lengthUnits)
+    : m_distanceUnits(distanceUnits)
+    , m_exitNum(exitNum)
+    , m_useThenInsteadOfDistance(useThenInsteadOfDistance)
+    , m_turnDir(turnDir)
+    , m_lengthUnits(lengthUnits)
   {
   }
+
+  Notification(uint32_t distanceUnits, uint8_t exitNum, bool useThenInsteadOfDistance,
+               PedestrianDirection turnDirPedestrian, measurement_utils::Units lengthUnits)
+    : m_distanceUnits(distanceUnits)
+    , m_exitNum(exitNum)
+    , m_useThenInsteadOfDistance(useThenInsteadOfDistance)
+    , m_turnDirPedestrian(turnDirPedestrian)
+    , m_lengthUnits(lengthUnits)
+  {
+  }
+
   bool operator==(Notification const & rhv) const
   {
     return m_distanceUnits == rhv.m_distanceUnits && m_exitNum == rhv.m_exitNum &&
            m_useThenInsteadOfDistance == rhv.m_useThenInsteadOfDistance &&
-           m_turnDir == rhv.m_turnDir && m_lengthUnits == rhv.m_lengthUnits;
+           m_turnDir == rhv.m_turnDir && m_turnDirPedestrian == rhv.m_turnDirPedestrian &&
+           m_lengthUnits == rhv.m_lengthUnits;
+  }
+
+  bool IsPedestrianNotification() const
+  {
+    return m_turnDirPedestrian != PedestrianDirection::None;
   }
 };
 
-string DebugPrint(Notification const & turnGeom);
+std::string DebugPrint(Notification const & turnGeom);
 
-using PairDist = pair<uint32_t, char const *>;
-using VecPairDist = vector<PairDist>;
+using PairDist = std::pair<uint32_t, char const *>;
+using VecPairDist = std::vector<PairDist>;
 
 /// @return a reference to a vector of pairs of a distance in meters and a text id.
 /// All the distances are translated in supported languages and can be pronounced.
@@ -175,9 +206,9 @@ VecPairDist const & GetAllSoundedDistFeet();
 // to convert from vector<pair<uint32_t, char const *>> to vector<uint32_t>.
 
 /// @return distance in meters which are used for turn sound generation.
-vector<uint32_t> const & GetSoundedDistMeters();
+std::vector<uint32_t> const & GetSoundedDistMeters();
 /// @return distance in feet which are used for turn sound generation.
-vector<uint32_t> const & GetSoundedDistFeet();
+std::vector<uint32_t> const & GetSoundedDistFeet();
 
 }  // namespace sound
 }  // namespace turns

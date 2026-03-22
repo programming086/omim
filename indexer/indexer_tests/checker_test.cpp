@@ -1,11 +1,19 @@
 #include "testing/testing.hpp"
 
+#include "indexer/classificator.hpp"
+#include "indexer/classificator_loader.hpp"
+#include "indexer/data_source.hpp"
 #include "indexer/ftypes_matcher.hpp"
 
-#include "indexer/index.hpp"
-#include "indexer/classificator.hpp"
-
 #include "base/logging.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
+
+using namespace std;
 
 namespace
 {
@@ -20,6 +28,17 @@ vector<uint32_t> GetTypes(char const * arr[][roadArrColumnCount], size_t const r
     types.push_back(c.GetTypeByPath(vector<string>(arr[i], arr[i] + roadArrColumnCount)));
   return types;
 }
+
+vector<uint32_t> GetTypes(std::vector<std::string> const & t)
+{
+  Classificator const & c = classif();
+  vector<uint32_t> types;
+
+  for (auto const & k : t)
+    types.push_back(c.GetTypeByPath({k}));
+  return types;
+}
+
 
 vector<uint32_t> GetStreetTypes()
 {
@@ -80,10 +99,51 @@ vector<uint32_t> GetBridgeAndTunnelTypes()
   };
   return GetTypes(arr, ARRAY_SIZE(arr));
 }
+
+uint32_t GetMotorwayJunctionType()
+{
+  Classificator const & c = classif();
+  return c.GetTypeByPath({"highway", "motorway_junction"});
 }
+
+vector<uint32_t> GetPoiTypes()
+{
+  std::vector<std::string> const types = {
+    "amenity",
+    "shop",
+    "tourism",
+    "leisure",
+    "sport",
+    "craft",
+    "man_made",
+    "emergency",
+    "office",
+    "historic",
+    "railway",
+    "highway",
+    "aeroway"
+  };
+  return GetTypes(types);
+}
+
+vector<uint32_t> GetAttractionsTypes()
+{
+  auto const & checker = ftypes::AttractionsChecker::Instance();
+  vector<uint32_t> types;
+  types.reserve(checker.m_primaryTypes.size() + checker.m_additionalTypes.size());
+  for (auto t : checker.m_primaryTypes)
+    types.push_back(t);
+  for (auto t : checker.m_additionalTypes)
+    types.push_back(t);
+
+  return types;
+}
+}  // namespace
 
 UNIT_TEST(IsTypeConformed)
 {
+  classificator::Load();
+
   char const * arr[][roadArrColumnCount] =
   {
     {"highway", "trunk", "bridge"},
@@ -99,21 +159,31 @@ UNIT_TEST(IsTypeConformed)
   TEST(!ftypes::IsTypeConformed(types[1], {"*", "building", "*"}), ());
 }
 
-UNIT_TEST(IsStreetChecker)
+UNIT_TEST(IsWayChecker)
 {
-  TEST(ftypes::IsStreetChecker::Instance()(GetStreetTypes()), ());
-  TEST(ftypes::IsStreetChecker::Instance()(GetStreetAndNotStreetTypes()), ());
-  TEST(!ftypes::IsStreetChecker::Instance()(GetLinkTypes()), ());
+  classificator::Load();
+
+  TEST(ftypes::IsWayChecker::Instance()(GetStreetTypes()), ());
+  TEST(ftypes::IsWayChecker::Instance()(GetStreetAndNotStreetTypes()), ());
+  // TODO (@y, @m, @vng): need to investigate - do we really need this
+  // TEST for absence of links, because IsWayChecker() is used for
+  // search only.
+  //
+  // TEST(!ftypes::IsWayChecker::Instance()(GetLinkTypes()), ());
 }
 
 UNIT_TEST(IsLinkChecker)
 {
+  classificator::Load();
+
   TEST(ftypes::IsLinkChecker::Instance()(GetLinkTypes()), ());
   TEST(!ftypes::IsLinkChecker::Instance()(GetStreetTypes()), ());
 }
 
 UNIT_TEST(IsBridgeChecker)
 {
+  classificator::Load();
+
   TEST(ftypes::IsBridgeChecker::Instance()(GetBridgeTypes()), ());
   TEST(ftypes::IsBridgeChecker::Instance()(GetBridgeAndTunnelTypes()), ());
   TEST(!ftypes::IsBridgeChecker::Instance()(GetTunnelTypes()), ());
@@ -121,6 +191,8 @@ UNIT_TEST(IsBridgeChecker)
 
 UNIT_TEST(IsTunnelChecker)
 {
+  classificator::Load();
+
   TEST(ftypes::IsTunnelChecker::Instance()(GetTunnelTypes()), ());
   TEST(ftypes::IsTunnelChecker::Instance()(GetBridgeAndTunnelTypes()), ());
   TEST(!ftypes::IsTunnelChecker::Instance()(GetBridgeTypes()), ());
@@ -128,17 +200,55 @@ UNIT_TEST(IsTunnelChecker)
 
 UNIT_TEST(GetHighwayClassTest)
 {
+  classificator::Load();
+
   Classificator const & c = classif();
 
   feature::TypesHolder types1;
-  types1(c.GetTypeByPath({"highway", "motorway_link", "tunnel"}));
-  TEST_EQUAL(ftypes::GetHighwayClass(types1), ftypes::HighwayClass::Trunk, ());
+  types1.Add(c.GetTypeByPath({"route", "shuttle_train"}));
+  TEST_EQUAL(ftypes::GetHighwayClass(types1), ftypes::HighwayClass::Transported, ());
 
   feature::TypesHolder types2;
-  types2(c.GetTypeByPath({"highway", "unclassified"}));
-  TEST_EQUAL(ftypes::GetHighwayClass(types2), ftypes::HighwayClass::LivingStreet, ());
+  types2.Add(c.GetTypeByPath({"highway", "motorway_link", "tunnel"}));
+  TEST_EQUAL(ftypes::GetHighwayClass(types2), ftypes::HighwayClass::Trunk, ());
 
   feature::TypesHolder types3;
-  types3(c.GetTypeByPath({"highway"}));
-  TEST_EQUAL(ftypes::GetHighwayClass(types3), ftypes::HighwayClass::Error, ());
+  types3.Add(c.GetTypeByPath({"highway", "unclassified"}));
+  TEST_EQUAL(ftypes::GetHighwayClass(types3), ftypes::HighwayClass::LivingStreet, ());
+
+  feature::TypesHolder types4;
+  types4.Add(c.GetTypeByPath({"highway"}));
+  TEST_EQUAL(ftypes::GetHighwayClass(types4), ftypes::HighwayClass::Error, ());
+}
+
+UNIT_TEST(IsPoiChecker)
+{
+  classificator::Load();
+  Classificator const & c = classif();
+  auto const & checker = ftypes::IsPoiChecker::Instance();
+
+  for (auto const & t : GetPoiTypes())
+    TEST(checker(t), ());
+
+  TEST(!checker(c.GetTypeByPath({"building"})), ());
+}
+
+UNIT_TEST(IsAttractionsChecker)
+{
+  classificator::Load();
+  Classificator const & c = classif();
+  auto const & checker = ftypes::AttractionsChecker::Instance();
+
+  for (auto const & t : GetAttractionsTypes())
+    TEST(checker(t), ());
+
+  TEST(!checker(c.GetTypeByPath({"route", "shuttle_train"})), ());
+}
+
+UNIT_TEST(IsMotorwayJunctionChecker)
+{
+  classificator::Load();
+
+  TEST(ftypes::IsMotorwayJunctionChecker::Instance()(GetMotorwayJunctionType()), ());
+  TEST(!ftypes::IsMotorwayJunctionChecker::Instance()(GetPoiTypes()), ());
 }

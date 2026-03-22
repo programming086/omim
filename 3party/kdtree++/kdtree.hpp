@@ -400,6 +400,14 @@ namespace KDTree
           _M_for_each(_M_get_root(), 0, toDo);
       }
 
+      template <class ToDo> bool for_any(ToDo toDo) const
+      {
+        if (_M_get_root())
+          return _M_for_any(_M_get_root(), 0, toDo);
+
+        return false;
+      }
+
       // compares via equality
       // if you are looking for a particular item in the tree,
       // and (for example) it has an ID that is checked via an == comparison
@@ -658,6 +666,20 @@ namespace KDTree
           _M_for_each(_S_right(N), L+1, toDo);
       }
 
+      template <class ToDo>
+      bool _M_for_any(_Link_const_type N, size_type const L, ToDo toDo) const
+      {
+        if (toDo.DoIfIntersects(_S_value(N)))
+          return true;
+
+        if (_S_left(N) && toDo.ScanLeft(L, _S_value(N)) && _M_for_any(_S_left(N), L+1, toDo))
+          return true;
+
+        if (_S_right(N) && toDo.ScanRight(L, _S_value(N)) && _M_for_any(_S_right(N), L+1, toDo))
+          return true;
+
+        return false;
+      }
 
       _Link_type
       _M_get_erase_replacement(_Link_type node, size_type const level)

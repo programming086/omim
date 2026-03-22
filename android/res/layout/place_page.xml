@@ -1,32 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<merge xmlns:android="http://schemas.android.com/apk/res/android">
-
-  <include
+<merge
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="wrap_content">
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:descendantFocusability="blocksDescendants"
+    android:orientation="vertical">
+    <include
       android:id="@+id/pp__preview"
       layout="@layout/place_page_preview"
       android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_above="@+id/pp__buttons"/>
-
-  <include
+      android:layout_height="wrap_content"/>
+    <include
       android:id="@+id/pp__details_frame"
       layout="@layout/place_page_details"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_above="@+id/pp__buttons"
-      android:layout_marginTop="56dp"
-      android:background="@color/bg_top_panels"/>
-
-  <include
-      android:id="@+id/pp__buttons"
-      layout="@layout/place_page_buttons"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_alignParentBottom="true"/>
-
-  <include
-      android:id="@+id/toolbar_layout"
-      layout="@layout/toolbar_elevated"
-      android:visibility="gone"/>
-
+      android:background="?panel"/>
+  </LinearLayout>
 </merge>

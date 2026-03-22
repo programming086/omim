@@ -2,25 +2,38 @@
 #include "testing/testregister.hpp"
 
 #include "base/logging.hpp"
+#include "base/scope_guard.hpp"
 #include "base/string_utils.hpp"
 #include "base/timer.hpp"
+#include "base/waiter.hpp"
 
-#include "std/cstring.hpp"
-#include "std/iomanip.hpp"
-#include "std/iostream.hpp"
-#include "std/regex.hpp"
-#include "std/string.hpp"
 #include "std/target_os.hpp"
-#include "std/vector.hpp"
 
-#ifdef OMIM_UNIT_TEST_WITH_QT_EVENT_LOOP
-  #include <Qt>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <iomanip>
+#include <iostream>
+#include <regex>
+#include <string>
+#include <vector>
+
+#ifdef WITH_GL_MOCK
+# include "drape/drape_tests/gl_mock_functions.hpp"
+#endif
+
+#ifdef TARGET_OS_IPHONE
+# include <CoreFoundation/CoreFoundation.h>
+#endif
+
+#ifndef OMIM_UNIT_TEST_DISABLE_PLATFORM_INIT
+# include "platform/platform.hpp"
+#endif
+
+#if defined(OMIM_UNIT_TEST_WITH_QT_EVENT_LOOP) && !defined(OMIM_OS_IPHONE)
+  #include <QtCore/Qt>
   #ifdef OMIM_OS_MAC // on Mac OS X native run loop works only for QApplication :(
-    #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
-      #include <QtGui/QApplication>
-    #else
-      #include <QtWidgets/QApplication>
-    #endif
+    #include <QtWidgets/QApplication>
     #define QAPP QApplication
   #else
     #include <QtCore/QCoreApplication>
@@ -28,9 +41,49 @@
   #endif
 #endif
 
+using namespace std;
+
 namespace
 {
-bool g_bLastTestOK = true;
+base::Waiter g_waiter;
+}  // namespace
+
+namespace testing
+{
+
+void RunEventLoop()
+{
+#if defined(OMIM_OS_IPHONE)
+  CFRunLoopRun();
+#elif defined (QAPP)
+  QAPP::exec();
+#endif
+}
+
+void StopEventLoop()
+{
+#if defined(OMIM_OS_IPHONE)
+  CFRunLoopStop(CFRunLoopGetMain());
+#elif defined(QAPP)
+  QAPP::exit();
+#endif
+}
+
+void Wait()
+{
+  g_waiter.Wait();
+  g_waiter.Reset();
+}
+
+void Notify()
+{
+  g_waiter.Notify();
+}
+}  // namespace testing
+
+namespace
+{
+bool g_lastTestOK = true;
 CommandLineOptions g_testingOptions;
 
 int const kOptionFieldWidth = 32;
@@ -39,6 +92,7 @@ char const kSuppressOption[] = "--suppress=";
 char const kHelpOption[] = "--help";
 char const kDataPathOptions[] = "--data_path=";
 char const kResourcePathOptions[] = "--user_resource_path=";
+char const kListAllTestsOption[] = "--list_tests";
 
 enum Status
 {
@@ -69,6 +123,7 @@ void Usage(char const * name)
                 "Do not run tests with names corresponding to regexp.");
   DisplayOption(cerr, kDataPathOptions, "<Path>", "Path to data files.");
   DisplayOption(cerr, kResourcePathOptions, "<Path>", "Path to resources, styles and classificators.");
+  DisplayOption(cerr, kListAllTestsOption, "List all the tests in the test suite and exit.");
   DisplayOption(cerr, kHelpOption, "Print this help message and exit.");
 }
 
@@ -87,6 +142,8 @@ void ParseOptions(int argc, char * argv[], CommandLineOptions & options)
       options.m_resourcePath = arg + sizeof(kResourcePathOptions) - 1;
     if (strcmp(arg, kHelpOption) == 0)
       options.m_help = true;
+    if (strcmp(arg, kListAllTestsOption) == 0)
+      options.m_listTests = true;
   }
 }
 }  // namespace
@@ -98,7 +155,7 @@ CommandLineOptions const & GetTestingOptions()
 
 int main(int argc, char * argv[])
 {
-#ifdef OMIM_UNIT_TEST_WITH_QT_EVENT_LOOP
+#if defined(OMIM_UNIT_TEST_WITH_QT_EVENT_LOOP) && !defined(OMIM_OS_IPHONE)
   QAPP theApp(argc, argv);
   UNUSED_VALUE(theApp);
 #else
@@ -106,12 +163,17 @@ int main(int argc, char * argv[])
   UNUSED_VALUE(argv);
 #endif
 
-  my::g_LogLevel = LINFO;
-#if defined(OMIM_OS_MAC) || defined(OMIM_OS_LINUX)
-  my::SetLogMessageFn(my::LogMessageTests);
+  base::ScopedLogLevelChanger const infoLogLevel(LINFO);
+#if defined(OMIM_OS_MAC) || defined(OMIM_OS_LINUX) || defined(OMIM_OS_IPHONE)
+  base::SetLogMessageFn(base::LogMessageTests);
 #endif
 
-  vector<string> testNames;
+#ifdef WITH_GL_MOCK
+  emul::GLMockFunctions::Init(&argc, argv);
+  SCOPE_GUARD(GLMockScope, std::bind(&emul::GLMockFunctions::Teardown));
+#endif
+
+  vector<string> testnames;
   vector<bool> testResults;
   int numFailedTests = 0;
 
@@ -130,81 +192,98 @@ int main(int argc, char * argv[])
   if (g_testingOptions.m_suppressRegExp)
     suppressRegExp.assign(g_testingOptions.m_suppressRegExp);
 
-  for (TestRegister * pTest = TestRegister::FirstRegister(); pTest; pTest = pTest->m_pNext)
+#ifndef OMIM_UNIT_TEST_DISABLE_PLATFORM_INIT
+  // Setting stored paths from testingmain.cpp
+  Platform & pl = GetPlatform();
+  CommandLineOptions const & options = GetTestingOptions();
+  if (options.m_dataPath)
+    pl.SetWritableDirForTests(options.m_dataPath);
+  if (options.m_resourcePath)
+    pl.SetResourceDir(options.m_resourcePath);
+#endif
+
+  for (TestRegister * test = TestRegister::FirstRegister(); test; test = test->m_next)
   {
-    string fileName(pTest->m_FileName);
-    string testName(pTest->m_TestName);
+    string filename(test->m_filename);
+    string testname(test->m_testname);
 
-    // Retrieve fine file name
-    auto const lastSlash = fileName.find_last_of("\\/");
+    // Retrieve fine file name.
+    auto const lastSlash = filename.find_last_of("\\/");
     if (lastSlash != string::npos)
-      fileName.erase(0, lastSlash + 1);
+      filename.erase(0, lastSlash + 1);
 
-    testNames.push_back(fileName + "::" + testName);
+    testnames.push_back(filename + "::" + testname);
     testResults.push_back(true);
   }
 
-  int iTest = 0;
-  for (TestRegister * pTest = TestRegister::FirstRegister(); pTest; ++iTest, pTest = pTest->m_pNext)
+  if (GetTestingOptions().m_listTests)
   {
-    auto const & testName = testNames[iTest];
+    for (auto const & name : testnames)
+      cout << name << endl;
+    return 0;
+  }
+
+  int testIndex = 0;
+  for (TestRegister *test = TestRegister::FirstRegister(); test; ++testIndex, test = test->m_next)
+  {
+    auto const & testname = testnames[testIndex];
     if (g_testingOptions.m_filterRegExp &&
-        !regex_match(testName.begin(), testName.end(), filterRegExp))
+        !regex_search(testname.begin(), testname.end(), filterRegExp))
     {
       continue;
     }
     if (g_testingOptions.m_suppressRegExp &&
-        regex_match(testName.begin(), testName.end(), suppressRegExp))
+        regex_search(testname.begin(), testname.end(), suppressRegExp))
     {
       continue;
     }
 
-    LOG(LINFO, ("Running", testName));
-    if (!g_bLastTestOK)
+    LOG(LINFO, ("Running", testname));
+    if (!g_lastTestOK)
     {
       // Somewhere else global variables have been reset.
       LOG(LERROR, ("\n\nSOMETHING IS REALLY WRONG IN THE UNIT TEST FRAMEWORK!!!"));
       return STATUS_BROKEN_FRAMEWORK;
     }
 
-    my::HighResTimer timer(true);
+    base::HighResTimer timer(true);
 
     try
     {
       // Run the test.
-      pTest->m_Fn();
+      test->m_fn();
+#ifdef WITH_GL_MOCK
+      emul::GLMockFunctions::ValidateAndClear();
+#endif
 
-      if (g_bLastTestOK)
+      if (g_lastTestOK)
       {
         LOG(LINFO, ("OK"));
       }
       else
       {
-        // You can set Break here if test failed,
-        // but it is already set in OnTestFail - to fail immediately.
-        testResults[iTest] = false;
+        testResults[testIndex] = false;
         ++numFailedTests;
       }
-
     }
     catch (TestFailureException const & )
     {
-      testResults[iTest] = false;
+      testResults[testIndex] = false;
       ++numFailedTests;
     }
     catch (std::exception const & ex)
     {
       LOG(LERROR, ("FAILED", "<<<Exception thrown [", ex.what(), "].>>>"));
-      testResults[iTest] = false;
+      testResults[testIndex] = false;
       ++numFailedTests;
     }
     catch (...)
     {
       LOG(LERROR, ("FAILED<<<Unknown exception thrown.>>>"));
-      testResults[iTest] = false;
+      testResults[testIndex] = false;
       ++numFailedTests;
     }
-    g_bLastTestOK = true;
+    g_lastTestOK = true;
 
     uint64_t const elapsed = timer.ElapsedNano();
     LOG(LINFO, ("Test took", elapsed / 1000000, "ms\n"));
@@ -213,10 +292,10 @@ int main(int argc, char * argv[])
   if (numFailedTests != 0)
   {
     LOG(LINFO, (numFailedTests, " tests failed:"));
-    for (size_t i = 0; i < testNames.size(); ++i)
+    for (size_t i = 0; i < testnames.size(); ++i)
     {
       if (!testResults[i])
-        LOG(LINFO, (testNames[i]));
+        LOG(LINFO, (testnames[i]));
     }
     LOG(LINFO, ("Some tests FAILED."));
     return STATUS_FAILED;

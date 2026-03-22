@@ -1,29 +1,16 @@
-#include "Language.hpp"
+#include "android/jni/com/mapswithme/core/jni_helper.hpp"
+#include "android/jni/com/mapswithme/core/ScopedLocalRef.hpp"
 
-#include "../core/jni_helper.hpp"
+#include "platform/locale.hpp"
 
 #include "base/assert.hpp"
 #include "base/logging.hpp"
 #include "base/string_utils.hpp"
 
-#include "std/string.hpp"
-
-
-string ReplaceDeprecatedLanguageCode(string const & lang)
-{
-  // in* -> id
-  // iw* -> he
-
-  if (strings::StartsWith(lang, "in"))
-    return "id";
-  else if (strings::StartsWith(lang, "iw"))
-    return "he";
-
-  return lang;
-}
+#include <string>
 
 /// This function is called from native c++ code
-string GetAndroidSystemLanguage()
+std::string GetAndroidSystemLanguage()
 {
   static char const * DEFAULT_LANG = "en";
 
@@ -34,36 +21,37 @@ string GetAndroidSystemLanguage()
     return DEFAULT_LANG;
   }
 
-  jclass localeClass = env->FindClass("java/util/Locale");
-  ASSERT(localeClass, ());
+  static jclass const languageClass = jni::GetGlobalClassRef(env, "com/mapswithme/util/Language");
+  static jmethodID const getDefaultLocaleId = jni::GetStaticMethodID(env, languageClass, "getDefaultLocale", "()Ljava/lang/String;");
 
-  jmethodID localeGetDefaultId = env->GetStaticMethodID(localeClass, "getDefault", "()Ljava/util/Locale;");
-  ASSERT(localeGetDefaultId, ());
+  jni::TScopedLocalRef localeRef(env, env->CallStaticObjectMethod(languageClass, getDefaultLocaleId));
 
-  jobject localeInstance = env->CallStaticObjectMethod(localeClass, localeGetDefaultId);
-  ASSERT(localeInstance, ());
-
-  jmethodID localeGetLanguageId = env->GetMethodID(localeClass, "toString", "()Ljava/lang/String;");
-  ASSERT(localeGetLanguageId, ());
-
-  jstring langString = (jstring)env->CallObjectMethod(localeInstance, localeGetLanguageId);
-  ASSERT(langString, ());
-
-  // TODO FindClass method won't work from non-ui threads, so cache class, remove comment or use cached classloader after it's implemented
-  /*
-  jclass langClass = env->FindClass("com/mapswithme/util/Language");
-  ASSERT(langClass, ());
-
-  jmethodID langGetDefaultId = env->GetStaticMethodID(langClass, "getDefault", "()Ljava/lang/String;");
-  ASSERT(langGetDefaultId, ());
-
-  jstring langString = (jstring)env->CallStaticObjectMethod(langClass, langGetDefaultId);
-  ASSERT(langString, ());
-  */
-
-  string res = jni::ToNativeString(env, langString);
+  std::string res = jni::ToNativeString(env, (jstring) localeRef.get());
   if (res.empty())
     res = DEFAULT_LANG;
 
-  return ReplaceDeprecatedLanguageCode(res);
+  return res;
 }
+
+namespace platform
+{
+Locale GetCurrentLocale()
+{
+  JNIEnv * env = jni::GetEnv();
+  static jmethodID const getLanguageCodeId = jni::GetStaticMethodID(env, g_utilsClazz, "getLanguageCode",
+                                                                    "()Ljava/lang/String;");
+  jni::ScopedLocalRef languageCode(env, env->CallStaticObjectMethod(g_utilsClazz, getLanguageCodeId));
+
+  static jmethodID const getCountryCodeId = jni::GetStaticMethodID(env, g_utilsClazz, "getCountryCode",
+                                                                   "()Ljava/lang/String;");
+  jni::ScopedLocalRef countryCode(env, env->CallStaticObjectMethod(g_utilsClazz, getCountryCodeId));
+
+  static jmethodID const getCurrencyCodeId = jni::GetStaticMethodID(env, g_utilsClazz, "getCurrencyCode",
+                                                                    "()Ljava/lang/String;");
+  jni::ScopedLocalRef currencyCode(env, env->CallStaticObjectMethod(g_utilsClazz, getCurrencyCodeId));
+
+  return {jni::ToNativeString(env, static_cast<jstring>(languageCode.get())),
+          jni::ToNativeString(env, static_cast<jstring>(countryCode.get())),
+          currencyCode.get() ? jni::ToNativeString(env, static_cast<jstring>(currencyCode.get())) : ""};
+}
+}  // namespace platform

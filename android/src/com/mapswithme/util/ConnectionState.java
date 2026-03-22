@@ -3,47 +3,98 @@ package com.mapswithme.util;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.support.annotation.Nullable;
 import android.telephony.TelephonyManager;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import com.mapswithme.maps.MwmApplication;
+import com.mapswithme.maps.base.Initializable;
 
-public class ConnectionState
+import static com.mapswithme.util.ConnectionState.Type.NONE;
+
+public enum ConnectionState implements Initializable<Context>
 {
+  INSTANCE;
+
   // values should correspond to ones from enum class EConnectionType (in platform/platform.hpp)
   private static final byte CONNECTION_NONE = 0;
   private static final byte CONNECTION_WIFI = 1;
   private static final byte CONNECTION_WWAN = 2;
+  @SuppressWarnings("NotNullFieldNotInitialized")
+  @NonNull
+  private Context mContext;
 
-  private static boolean isNetworkConnected(int networkType)
+  public enum Type
+  {
+    NONE(CONNECTION_NONE, -1),
+    WIFI(CONNECTION_WIFI, ConnectivityManager.TYPE_WIFI),
+    WWAN(CONNECTION_WWAN, ConnectivityManager.TYPE_MOBILE);
+
+    private final byte mNativeRepresentation;
+    private final int mPlatformRepresentation;
+
+    Type(byte nativeRepresentation, int platformRepresentation)
+    {
+      mNativeRepresentation = nativeRepresentation;
+      mPlatformRepresentation = platformRepresentation;
+    }
+
+    public byte getNativeRepresentation()
+    {
+      return mNativeRepresentation;
+    }
+
+    public int getPlatformRepresentation()
+    {
+      return mPlatformRepresentation;
+    }
+  }
+
+  @Override
+  public void initialize(@Nullable Context context)
+  {
+    mContext = MwmApplication.from(context);
+  }
+
+  @Override
+  public void destroy()
+  {
+    // No op
+  }
+
+  private boolean isNetworkConnected(int networkType)
   {
     final NetworkInfo info = getActiveNetwork();
     return info != null && info.getType() == networkType && info.isConnected();
   }
 
-  public static
   @Nullable
-  NetworkInfo getActiveNetwork()
+  public NetworkInfo getActiveNetwork()
   {
-    return ((ConnectivityManager) MwmApplication.get().getSystemService(Context.CONNECTIVITY_SERVICE)).getActiveNetworkInfo();
+    ConnectivityManager manager =
+        ((ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE));
+    if (manager == null)
+      return null;
+
+    return manager.getActiveNetworkInfo();
   }
 
-  public static boolean isMobileConnected()
+  public boolean isMobileConnected()
   {
     return isNetworkConnected(ConnectivityManager.TYPE_MOBILE);
   }
 
-  public static boolean isWifiConnected()
+  public boolean isWifiConnected()
   {
     return isNetworkConnected(ConnectivityManager.TYPE_WIFI);
   }
 
-  public static boolean isConnected()
+  public boolean isConnected()
   {
     return isNetworkConnected(ConnectivityManager.TYPE_WIFI) || isNetworkConnected(ConnectivityManager.TYPE_MOBILE);
   }
 
-  public static boolean isConnectionFast(NetworkInfo info)
+  public boolean isConnectionFast(NetworkInfo info)
   {
     if (info == null || !info.isConnected())
       return false;
@@ -83,13 +134,27 @@ public class ConnectionState
     return false;
   }
 
+  public boolean isInRoaming()
+  {
+    NetworkInfo info = getActiveNetwork();
+    return info != null && info.isRoaming();
+  }
+
+  // Called from JNI.
+  @SuppressWarnings("unused")
   public static byte getConnectionState()
   {
-    if (isWifiConnected())
-      return CONNECTION_WIFI;
-    else if (isMobileConnected())
-      return CONNECTION_WWAN;
+    return INSTANCE.requestCurrentType().getNativeRepresentation();
+  }
 
-    return CONNECTION_NONE;
+  @NonNull
+  public Type requestCurrentType()
+  {
+    for (ConnectionState.Type each : ConnectionState.Type.values())
+    {
+      if (isNetworkConnected(each.getPlatformRepresentation()))
+        return each;
+    }
+    return NONE;
   }
 }

@@ -4,13 +4,15 @@
 
 #include "base/logging.hpp"
 
-#include "std/bind.hpp"
-#include "std/ctime.hpp"
+#include <ctime>
+#include <functional>
+#include <vector>
 
 #include "3party/jansson/myjansson.hpp"
 
 #include "private.h"
 
+using namespace std;
 
 namespace location
 {
@@ -20,7 +22,7 @@ namespace location
 
     void OnHttpPostFinished(downloader::HttpRequest & response)
     {
-      if (response.Status() == downloader::HttpRequest::ECompleted)
+      if (response.GetStatus() == downloader::DownloadStatus::Completed)
       {
         // stop requesting wifi updates if reply from server is received
         m_wifiInfo.Stop();
@@ -28,7 +30,7 @@ namespace location
         try
         {
           bool success = false;
-          my::Json root(response.Data().c_str());
+          base::Json root(response.GetData().c_str());
           if (json_is_object(root.get()))
           {
             json_t * location = json_object_get(root.get(), "location");
@@ -55,11 +57,11 @@ namespace location
             }
           }
           if (!success)
-            LOG(LWARNING, ("Invalid reply from location server:", response.Data()));
+            LOG(LWARNING, ("Invalid reply from location server:", response.GetData()));
         }
-        catch (my::Json::Exception const & e)
+        catch (base::Json::Exception const & e)
         {
-          LOG(LWARNING, ("Invalid reply from location server:", e.what(), response.Data()));
+          LOG(LWARNING, ("Invalid reply from location server:", e.what(), response.GetData()));
         }
       }
       else
@@ -89,19 +91,20 @@ namespace location
       jsonRequest += "}";
 
       // memory will be freed in callback
-      downloader::HttpRequest::PostJson(MWM_GEOLOCATION_SERVER,
-                                        jsonRequest,
-                                        bind(&WiFiLocationService::OnHttpPostFinished, this, _1));
+      downloader::HttpRequest::PostJson(
+          MWM_GEOLOCATION_SERVER, jsonRequest,
+          bind(&WiFiLocationService::OnHttpPostFinished, this, placeholders::_1));
     }
 
   public:
-    WiFiLocationService(LocationObserver & observer) : LocationService(observer)
+    explicit WiFiLocationService(LocationObserver & observer) : LocationService(observer)
     {
     }
 
     virtual void Start()
     {
-      m_wifiInfo.RequestWiFiBSSIDs(bind(&WiFiLocationService::OnWifiScanCompleted, this, _1));
+      m_wifiInfo.RequestWiFiBSSIDs(
+          bind(&WiFiLocationService::OnWifiScanCompleted, this, placeholders::_1));
     }
 
     virtual void Stop()

@@ -2,12 +2,17 @@
 
 #include "routing/road_graph.hpp"
 #include "routing/routing_tests/road_graph_builder.hpp"
-#include "std/algorithm.hpp"
+
+#include "geometry/point_with_altitude.hpp"
+
+#include <algorithm>
+#include <utility>
 
 namespace routing_test
 {
 
 using namespace routing;
+using namespace std;
 
 UNIT_TEST(RoadGraph_NearestEdges)
 {
@@ -30,20 +35,20 @@ UNIT_TEST(RoadGraph_NearestEdges)
   RoadGraphMockSource graph;
   {
     IRoadGraph::RoadInfo ri0;
-    ri0.m_points.emplace_back(-2, 0);
-    ri0.m_points.emplace_back(-1, 0);
-    ri0.m_points.emplace_back(0, 0);
-    ri0.m_points.emplace_back(1, 0);
-    ri0.m_points.emplace_back(2, 0);
+    ri0.m_junctions.push_back(geometry::MakePointWithAltitudeForTesting(m2::PointD(-2, 0)));
+    ri0.m_junctions.push_back(geometry::MakePointWithAltitudeForTesting(m2::PointD(-1, 0)));
+    ri0.m_junctions.push_back(geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 0)));
+    ri0.m_junctions.push_back(geometry::MakePointWithAltitudeForTesting(m2::PointD(1, 0)));
+    ri0.m_junctions.push_back(geometry::MakePointWithAltitudeForTesting(m2::PointD(2, 0)));
     ri0.m_speedKMPH = 5;
     ri0.m_bidirectional = true;
 
     IRoadGraph::RoadInfo ri1;
-    ri1.m_points.emplace_back(0, -2);
-    ri1.m_points.emplace_back(0, -1);
-    ri1.m_points.emplace_back(0, 0);
-    ri1.m_points.emplace_back(0, 1);
-    ri1.m_points.emplace_back(0, 2);
+    ri1.m_junctions.push_back(geometry::MakePointWithAltitudeForTesting(m2::PointD(0, -2)));
+    ri1.m_junctions.push_back(geometry::MakePointWithAltitudeForTesting(m2::PointD(0, -1)));
+    ri1.m_junctions.push_back(geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 0)));
+    ri1.m_junctions.push_back(geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 1)));
+    ri1.m_junctions.push_back(geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 2)));
     ri1.m_speedKMPH = 5;
     ri1.m_bidirectional = true;
 
@@ -52,36 +57,51 @@ UNIT_TEST(RoadGraph_NearestEdges)
   }
 
   // We are standing at x junction.
-  Junction const crossPos(m2::PointD(0, 0));
+  geometry::PointWithAltitude const crossPos =
+      geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 0));
 
   // Expected outgoing edges.
-  IRoadGraph::TEdgeVector expectedOutgoing =
-  {
-    Edge(MakeTestFeatureID(0) /* first road */, false /* forward */, 1 /* segId */, m2::PointD(0, 0), m2::PointD(-1, 0)),
-    Edge(MakeTestFeatureID(0) /* first road */, true /* forward */, 2 /* segId */, m2::PointD(0, 0), m2::PointD(1, 0)),
-    Edge(MakeTestFeatureID(1) /* second road */, false /* forward */, 1 /* segId */, m2::PointD(0, 0), m2::PointD(0, -1)),
-    Edge(MakeTestFeatureID(1) /* second road */, true /* forward */, 2 /* segId */, m2::PointD(0, 0), m2::PointD(0, 1)),
+  IRoadGraph::EdgeVector expectedOutgoing = {
+      Edge::MakeReal(MakeTestFeatureID(0) /* first road */, false /* forward */, 1 /* segId */,
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 0)),
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(-1, 0))),
+      Edge::MakeReal(MakeTestFeatureID(0) /* first road */, true /* forward */, 2 /* segId */,
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 0)),
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(1, 0))),
+      Edge::MakeReal(MakeTestFeatureID(1) /* second road */, false /* forward */, 1 /* segId */,
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 0)),
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(0, -1))),
+      Edge::MakeReal(MakeTestFeatureID(1) /* second road */, true /* forward */, 2 /* segId */,
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 0)),
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 1))),
   };
   sort(expectedOutgoing.begin(), expectedOutgoing.end());
 
   // Expected ingoing edges.
-  IRoadGraph::TEdgeVector expectedIngoing =
-  {
-    Edge(MakeTestFeatureID(0) /* first road */, true /* forward */, 1 /* segId */, m2::PointD(-1, 0), m2::PointD(0, 0)),
-    Edge(MakeTestFeatureID(0) /* first road */, false /* forward */, 2 /* segId */, m2::PointD(1, 0), m2::PointD(0, 0)),
-    Edge(MakeTestFeatureID(1) /* second road */, true /* forward */, 1 /* segId */, m2::PointD(0, -1), m2::PointD(0, 0)),
-    Edge(MakeTestFeatureID(1) /* second road */, false /* forward */, 2 /* segId */, m2::PointD(0, 1), m2::PointD(0, 0)),
+  IRoadGraph::EdgeVector expectedIngoing = {
+      Edge::MakeReal(MakeTestFeatureID(0) /* first road */, true /* forward */, 1 /* segId */,
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(-1, 0)),
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 0))),
+      Edge::MakeReal(MakeTestFeatureID(0) /* first road */, false /* forward */, 2 /* segId */,
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(1, 0)),
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 0))),
+      Edge::MakeReal(MakeTestFeatureID(1) /* second road */, true /* forward */, 1 /* segId */,
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(0, -1)),
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 0))),
+      Edge::MakeReal(MakeTestFeatureID(1) /* second road */, false /* forward */, 2 /* segId */,
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 1)),
+                     geometry::MakePointWithAltitudeForTesting(m2::PointD(0, 0))),
   };
   sort(expectedIngoing.begin(), expectedIngoing.end());
 
   // Check outgoing edges.
-  IRoadGraph::TEdgeVector actualOutgoing;
+  IRoadGraph::EdgeVector actualOutgoing;
   graph.GetOutgoingEdges(crossPos, actualOutgoing);
   sort(actualOutgoing.begin(), actualOutgoing.end());
   TEST_EQUAL(expectedOutgoing, actualOutgoing, ());
 
   // Check ingoing edges.
-  IRoadGraph::TEdgeVector actualIngoing;
+  IRoadGraph::EdgeVector actualIngoing;
   graph.GetIngoingEdges(crossPos, actualIngoing);
   sort(actualIngoing.begin(), actualIngoing.end());
   TEST_EQUAL(expectedIngoing, actualIngoing, ());

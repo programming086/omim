@@ -1,14 +1,15 @@
 {
-"make_a_slight_right_turn":"Leicht rechts.",
+"make_a_slight_right_turn":"Halten Sie sich rechts.",
 "make_a_right_turn":"Rechts abbiegen.",
 "make_a_sharp_right_turn":"Scharf rechts.",
 "enter_the_roundabout":"Fahren Sie in den Kreisverkehr.",
 "leave_the_roundabout":"Aus dem Kreisverkehr ausfahren.",
-"make_a_slight_left_turn":"Leicht links.",
+"make_a_slight_left_turn":"Halten Sie sich links.",
 "make_a_left_turn":"Links abbiegen.",
 "make_a_sharp_left_turn":"Scharf links.",
 "make_a_u_turn":"Wenden Sie.",
 "go_straight":"Fahren Sie geradeaus.",
+"exit":"Ausfahrt.",
 "destination":"Werden Sie ankommen.",
 "you_have_reached_the_destination":"Sie sind angekommen.",
 "in_50_meters":"In fünfzig Metern",
@@ -60,6 +61,7 @@
 "in_4500_feet":"In viertausendfünfhundert Fuß",
 "in_5000_feet":"In fünftausend Fuß",
 "in_1_mile":"In einer Meile",
-"in_1_5_miles":"In dreieinhalb Kilometern",
-"in_2_miles":"In zwei Meilen"
+"in_1_5_miles":"In anderthalb Meilen",
+"in_2_miles":"In zwei Meilen",
+"unknown_camera":"Kamera vorne"
 }

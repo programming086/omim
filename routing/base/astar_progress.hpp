@@ -1,66 +1,62 @@
 #pragma once
 
-#include "geometry/point2d.hpp"
+#include "geometry/latlon.hpp"
 
-#include "indexer/mercator.hpp"
+#include <list>
 
 namespace routing
 {
+class AStarSubProgress
+{
+public:
+  AStarSubProgress(ms::LatLon const & start, ms::LatLon const & finish, double contributionCoef);
+
+  explicit AStarSubProgress(double contributionCoef);
+
+  double UpdateProgress(ms::LatLon const & current, ms::LatLon const & finish);
+  /// \brief Some |AStarSubProgress| could have their own subProgresses (next item in
+  /// AStarProgress::m_subProgresses after current), in order to return true progress
+  /// back to the upper level of subProgresses, we should do progress backpropagation of
+  /// subProgress of current subProgress - |subSubProgressValue|
+  double UpdateProgress(double subSubProgressValue);
+
+  void Flush(double progress);
+  double GetMaxContribution() const;
+
+private:
+  double m_currentProgress = 0.0;
+  double m_contributionCoef = 0.0;
+  double m_fullDistance = 0.0;
+  double m_forwardDistance = 0.0;
+  double m_backwardDistance = 0.0;
+
+  ms::LatLon m_startPoint;
+  ms::LatLon m_finishPoint;
+};
+
 class AStarProgress
 {
 public:
-  AStarProgress(float startValue, float stopValue)
-      : m_startValue(startValue), m_stopValue(stopValue) {}
+  static double const kMaxPercent;
 
-  void Initialize(m2::PointD const & startPoint, m2::PointD const & finalPoint)
-  {
-    m_startPoint = startPoint;
-    m_finalPoint = finalPoint;
-    m_initialDistance = MercatorBounds::DistanceOnEarth(startPoint, finalPoint);
-    m_forwardDistance = m_initialDistance;
-    m_backwardDistance = m_initialDistance;
-    m_lastValue = m_startValue;
-  }
+  AStarProgress();
+  ~AStarProgress();
 
-  float GetProgressForDirectedAlgo(m2::PointD const & point)
-  {
-    return CheckConstraints(
-        1.0 - MercatorBounds::DistanceOnEarth(point, m_finalPoint) / m_initialDistance);
-  }
-
-  float GetProgressForBidirectedAlgo(m2::PointD const & point, m2::PointD const & target)
-  {
-    if (target == m_finalPoint)
-      m_forwardDistance = MercatorBounds::DistanceOnEarth(point, target);
-    else if (target == m_startPoint)
-      m_backwardDistance = MercatorBounds::DistanceOnEarth(point, target);
-    else
-      ASSERT(false, ());
-    return CheckConstraints(2.0 - (m_forwardDistance + m_backwardDistance) / m_initialDistance);
-  }
-
-  float GetLastValue() const { return m_lastValue; }
+  double GetLastPercent() const;
+  void PushAndDropLastSubProgress();
+  void DropLastSubProgress();
+  void AppendSubProgress(AStarSubProgress const & subProgress);
+  double UpdateProgress(ms::LatLon const & current, ms::LatLon const & end);
 
 private:
-  float CheckConstraints(float const & roadPart)
-  {
-    float mappedValue = m_startValue + (m_stopValue - m_startValue) * roadPart;
-    mappedValue = my::clamp(mappedValue, m_startValue, m_stopValue);
-    if (mappedValue > m_lastValue)
-      m_lastValue = mappedValue;
-    return m_lastValue;
-  }
+  using ListItem = std::list<AStarSubProgress>::iterator;
 
-  float m_forwardDistance;
-  float m_backwardDistance;
-  float m_initialDistance;
-  float m_lastValue;
+  double UpdateProgressImpl(ListItem subProgress, ms::LatLon const & current,
+                            ms::LatLon const & end);
 
-  m2::PointD m_startPoint;
-  m2::PointD m_finalPoint;
+  // This value is in range: [0, 1].
+  double m_lastPercentValue = 0.0;
 
-  float const m_startValue;
-  float const m_stopValue;
+  std::list<AStarSubProgress> m_subProgresses;
 };
-
 }  //  namespace routing

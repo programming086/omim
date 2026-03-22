@@ -2,11 +2,11 @@
 #include "base/assert.hpp"
 
 #ifdef DEBUG
-  #define INIT_CHECK_INFO(x) m_checkInfo = vector<bool>((vector<bool>::size_type)(x), false);
+  #define INIT_CHECK_INFO(x) m_checkInfo = std::vector<bool>((std::vector<bool>::size_type)(x), false);
   #define CHECK_STREAMS CheckStreams()
   #define INIT_STREAM(x) InitCheckStream((x))
 #else
-  #include "../../base/macros.hpp"
+  #include "base/macros.hpp"
   #define INIT_CHECK_INFO(x) UNUSED_VALUE((x))
   #define CHECK_STREAMS
   #define INIT_STREAM(x) UNUSED_VALUE((x))
@@ -14,22 +14,20 @@
 
 namespace dp
 {
-
-AttributeProvider::AttributeProvider(uint8_t streamCount, uint16_t vertexCount)
+AttributeProvider::AttributeProvider(uint8_t streamCount, uint32_t vertexCount)
   : m_vertexCount(vertexCount)
 {
   m_streams.resize(streamCount);
   INIT_CHECK_INFO(streamCount);
 }
 
-/// interface for batcher
 bool AttributeProvider::IsDataExists() const
 {
   CHECK_STREAMS;
   return m_vertexCount > 0;
 }
 
-uint16_t AttributeProvider::GetVertexCount() const
+uint32_t AttributeProvider::GetVertexCount() const
 {
   return m_vertexCount;
 }
@@ -43,7 +41,7 @@ void const * AttributeProvider::GetRawPointer(uint8_t streamIndex)
 {
   ASSERT_LESS(streamIndex, GetStreamCount(), ());
   CHECK_STREAMS;
-  return m_streams[streamIndex].m_data.GetRaw();
+  return m_streams[streamIndex].m_data.get();
 }
 
 BindingInfo const & AttributeProvider::GetBindingInfo(uint8_t streamIndex) const
@@ -53,7 +51,7 @@ BindingInfo const & AttributeProvider::GetBindingInfo(uint8_t streamIndex) const
   return m_streams[streamIndex].m_binding;
 }
 
-void AttributeProvider::Advance(uint16_t vertexCount)
+void AttributeProvider::Advance(uint32_t vertexCount)
 {
   ASSERT_LESS_OR_EQUAL(vertexCount, m_vertexCount, ());
   CHECK_STREAMS;
@@ -64,8 +62,8 @@ void AttributeProvider::Advance(uint16_t vertexCount)
     {
       BindingInfo const & info = m_streams[i].m_binding;
       uint32_t offset = vertexCount * info.GetElementSize();
-      void * rawPointer = m_streams[i].m_data.GetRaw();
-      m_streams[i].m_data = MakeStackRefPointer((void *)(((uint8_t *)rawPointer) + offset));
+      void * rawPointer = m_streams[i].m_data.get();
+      m_streams[i].m_data = make_ref((void *)(((uint8_t *)rawPointer) + offset));
     }
   }
 
@@ -74,13 +72,25 @@ void AttributeProvider::Advance(uint16_t vertexCount)
 
 void AttributeProvider::InitStream(uint8_t streamIndex,
                                    BindingInfo const & bindingInfo,
-                                   RefPointer<void> data)
+                                   ref_ptr<void> data)
 {
   ASSERT_LESS(streamIndex, GetStreamCount(), ());
   AttributeStream s;
   s.m_binding = bindingInfo;
   s.m_data = data;
   m_streams[streamIndex] = s;
+  INIT_STREAM(streamIndex);
+}
+
+void AttributeProvider::Reset(uint32_t vertexCount)
+{
+  m_vertexCount = vertexCount;
+}
+
+void AttributeProvider::UpdateStream(uint8_t streamIndex, ref_ptr<void> data)
+{
+  ASSERT_LESS(streamIndex, GetStreamCount(), ());
+  m_streams[streamIndex].m_data = data;
   INIT_STREAM(streamIndex);
 }
 
@@ -96,5 +106,4 @@ void AttributeProvider::InitCheckStream(uint8_t streamIndex)
   m_checkInfo[streamIndex] = true;
 }
 #endif
-
-}
+}  // namespace dp

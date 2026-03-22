@@ -3,10 +3,12 @@
 //
 
 #ifdef __OBJC__
-    #import <Foundation/Foundation.h>
-    #import <UIKit/UIKit.h>
-    #import <CoreLocation/CoreLocation.h>
-    #import <CoreGraphics/CoreGraphics.h>
+  #import <UIKit/UIKit.h>
+  #import <CoreLocation/CoreLocation.h>
 
-    #import "UIKitCategories.h"
+  #import "MWMConsts.h"
+  #import "MWMMacros.h"
+  #import "UIColor+MapsMeColor.h"
+  #import "UIFont+MapsMeFonts.h"
+  #import "UIKitCategories.h"
 #endif

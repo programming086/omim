@@ -2,45 +2,51 @@
 
 #include "indexer/mwm_set.hpp"
 
-#include "std/cstdint.hpp"
-#include "std/string.hpp"
+#include <cstdint>
+#include <string>
 
 namespace feature
 {
-enum EGeomType
+enum class GeomType : int8_t
 {
-  GEOM_UNDEFINED = -1,
-  // Note! do not change this values. Should be equal with FeatureGeoType.
-  GEOM_POINT = 0,
-  GEOM_LINE = 1,
-  GEOM_AREA = 2
+  Undefined = -1,
+  Point = 0,
+  Line = 1,
+  Area = 2
 };
-}
+
+std::string DebugPrint(GeomType type);
+}  // namespace feature
 
 struct FeatureID
 {
-  MwmSet::MwmId m_mwmId;
-  uint32_t m_index;
+  static char const * const kInvalidFileName;
+  static int64_t const kInvalidMwmVersion;
 
-  FeatureID() : m_index(0) {}
+  FeatureID() = default;
   FeatureID(MwmSet::MwmId const & mwmId, uint32_t index) : m_mwmId(mwmId), m_index(index) {}
 
   bool IsValid() const { return m_mwmId.IsAlive(); }
 
-  inline bool operator<(FeatureID const & r) const
+  bool operator<(FeatureID const & r) const
   {
-    if (m_mwmId == r.m_mwmId)
-      return m_index < r.m_index;
-    else
+    if (m_mwmId != r.m_mwmId)
       return m_mwmId < r.m_mwmId;
+    return m_index < r.m_index;
   }
 
-  inline bool operator==(FeatureID const & r) const
+  bool operator==(FeatureID const & r) const
   {
-    return (m_mwmId == r.m_mwmId && m_index == r.m_index);
+    return m_mwmId == r.m_mwmId && m_index == r.m_index;
   }
 
-  inline bool operator!=(FeatureID const & r) const { return !(*this == r); }
+  bool operator!=(FeatureID const & r) const { return !(*this == r); }
 
-  friend string DebugPrint(FeatureID const & id);
+  std::string GetMwmName() const;
+  int64_t GetMwmVersion() const;
+
+  MwmSet::MwmId m_mwmId;
+  uint32_t m_index = 0;
 };
+
+std::string DebugPrint(FeatureID const & id);

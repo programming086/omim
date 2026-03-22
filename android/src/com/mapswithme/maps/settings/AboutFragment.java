@@ -5,18 +5,19 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
+import androidx.annotation.IdRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.mapswithme.maps.BuildConfig;
+import com.mapswithme.maps.Framework;
 import com.mapswithme.maps.R;
-import com.mapswithme.maps.widget.BaseShadowController;
-import com.mapswithme.maps.widget.ObservableScrollView;
-import com.mapswithme.maps.widget.ScrollViewShadowController;
 import com.mapswithme.util.Constants;
+import com.mapswithme.util.Graphics;
 import com.mapswithme.util.Utils;
 import com.mapswithme.util.sharing.ShareOption;
 import com.mapswithme.util.statistics.AlohaHelper;
@@ -25,6 +26,14 @@ import com.mapswithme.util.statistics.Statistics;
 public class AboutFragment extends BaseSettingsFragment
                         implements View.OnClickListener
 {
+  private void setupItem(@IdRes int id, boolean tint, @NonNull View frame)
+  {
+    TextView view = frame.findViewById(id);
+    view.setOnClickListener(this);
+    if (tint)
+      Graphics.tint(view);
+  }
+
   @Override
   protected int getLayoutRes()
   {
@@ -32,30 +41,43 @@ public class AboutFragment extends BaseSettingsFragment
   }
 
   @Override
-  protected BaseShadowController createShadowController()
-  {
-    clearPaddings();
-    return new ScrollViewShadowController((ObservableScrollView) mFrame.findViewById(R.id.content_frame));
-  }
-
-  @Override
   public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState)
   {
-    super.onCreateView(inflater, container, savedInstanceState);
+    View root = super.onCreateView(inflater, container, savedInstanceState);
 
-    ((TextView) mFrame.findViewById(R.id.version))
+    ((TextView) root.findViewById(R.id.version))
         .setText(getString(R.string.version, BuildConfig.VERSION_NAME));
 
-    mFrame.findViewById(R.id.web).setOnClickListener(this);
-    mFrame.findViewById(R.id.blog).setOnClickListener(this);
-    mFrame.findViewById(R.id.facebook).setOnClickListener(this);
-    mFrame.findViewById(R.id.twitter).setOnClickListener(this);
-    mFrame.findViewById(R.id.subscribe).setOnClickListener(this);
-    mFrame.findViewById(R.id.rate).setOnClickListener(this);
-    mFrame.findViewById(R.id.share).setOnClickListener(this);
-    mFrame.findViewById(R.id.copyright).setOnClickListener(this);
+    ((TextView) root.findViewById(R.id.data_version))
+        .setText(getString(R.string.data_version, Framework.nativeGetDataVersion()));
 
-    return mFrame;
+    setupItem(R.id.web, true, root);
+    setupItem(R.id.facebook, false, root);
+    setupItem(R.id.twitter, false, root);
+    setupItem(R.id.rate, true, root);
+    setupItem(R.id.share, true, root);
+    setupItem(R.id.copyright, false, root);
+    View termOfUseView = root.findViewById(R.id.term_of_use_link);
+    View privacyPolicyView = root.findViewById(R.id.privacy_policy);
+    termOfUseView.setOnClickListener(v -> onTermOfUseClick());
+    privacyPolicyView.setOnClickListener(v -> onPrivacyPolicyClick());
+
+    return root;
+  }
+
+  private void openLink(@NonNull String link)
+  {
+    Utils.openUrl(getActivity(), link);
+  }
+
+  private void onPrivacyPolicyClick()
+  {
+    openLink(Framework.nativeGetPrivacyPolicyLink());
+  }
+
+  private void onTermOfUseClick()
+  {
+    openLink(Framework.nativeGetTermsOfUseLink());
   }
 
   @Override
@@ -71,12 +93,6 @@ public class AboutFragment extends BaseSettingsFragment
         startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Constants.Url.WEB_SITE)));
         break;
 
-      case R.id.blog:
-        Statistics.INSTANCE.trackEvent(Statistics.EventName.Settings.WEB_BLOG);
-        AlohaHelper.logClick(AlohaHelper.Settings.WEB_BLOG);
-        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Constants.Url.WEB_BLOG)));
-        break;
-
       case R.id.facebook:
         Statistics.INSTANCE.trackEvent(Statistics.EventName.Settings.FACEBOOK);
         AlohaHelper.logClick(AlohaHelper.Settings.FACEBOOK);
@@ -89,15 +105,6 @@ public class AboutFragment extends BaseSettingsFragment
         Utils.showTwitterPage(getActivity());
         break;
 
-      case R.id.subscribe:
-        Statistics.INSTANCE.trackEvent(Statistics.EventName.Settings.SUBSCRIBE);
-        AlohaHelper.logClick(AlohaHelper.Settings.MAIL_SUBSCRIBE);
-        startActivity(new Intent(Intent.ACTION_SENDTO)
-                          .setData(Utils.buildMailUri(Constants.Email.SUBSCRIBE,
-                                                      getString(R.string.subscribe_me_subject),
-                                                      getString(R.string.subscribe_me_body))));
-        break;
-
       case R.id.rate:
         Statistics.INSTANCE.trackEvent(Statistics.EventName.Settings.RATE);
         AlohaHelper.logClick(AlohaHelper.Settings.RATE);
@@ -107,13 +114,15 @@ public class AboutFragment extends BaseSettingsFragment
       case R.id.share:
         Statistics.INSTANCE.trackEvent(Statistics.EventName.Settings.TELL_FRIEND);
         AlohaHelper.logClick(AlohaHelper.Settings.TELL_FRIEND);
-        ShareOption.ANY.share(getActivity(), getString(R.string.tell_friends_text), R.string.tell_friends);
+        ShareOption.AnyShareOption.ANY.share(getActivity(), getString(R.string.tell_friends_text),
+                                             R.string.tell_friends);
         break;
 
       case R.id.copyright:
         Statistics.INSTANCE.trackEvent(Statistics.EventName.Settings.COPYRIGHT);
         AlohaHelper.logClick(AlohaHelper.Settings.COPYRIGHT);
-        ((SettingsActivity) getActivity()).switchToFragment(CopyrightFragment.class, R.string.copyright);
+        getSettingsActivity().replaceFragment(CopyrightFragment.class,
+                                              getString(R.string.copyright), null);
         break;
       }
     } catch (ActivityNotFoundException e)

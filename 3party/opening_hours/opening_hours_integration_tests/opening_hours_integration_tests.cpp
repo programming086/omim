@@ -4,12 +4,22 @@
 #define BOOST_TEST_MODULE OpeningHoursIntegration
 
 #include <algorithm>
+#include <array>
 #include <ctime>
 #include <map>
+
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#endif
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/test/included/unit_test.hpp>
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 namespace
 {
@@ -81,7 +91,7 @@ using TRuleFeatures = std::array<bool, Count_>;
 
 std::ostream & operator<<(std::ostream & ost, TRuleFeatures const & f)
 {
- std::copy(begin(f), end(f), std::ostream_iterator<bool>(ost, "\t"));
+ std::copy(std::begin(f), std::end(f), std::ostream_iterator<bool>(ost, "\t"));
  return ost;
 }
 

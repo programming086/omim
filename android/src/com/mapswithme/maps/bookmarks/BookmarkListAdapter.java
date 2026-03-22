@@ -1,136 +1,459 @@
 package com.mapswithme.maps.bookmarks;
 
-import android.app.Activity;
-import android.graphics.drawable.Drawable;
-import android.location.Location;
+import android.content.res.Resources;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.BaseAdapter;
-import android.widget.ImageView;
 import android.widget.TextView;
+
 import com.mapswithme.maps.R;
-import com.mapswithme.maps.bookmarks.data.Bookmark;
 import com.mapswithme.maps.bookmarks.data.BookmarkCategory;
-import com.mapswithme.maps.bookmarks.data.DistanceAndAzimut;
-import com.mapswithme.maps.bookmarks.data.Track;
-import com.mapswithme.maps.location.LocationHelper;
-import com.mapswithme.util.Graphics;
+import com.mapswithme.maps.bookmarks.data.BookmarkInfo;
+import com.mapswithme.maps.bookmarks.data.BookmarkManager;
+import com.mapswithme.maps.bookmarks.data.SortedBlock;
+import com.mapswithme.maps.content.DataSource;
+import com.mapswithme.maps.widget.recycler.RecyclerClickListener;
+import com.mapswithme.maps.widget.recycler.RecyclerLongClickListener;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-
-public class BookmarkListAdapter extends BaseAdapter
-    implements LocationHelper.LocationListener
+public class BookmarkListAdapter extends RecyclerView.Adapter<Holders.BaseBookmarkHolder>
 {
-  private final Activity mActivity;
-  private final BookmarkCategory mCategory;
-
   // view types
   static final int TYPE_TRACK = 0;
   static final int TYPE_BOOKMARK = 1;
   static final int TYPE_SECTION = 2;
+  static final int TYPE_DESC = 3;
 
-  private static final int SECTION_TRACKS = 0;
-  private static final int SECTION_BMKS = 1;
+  @NonNull
+  private final DataSource<BookmarkCategory> mDataSource;
+  @Nullable
+  private List<Long> mSearchResults;
+  @Nullable
+  private List<SortedBlock> mSortedResults;
 
-  public BookmarkListAdapter(Activity activity, BookmarkCategory cat)
+  @SuppressWarnings("NullableProblems")
+  @NonNull
+  private SectionsDataSource mSectionsDataSource;
+
+  @Nullable
+  private RecyclerClickListener mMoreListener;
+  @Nullable
+  private RecyclerClickListener mClickListener;
+  @Nullable
+  private RecyclerLongClickListener mLongClickListener;
+
+  public static abstract class SectionsDataSource
   {
-    mActivity = activity;
-    mCategory = cat;
+    @NonNull
+    private final DataSource<BookmarkCategory> mDataSource;
+
+    SectionsDataSource(@NonNull DataSource<BookmarkCategory> dataSource)
+    {
+      mDataSource = dataSource;
+    }
+
+    public BookmarkCategory getCategory() { return mDataSource.getData(); }
+
+    boolean hasDescription()
+    {
+      return mDataSource.getData().isMyCategory() &&
+             (!mDataSource.getData().getAnnotation().isEmpty() ||
+              !mDataSource.getData().getDescription().isEmpty());
+    }
+
+    public abstract int getSectionsCount();
+    public abstract boolean isEditable(int sectionIndex);
+    public abstract boolean hasTitle(int sectionIndex);
+    @Nullable
+    public abstract String getTitle(int sectionIndex, @NonNull Resources rs);
+    public abstract int getItemsCount(int sectionIndex);
+    public abstract int getItemsType(int sectionIndex);
+    public abstract long getBookmarkId(@NonNull SectionPosition pos);
+    public abstract long getTrackId(@NonNull SectionPosition pos);
+    public abstract void onDelete(@NonNull SectionPosition pos);
   }
 
-  public void startLocationUpdate()
+  private static class CategorySectionsDataSource extends SectionsDataSource
   {
-    LocationHelper.INSTANCE.addLocationListener(this);
+    private int mSectionsCount;
+    private int mBookmarksSectionIndex;
+    private int mTracksSectionIndex;
+    private int mDescriptionSectionIndex;
+
+    CategorySectionsDataSource(@NonNull DataSource<BookmarkCategory> dataSource)
+    {
+      super(dataSource);
+      calculateSections();
+    }
+
+    private void calculateSections()
+    {
+      mBookmarksSectionIndex = SectionPosition.INVALID_POSITION;
+      mTracksSectionIndex = SectionPosition.INVALID_POSITION;
+      mDescriptionSectionIndex = SectionPosition.INVALID_POSITION;
+
+      mSectionsCount = 0;
+      if (hasDescription())
+        mDescriptionSectionIndex = mSectionsCount++;
+      if (getCategory().getTracksCount() > 0)
+        mTracksSectionIndex = mSectionsCount++;
+      if (getCategory().getBookmarksCount() > 0)
+        mBookmarksSectionIndex = mSectionsCount++;
+    }
+
+    @Override
+    public int getSectionsCount() { return mSectionsCount; }
+
+    @Override
+    public boolean isEditable(int sectionIndex)
+    {
+      return sectionIndex != mDescriptionSectionIndex && !getCategory().isFromCatalog();
+    }
+
+    @Override
+    public boolean hasTitle(int sectionIndex) { return true; }
+
+    @Nullable
+    public String getTitle(int sectionIndex, @NonNull Resources rs)
+    {
+      if (sectionIndex == mDescriptionSectionIndex)
+        return rs.getString(R.string.description);
+      if (sectionIndex == mTracksSectionIndex)
+        return rs.getString(R.string.tracks_title);
+      return rs.getString(R.string.bookmarks);
+    }
+
+    @Override
+    public int getItemsCount(int sectionIndex)
+    {
+      if (sectionIndex == mDescriptionSectionIndex)
+        return 1;
+      if (sectionIndex == mTracksSectionIndex)
+        return getCategory().getTracksCount();
+      if (sectionIndex == mBookmarksSectionIndex)
+        return getCategory().getBookmarksCount();
+      return 0;
+    }
+
+    @Override
+    public int getItemsType(int sectionIndex)
+    {
+      if (sectionIndex == mDescriptionSectionIndex)
+        return TYPE_DESC;
+      if (sectionIndex == mTracksSectionIndex)
+        return TYPE_TRACK;
+      if (sectionIndex == mBookmarksSectionIndex)
+        return TYPE_BOOKMARK;
+      throw new AssertionError("Invalid section index: " + sectionIndex);
+    }
+
+    @Override
+    public void onDelete(@NonNull SectionPosition pos)
+    {
+      calculateSections();
+    }
+
+    @Override
+    public long getBookmarkId(@NonNull SectionPosition pos)
+    {
+      return BookmarkManager.INSTANCE.getBookmarkIdByPosition(getCategory().getId(),
+                                                              pos.getItemIndex());
+    }
+
+    @Override
+    public long getTrackId(@NonNull SectionPosition pos)
+    {
+      return BookmarkManager.INSTANCE.getTrackIdByPosition(getCategory().getId(),
+                                                           pos.getItemIndex());
+    }
   }
 
-  public void stopLocationUpdate()
+  private static class SearchResultsSectionsDataSource extends SectionsDataSource
   {
-    LocationHelper.INSTANCE.removeLocationListener(this);
+    @NonNull
+    private final List<Long> mSearchResults;
+
+    SearchResultsSectionsDataSource(@NonNull DataSource<BookmarkCategory> dataSource,
+                                    @NonNull List<Long> searchResults)
+    {
+      super(dataSource);
+      mSearchResults = searchResults;
+    }
+
+    @Override
+    public int getSectionsCount() { return 1; }
+
+    @Override
+    public boolean isEditable(int sectionIndex) { return true; }
+
+    @Override
+    public boolean hasTitle(int sectionIndex) { return false; }
+
+    @Nullable
+    public String getTitle(int sectionIndex, @NonNull Resources rs) { return null; }
+
+    @Override
+    public int getItemsCount(int sectionIndex) { return mSearchResults.size(); }
+
+    @Override
+    public int getItemsType(int sectionIndex) { return TYPE_BOOKMARK; }
+
+    @Override
+    public void onDelete(@NonNull SectionPosition pos)
+    {
+      mSearchResults.remove(pos.getItemIndex());
+    }
+
+    @Override
+    public long getBookmarkId(@NonNull SectionPosition pos)
+    {
+      return mSearchResults.get(pos.getItemIndex());
+    }
+
+    @Override
+    public long getTrackId(@NonNull SectionPosition pos)
+    {
+      throw new AssertionError("Tracks unsupported in search results.");
+    }
+  }
+
+  private static class SortedSectionsDataSource extends SectionsDataSource
+  {
+    @NonNull
+    private List<SortedBlock> mSortedBlocks;
+
+    SortedSectionsDataSource(@NonNull DataSource<BookmarkCategory> dataSource,
+                             @NonNull List<SortedBlock> sortedBlocks)
+    {
+      super(dataSource);
+      mSortedBlocks = sortedBlocks;
+    }
+
+    private boolean isDescriptionSection(int sectionIndex)
+    {
+      return hasDescription() && sectionIndex == 0;
+    }
+
+    @NonNull
+    private SortedBlock getSortedBlock(int sectionIndex)
+    {
+      if (isDescriptionSection(sectionIndex))
+        throw new IllegalArgumentException("Invalid section index for sorted block.");
+      int blockIndex = sectionIndex - (hasDescription() ? 1 : 0);
+      return mSortedBlocks.get(blockIndex);
+    }
+
+    @Override
+    public int getSectionsCount()
+    {
+      return mSortedBlocks.size() + (hasDescription() ? 1 : 0);
+    }
+
+    @Override
+    public boolean isEditable(int sectionIndex)
+    {
+      return !isDescriptionSection(sectionIndex);
+    }
+
+    @Override
+    public boolean hasTitle(int sectionIndex) { return true; }
+
+    @Nullable
+    public String getTitle(int sectionIndex, @NonNull Resources rs)
+    {
+      if (isDescriptionSection(sectionIndex))
+        return rs.getString(R.string.description);
+      return getSortedBlock(sectionIndex).getName();
+    }
+
+    @Override
+    public int getItemsCount(int sectionIndex)
+    {
+      if (isDescriptionSection(sectionIndex))
+        return 1;
+      SortedBlock block = getSortedBlock(sectionIndex);
+      if (block.isBookmarksBlock())
+        return block.getBookmarkIds().size();
+      return block.getTrackIds().size();
+    }
+
+    @Override
+    public int getItemsType(int sectionIndex)
+    {
+      if (isDescriptionSection(sectionIndex))
+        return TYPE_DESC;
+      if (getSortedBlock(sectionIndex).isBookmarksBlock())
+        return TYPE_BOOKMARK;
+      return TYPE_TRACK;
+    }
+
+    @Override
+    public void onDelete(@NonNull SectionPosition pos)
+    {
+      if (isDescriptionSection(pos.getSectionIndex()))
+        throw new IllegalArgumentException("Delete failed. Invalid section index.");
+
+      int blockIndex = pos.getSectionIndex() - (hasDescription() ? 1 : 0);
+      SortedBlock block = mSortedBlocks.get(blockIndex);
+      if (block.isBookmarksBlock())
+      {
+        block.getBookmarkIds().remove(pos.getItemIndex());
+        if (block.getBookmarkIds().isEmpty())
+          mSortedBlocks.remove(blockIndex);
+        return;
+      }
+
+      block.getTrackIds().remove(pos.getItemIndex());
+      if (block.getTrackIds().isEmpty())
+        mSortedBlocks.remove(blockIndex);
+    }
+
+    public long getBookmarkId(@NonNull SectionPosition pos)
+    {
+      return getSortedBlock(pos.getSectionIndex()).getBookmarkIds().get(pos.getItemIndex());
+    }
+
+    public long getTrackId(@NonNull SectionPosition pos)
+    {
+      return getSortedBlock(pos.getSectionIndex()).getTrackIds().get(pos.getItemIndex());
+    }
+  }
+
+  BookmarkListAdapter(@NonNull DataSource<BookmarkCategory> dataSource)
+  {
+    mDataSource = dataSource;
+    refreshSections();
+  }
+
+  private void refreshSections()
+  {
+    if (mSearchResults != null)
+      mSectionsDataSource = new SearchResultsSectionsDataSource(mDataSource, mSearchResults);
+    else if (mSortedResults != null)
+      mSectionsDataSource = new SortedSectionsDataSource(mDataSource, mSortedResults);
+    else
+      mSectionsDataSource = new CategorySectionsDataSource(mDataSource);
+  }
+
+  private SectionPosition getSectionPosition(int position)
+  {
+    int startSectionRow = 0;
+    boolean hasTitle;
+    int sectionsCount = mSectionsDataSource.getSectionsCount();
+    for (int i = 0; i < sectionsCount; ++i)
+    {
+      hasTitle = mSectionsDataSource.hasTitle(i);
+      int sectionRowsCount = mSectionsDataSource.getItemsCount(i) + (hasTitle ? 1 : 0);
+      if (startSectionRow == position && hasTitle)
+        return new SectionPosition(i, SectionPosition.INVALID_POSITION);
+      if (startSectionRow + sectionRowsCount > position)
+        return new SectionPosition(i, position - startSectionRow - (hasTitle ? 1 : 0));
+      startSectionRow += sectionRowsCount;
+    }
+    return new SectionPosition(SectionPosition.INVALID_POSITION, SectionPosition.INVALID_POSITION);
+  }
+
+  void setSearchResults(@Nullable long[] searchResults)
+  {
+    if (searchResults != null)
+    {
+      mSearchResults = new ArrayList<Long>(searchResults.length);
+      for (long id : searchResults)
+        mSearchResults.add(id);
+    }
+    else
+    {
+      mSearchResults = null;
+    }
+    refreshSections();
+  }
+
+  void setSortedResults(@Nullable SortedBlock[] sortedResults)
+  {
+    if (sortedResults != null)
+      mSortedResults = new ArrayList<>(Arrays.asList(sortedResults));
+    else
+      mSortedResults = null;
+    refreshSections();
+  }
+
+  public void setOnClickListener(@Nullable RecyclerClickListener listener)
+  {
+    mClickListener = listener;
+  }
+
+  void setOnLongClickListener(@Nullable RecyclerLongClickListener listener)
+  {
+    mLongClickListener = listener;
+  }
+
+  void setMoreListener(@Nullable RecyclerClickListener listener)
+  {
+    mMoreListener = listener;
   }
 
   @Override
-  public int getViewTypeCount()
+  @NonNull
+  public Holders.BaseBookmarkHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType)
   {
-    return 3; // bookmark + track + section
+    LayoutInflater inflater = LayoutInflater.from(parent.getContext());
+    Holders.BaseBookmarkHolder holder = null;
+    switch (viewType)
+    {
+      case TYPE_TRACK:
+        Holders.TrackViewHolder trackHolder =
+            new Holders.TrackViewHolder(inflater.inflate(R.layout.item_track, parent,
+                                                         false));
+        trackHolder.setOnClickListener(mClickListener);
+        holder = trackHolder;
+        break;
+      case TYPE_BOOKMARK:
+        Holders.BookmarkViewHolder bookmarkHolder =
+            new Holders.BookmarkViewHolder(inflater.inflate(R.layout.item_bookmark, parent,
+                                                            false));
+        bookmarkHolder.setOnClickListener(mClickListener);
+        bookmarkHolder.setOnLongClickListener(mLongClickListener);
+        bookmarkHolder.setMoreListener(mMoreListener);
+        holder = bookmarkHolder;
+        break;
+      case TYPE_SECTION:
+        TextView tv = (TextView) inflater.inflate(R.layout.item_category_title, parent, false);
+        holder = new Holders.SectionViewHolder(tv);
+        break;
+      case TYPE_DESC:
+        View desc = inflater.inflate(R.layout.item_category_description, parent, false);
+        holder = new Holders.DescriptionViewHolder(desc, mSectionsDataSource.getCategory());
+        break;
+    }
+
+    if (holder == null)
+      throw new AssertionError("Unsupported view type: " + viewType);
+
+    return holder;
+  }
+
+  @Override
+  public void onBindViewHolder(@NonNull Holders.BaseBookmarkHolder holder, int position)
+  {
+    SectionPosition sp = getSectionPosition(position);
+    holder.bind(sp, mSectionsDataSource);
   }
 
   @Override
   public int getItemViewType(int position)
   {
-    final int bmkPos = getBookmarksSectionPosition();
-    final int trackPos = getTracksSectionPosition();
-
-    if (position == bmkPos || position == trackPos)
+    SectionPosition sp = getSectionPosition(position);
+    if (sp.isTitlePosition())
       return TYPE_SECTION;
-
-    if (position > bmkPos && !isSectionEmpty(SECTION_BMKS))
-      return TYPE_BOOKMARK;
-    else if (position > trackPos && !isSectionEmpty(SECTION_TRACKS))
-      return TYPE_TRACK;
-
+    if (sp.isItemPosition())
+      return mSectionsDataSource.getItemsType(sp.getSectionIndex());
     throw new IllegalArgumentException("Position not found: " + position);
-  }
-
-  @Override
-  public boolean isEnabled(int position)
-  {
-    return getItemViewType(position) != TYPE_SECTION;
-  }
-
-  @Override
-  public View getView(int position, View convertView, ViewGroup parent)
-  {
-    final int type = getItemViewType(position);
-
-    if (type == TYPE_SECTION)
-    {
-      TextView sectionView;
-
-      if (convertView == null)
-        sectionView = (TextView) LayoutInflater.from(mActivity).inflate(R.layout.item_category_title, parent, false);
-      else
-        sectionView = (TextView) convertView;
-
-      final int sectionIndex = getSectionForPosition(position);
-      sectionView.setText(getSections().get(sectionIndex));
-      return sectionView;
-    }
-
-    if (convertView == null)
-    {
-      final int id = (type == TYPE_BOOKMARK) ? R.layout.item_bookmark : R.layout.item_track;
-      convertView = LayoutInflater.from(mActivity).inflate(id, parent, false);
-      convertView.setTag(new PinHolder(convertView));
-    }
-
-    final PinHolder holder = (PinHolder) convertView.getTag();
-    if (type == TYPE_BOOKMARK)
-      holder.set((Bookmark) getItem(position));
-    else
-      holder.set((Track) getItem(position));
-
-    return convertView;
-  }
-
-  @Override
-  public int getCount()
-  {
-    return mCategory.getSize()
-        + (isSectionEmpty(SECTION_TRACKS) ? 0 : 1)
-        + (isSectionEmpty(SECTION_BMKS) ? 0 : 1);
-  }
-
-  @Override
-  public Object getItem(int position)
-  {
-    if (getItemViewType(position) == TYPE_TRACK)
-      return mCategory.getTrack(position - 1);
-    else
-      return mCategory.getBookmark(position - 1
-          - (isSectionEmpty(SECTION_TRACKS) ? 0 : mCategory.getTracksCount() + 1));
   }
 
   @Override
@@ -140,130 +463,54 @@ public class BookmarkListAdapter extends BaseAdapter
   }
 
   @Override
-  public void onLocationUpdated(final Location l)
+  public int getItemCount()
   {
-    notifyDataSetChanged();
+    int itemCount = 0;
+    int sectionsCount = mSectionsDataSource.getSectionsCount();
+    for (int i = 0; i < sectionsCount; ++i)
+    {
+      int sectionItemsCount = mSectionsDataSource.getItemsCount(i);
+      if (sectionItemsCount == 0)
+        continue;
+      itemCount += sectionItemsCount;
+      if (mSectionsDataSource.hasTitle(i))
+        ++itemCount;
+    }
+    return itemCount;
   }
 
-  @Override
-  public void onCompassUpdated(long time, double magneticNorth, double trueNorth, double accuracy)
+  void onDelete(int position)
   {
-    // We don't show any arrows for bookmarks any more.
+    SectionPosition sp = getSectionPosition(position);
+    mSectionsDataSource.onDelete(sp);
+    // In case of the search results editing reset cached sorted blocks.
+    if (isSearchResults())
+      mSortedResults = null;
   }
 
-  @Override
-  public void onLocationError(int errorCode)
+  boolean isSearchResults()
   {
+    return mSearchResults != null;
   }
 
-  private class PinHolder
+  public Object getItem(int position)
   {
-    ImageView icon;
-    TextView name;
-    TextView distance;
+    if (getItemViewType(position) == TYPE_DESC)
+      throw new UnsupportedOperationException("Not supported here! Position = " + position);
 
-    public PinHolder(View convertView)
+    SectionPosition pos = getSectionPosition(position);
+    if (getItemViewType(position) == TYPE_TRACK)
     {
-      icon = (ImageView) convertView.findViewById(R.id.iv__bookmark_color);
-      name = (TextView) convertView.findViewById(R.id.tv__bookmark_name);
-      distance = (TextView) convertView.findViewById(R.id.tv__bookmark_distance);
+      final long trackId = mSectionsDataSource.getTrackId(pos);
+      return BookmarkManager.INSTANCE.getTrack(trackId);
     }
-
-    void setName(Bookmark bmk)
+    else
     {
-      name.setText(bmk.getName());
+      final long bookmarkId = mSectionsDataSource.getBookmarkId(pos);
+      BookmarkInfo info = BookmarkManager.INSTANCE.getBookmarkInfo(bookmarkId);
+      if (info == null)
+        throw new RuntimeException("Bookmark no longer exists " + bookmarkId);
+      return info;
     }
-
-    void setName(Track trk)
-    {
-      name.setText(trk.getName());
-    }
-
-    void setDistance(Bookmark bmk)
-    {
-      final Location loc = LocationHelper.INSTANCE.getLastLocation();
-      if (loc != null)
-      {
-        final DistanceAndAzimut daa = bmk.getDistanceAndAzimuth(loc.getLatitude(), loc.getLongitude(), 0.0);
-        distance.setText(daa.getDistance());
-      }
-      else
-        distance.setText(null);
-    }
-
-    void setDistance(Track trk)
-    {
-      distance.setText(mActivity.getString(R.string.length) + " " + trk.getLengthString());
-    }
-
-    void setIcon(Bookmark bookmark)
-    {
-      icon.setImageResource(bookmark.getIcon().getSelectedResId());
-    }
-
-    void setIcon(Track trk)
-    {
-      final Drawable circle = Graphics.drawCircle(trk.getColor(), R.dimen.track_circle_size, mActivity.getResources());
-      icon.setImageDrawable(circle);
-    }
-
-    void set(Bookmark bmk)
-    {
-      setName(bmk);
-      setDistance(bmk);
-      setIcon(bmk);
-    }
-
-    void set(Track track)
-    {
-      setName(track);
-      setDistance(track);
-      setIcon(track);
-    }
-  }
-
-  private int getTracksSectionPosition()
-  {
-    if (isSectionEmpty(SECTION_TRACKS))
-      return -1;
-
-    return 0;
-  }
-
-  private int getBookmarksSectionPosition()
-  {
-    if (isSectionEmpty(SECTION_BMKS))
-      return -1;
-
-    return mCategory.getTracksCount()
-        + (isSectionEmpty(SECTION_TRACKS) ? 0 : 1);
-  }
-
-  private List<String> getSections()
-  {
-    final List<String> sections = new ArrayList<>();
-    sections.add(mActivity.getString(R.string.tracks));
-    sections.add(mActivity.getString(R.string.bookmarks));
-    return sections;
-  }
-
-  private int getSectionForPosition(int position)
-  {
-    if (position == getTracksSectionPosition())
-      return SECTION_TRACKS;
-    if (position == getBookmarksSectionPosition())
-      return SECTION_BMKS;
-
-    throw new IllegalArgumentException("There is no section in position " + position);
-  }
-
-  private boolean isSectionEmpty(int section)
-  {
-    if (section == SECTION_TRACKS)
-      return mCategory.getTracksCount() == 0;
-    if (section == SECTION_BMKS)
-      return mCategory.getBookmarksCount() == 0;
-
-    throw new IllegalArgumentException("There is no section with index " + section);
   }
 }

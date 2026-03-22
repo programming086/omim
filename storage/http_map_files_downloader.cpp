@@ -1,79 +1,180 @@
 #include "storage/http_map_files_downloader.hpp"
 
-#include "platform/platform.hpp"
+#include "storage/downloader.hpp"
+
+#include "platform/downloader_defines.hpp"
 #include "platform/servers_list.hpp"
 
 #include "base/assert.hpp"
-
-#include "std/bind.hpp"
 #include "base/string_utils.hpp"
+
+#include <algorithm>
+#include <functional>
+
+using namespace std::placeholders;
+
+namespace
+{
+class ErrorHttpRequest : public downloader::HttpRequest
+{
+public:
+  explicit ErrorHttpRequest(std::string const & filePath)
+  : HttpRequest(Callback(), Callback()), m_filePath(filePath)
+  {
+    m_status = downloader::DownloadStatus::Failed;
+  }
+
+  virtual std::string const & GetData() const { return m_filePath; }
+
+private:
+  std::string m_filePath;
+};
+}  // anonymous namespace
 
 namespace storage
 {
 HttpMapFilesDownloader::~HttpMapFilesDownloader()
 {
-  ASSERT(m_checker.CalledOnOriginalThread(), ());
+  CHECK_THREAD_CHECKER(m_checker, ());
 }
 
-void HttpMapFilesDownloader::GetServersList(int64_t const mapVersion, string const & mapFileName,
-                                            TServersListCallback const & callback)
+void HttpMapFilesDownloader::Download(QueuedCountry & queuedCountry)
 {
-  ASSERT(m_checker.CalledOnOriginalThread(), ());
-  m_request.reset(downloader::HttpRequest::PostJson(
-      GetPlatform().MetaServerUrl(), strings::to_string(mapVersion) + '/' + mapFileName,
-      bind(&HttpMapFilesDownloader::OnServersListDownloaded, this, callback, _1)));
+  CHECK_THREAD_CHECKER(m_checker, ());
+
+  m_queue.Append(std::move(queuedCountry));
+
+  if (m_queue.Count() != 1)
+    return;
+
+  for (auto const subscriber : m_subscribers)
+    subscriber->OnStartDownloading();
+
+  Download();
 }
 
-void HttpMapFilesDownloader::DownloadMapFile(vector<string> const & urls, string const & path,
-                                             int64_t size,
-                                             TFileDownloadedCallback const & onDownloaded,
-                                             TDownloadingProgressCallback const & onProgress)
+void HttpMapFilesDownloader::Download()
 {
-  ASSERT(m_checker.CalledOnOriginalThread(), ());
-  m_request.reset(downloader::HttpRequest::GetFile(
-      urls, path, size, bind(&HttpMapFilesDownloader::OnMapFileDownloaded, this, onDownloaded, _1),
-      bind(&HttpMapFilesDownloader::OnMapFileDownloadingProgress, this, onProgress, _1)));
-}
+  CHECK_THREAD_CHECKER(m_checker, ());
 
-MapFilesDownloader::TProgress HttpMapFilesDownloader::GetDownloadingProgress()
-{
-  ASSERT(m_checker.CalledOnOriginalThread(), ());
-  return m_request->Progress();
-}
+  auto const & queuedCountry = m_queue.GetFirstCountry();
 
-bool HttpMapFilesDownloader::IsIdle()
-{
-  ASSERT(m_checker.CalledOnOriginalThread(), ());
-  return m_request.get() == nullptr;
-}
+  auto const urls = MakeUrlList(queuedCountry.GetRelativeUrl());
+  auto const path = queuedCountry.GetFileDownloadPath();
+  auto const size = queuedCountry.GetDownloadSize();
 
-void HttpMapFilesDownloader::Reset()
-{
-  ASSERT(m_checker.CalledOnOriginalThread(), ());
   m_request.reset();
+
+  if (IsDownloadingAllowed())
+  {
+    queuedCountry.OnStartDownloading();
+
+    m_request.reset(downloader::HttpRequest::GetFile(
+        urls, path, size,
+        std::bind(&HttpMapFilesDownloader::OnMapFileDownloaded, this, queuedCountry, _1),
+        std::bind(&HttpMapFilesDownloader::OnMapFileDownloadingProgress, this, queuedCountry, _1)));
+  }
+  else
+  {
+    ErrorHttpRequest error(path);
+    auto const copy = queuedCountry;
+    OnMapFileDownloaded(copy, error);
+  }
 }
 
-void HttpMapFilesDownloader::OnServersListDownloaded(TServersListCallback const & callback,
-                                                     downloader::HttpRequest & request)
+void HttpMapFilesDownloader::Remove(CountryId const & id)
 {
-  ASSERT(m_checker.CalledOnOriginalThread(), ());
-  vector<string> urls;
-  GetServerListFromRequest(request, urls);
-  callback(urls);
+  CHECK_THREAD_CHECKER(m_checker, ());
+
+  MapFilesDownloader::Remove(id);
+
+  if (!m_queue.Contains(id))
+    return;
+
+  if (m_request && m_queue.GetFirstId() == id)
+    m_request.reset();
+
+  m_queue.Remove(id);
+
+  if (m_queue.IsEmpty())
+  {
+    for (auto const subscriber : m_subscribers)
+      subscriber->OnFinishDownloading();
+  }
+  else if (!m_request)
+  {
+    Download();
+  }
 }
 
-void HttpMapFilesDownloader::OnMapFileDownloaded(TFileDownloadedCallback const & onDownloaded,
+void HttpMapFilesDownloader::Clear()
+{
+  CHECK_THREAD_CHECKER(m_checker, ());
+
+  MapFilesDownloader::Clear();
+
+  auto needNotify = m_request != nullptr;
+
+  m_request.reset();
+  m_queue.Clear();
+
+  if (needNotify)
+  {
+    for (auto const subscriber : m_subscribers)
+      subscriber->OnFinishDownloading();
+  }
+}
+
+QueueInterface const & HttpMapFilesDownloader::GetQueue() const
+{
+  CHECK_THREAD_CHECKER(m_checker, ());
+
+  if (m_queue.IsEmpty())
+    return MapFilesDownloader::GetQueue();
+
+  return m_queue;
+}
+
+void HttpMapFilesDownloader::OnMapFileDownloaded(QueuedCountry const & queuedCountry,
                                                  downloader::HttpRequest & request)
 {
-  ASSERT(m_checker.CalledOnOriginalThread(), ());
-  bool const success = request.Status() != downloader::HttpRequest::EFailed;
-  onDownloaded(success, request.Progress());
+  CHECK_THREAD_CHECKER(m_checker, ());
+  // Because this method is called deferred on original thread,
+  // it is possible the country is already removed from queue.
+  if (m_queue.IsEmpty() || m_queue.GetFirstId() != queuedCountry.GetCountryId())
+    return;
+
+  m_queue.PopFront();
+
+  queuedCountry.OnDownloadFinished(request.GetStatus());
+
+  m_request.reset();
+
+  if (!m_queue.IsEmpty())
+  {
+    Download();
+  }
+  else
+  {
+    for (auto const subscriber : m_subscribers)
+      subscriber->OnFinishDownloading();
+  }
 }
 
-void HttpMapFilesDownloader::OnMapFileDownloadingProgress(
-    TDownloadingProgressCallback const & onProgress, downloader::HttpRequest & request)
+void HttpMapFilesDownloader::OnMapFileDownloadingProgress(QueuedCountry const & queuedCountry,
+                                                          downloader::HttpRequest & request)
 {
-  ASSERT(m_checker.CalledOnOriginalThread(), ());
-  onProgress(request.Progress());
+  CHECK_THREAD_CHECKER(m_checker, ());
+  // Because of this method calls deferred on original thread,
+  // it is possible the country is already removed from queue.
+  if (m_queue.IsEmpty() || m_queue.GetFirstId() != queuedCountry.GetCountryId())
+    return;
+
+  queuedCountry.OnDownloadProgress(request.GetProgress());
+}
+
+std::unique_ptr<MapFilesDownloader> GetDownloader()
+{
+  return std::make_unique<HttpMapFilesDownloader>();
 }
 }  // namespace storage

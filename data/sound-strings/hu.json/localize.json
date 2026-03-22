@@ -1,14 +1,15 @@
 {
-"make_a_slight_right_turn":"Kanyarodjon enyhén jobbra.",
+"make_a_slight_right_turn":"Jobbra tartson.",
 "make_a_right_turn":"Forduljon jobbra.",
 "make_a_sharp_right_turn":"Kanyarodjon élesen jobbra.",
 "enter_the_roundabout":"Hajtson be a körforgalomba.",
 "leave_the_roundabout":"Hagyja el a körforgalmat.",
-"make_a_slight_left_turn":"Kanyarodjon enyhén balra.",
+"make_a_slight_left_turn":"Balra tartson.",
 "make_a_left_turn":"Forduljon balra.",
 "make_a_sharp_left_turn":"Kanyarodjon élesen balra.",
 "make_a_u_turn":"Forduljon vissza.",
 "go_straight":"Hajtson előre.",
+"exit":"Kilépés.",
 "destination":"Megérkezik.",
 "you_have_reached_the_destination":"Ön megérkezett.",
 "in_50_meters":"Ötven méter után",
@@ -61,5 +62,6 @@
 "in_5000_feet":"Ötezer láb után",
 "in_1_mile":"Egy mérföld után",
 "in_1_5_miles":"Másfél mérföld után",
-"in_2_miles":"Két mérföld után"
+"in_2_miles":"Két mérföld után",
+"unknown_camera":"Kamera elöl"
 }

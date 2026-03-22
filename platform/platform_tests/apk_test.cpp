@@ -6,35 +6,35 @@
 #include "coding/internal/file_data.hpp"
 
 #include "base/thread.hpp"
+#include "base/thread_pool.hpp"
 #include "base/logging.hpp"
 
-#include "std/numeric.hpp"
+#include <cstdint>
+#include <memory>
+#include <numeric>
+#include <string>
 
+using namespace std;
 
 namespace
 {
   char const * arrFiles[] = {
     "copyright.html",
-    "resources-ldpi/basic.skn",
-    "resources-ldpi/plus.png",
-    "resources-ldpi/symbols.png",
-    "resources-mdpi/basic.skn",
-    "resources-mdpi/plus.png",
-    "resources-mdpi/symbols.png",
-    "resources-hdpi/basic.skn",
-    "resources-hdpi/plus.png",
-    "resources-hdpi/symbols.png",
-    "resources-xhdpi/basic.skn",
-    "resources-xhdpi/plus.png",
-    "resources-xhdpi/symbols.png",
+    "resources-mdpi_clear/symbols.sdf",
+    "resources-mdpi_clear/symbols.png",
+    "resources-hdpi_clear/symbols.sdf",
+    "resources-hdpi_clear/symbols.png",
+    "resources-xhdpi_clear/symbols.sdf",
+    "resources-xhdpi_clear/symbols.png",
     "categories.txt",
+    "categories_cuisines.txt",
     "classificator.txt",
     "types.txt",
     "fonts_blacklist.txt",
     "fonts_whitelist.txt",
     "languages.txt",
     "unicode_blocks.txt",
-    "drules_proto.bin",
+    "drules_proto_clear.bin",
     "external_resources.txt",
     "packed_polygons.bin",
     "countries.txt"
@@ -46,9 +46,8 @@ namespace
     string const & m_cont;
 
   public:
-    ApkTester(string const & cont) : m_cont(cont)
+    explicit ApkTester(string const & cont) : m_cont(cont), m_hashes(COUNT)
     {
-      m_hashes.resize(COUNT);
     }
 
     virtual void Do()
@@ -99,7 +98,7 @@ UNIT_TEST(ApkReader_Multithreaded)
   string const path = GetPlatform().WritableDir() + "../android/MapsWithMePro/bin/MapsWithMePro-production.apk";
 
   uint64_t size;
-  if (!my::GetFileSize(path, size))
+  if (!base::GetFileSize(path, size))
   {
     LOG(LINFO, ("Apk not found"));
     return;
@@ -108,7 +107,7 @@ UNIT_TEST(ApkReader_Multithreaded)
   srand(static_cast<unsigned>(size));
 
   size_t const count = 20;
-  threads::SimpleThreadPool pool(count);
+  base::thread_pool::routine_simple::ThreadPool pool(count);
 
   for (size_t i = 0; i < count; ++i)
     pool.Add(make_unique<ApkTester>(path));

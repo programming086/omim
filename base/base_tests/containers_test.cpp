@@ -1,10 +1,8 @@
-#include "base/SRC_FIRST.hpp"
 #include "testing/testing.hpp"
 
 #include "base/limited_priority_queue.hpp"
 
-
-using namespace my;
+using namespace base;
 
 UNIT_TEST(LPQueue_Smoke)
 {

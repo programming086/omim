@@ -1,181 +1,308 @@
 package com.mapswithme.maps;
 
 import android.app.Application;
+import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.os.Environment;
-import android.preference.PreferenceManager;
-import android.util.Log;
+import android.os.Handler;
+import android.os.Message;
+import android.webkit.WebView;
 
-import com.google.gson.Gson;
-import com.mapswithme.country.ActiveCountryTree;
-import com.mapswithme.country.CountryItem;
+import androidx.annotation.NonNull;
+import androidx.multidex.MultiDex;
+import com.appsflyer.AppsFlyerLib;
+import com.mapswithme.maps.analytics.ExternalLibrariesMediator;
+import com.mapswithme.maps.background.AppBackgroundTracker;
+import com.mapswithme.maps.background.NotificationChannelFactory;
+import com.mapswithme.maps.background.NotificationChannelProvider;
 import com.mapswithme.maps.background.Notifier;
+import com.mapswithme.maps.base.MediaPlayerWrapper;
 import com.mapswithme.maps.bookmarks.data.BookmarkManager;
+import com.mapswithme.maps.downloader.CountryItem;
+import com.mapswithme.maps.downloader.MapDownloadManager;
+import com.mapswithme.maps.downloader.MapManager;
+import com.mapswithme.maps.editor.Editor;
+import com.mapswithme.maps.geofence.GeofenceRegistry;
+import com.mapswithme.maps.geofence.GeofenceRegistryImpl;
+import com.mapswithme.maps.location.LocationHelper;
+import com.mapswithme.maps.location.TrackRecorder;
+import com.mapswithme.maps.maplayer.guides.GuidesManager;
+import com.mapswithme.maps.maplayer.isolines.IsolinesManager;
+import com.mapswithme.maps.maplayer.subway.SubwayManager;
+import com.mapswithme.maps.maplayer.traffic.TrafficManager;
+import com.mapswithme.maps.routing.RoutingController;
+import com.mapswithme.maps.scheduling.ConnectivityJobScheduler;
+import com.mapswithme.maps.scheduling.ConnectivityListener;
+import com.mapswithme.maps.search.SearchEngine;
 import com.mapswithme.maps.sound.TtsPlayer;
+import com.mapswithme.maps.ugc.UGC;
 import com.mapswithme.util.Config;
-import com.mapswithme.util.Constants;
+import com.mapswithme.util.ConnectionState;
+import com.mapswithme.util.Counters;
+import com.mapswithme.util.CrashlyticsUtils;
+import com.mapswithme.util.KeyValue;
+import com.mapswithme.util.SharedPropertiesUtils;
+import com.mapswithme.util.StorageUtils;
+import com.mapswithme.util.ThemeSwitcher;
 import com.mapswithme.util.UiUtils;
-import com.mapswithme.util.Yota;
-import com.mapswithme.util.statistics.AlohaHelper;
+import com.mapswithme.util.Utils;
+import com.mapswithme.util.log.Logger;
+import com.mapswithme.util.log.LoggerFactory;
 import com.mapswithme.util.statistics.Statistics;
-import com.parse.Parse;
-import com.parse.ParseException;
-import com.parse.ParseInstallation;
-import com.parse.SaveCallback;
 
-import java.io.File;
+import java.util.HashMap;
+import java.util.List;
 
-public class MwmApplication extends Application
-                         implements ActiveCountryTree.ActiveCountryListener
+public class MwmApplication extends Application implements AppBackgroundTracker.OnTransitionListener
 {
-  private final static String TAG = "MwmApplication";
+  @SuppressWarnings("NotNullFieldNotInitialized")
+  @NonNull
+  private Logger mLogger;
+  public final static String TAG = "MwmApplication";
 
-  // Parse
-  private static final String PREF_PARSE_DEVICE_TOKEN = "ParseDeviceToken";
-  private static final String PREF_PARSE_INSTALLATION_ID = "ParseInstallationId";
+  private AppBackgroundTracker mBackgroundTracker;
+  @SuppressWarnings("NotNullFieldNotInitialized")
+  @NonNull
+  private SubwayManager mSubwayManager;
 
-  private static MwmApplication sSelf;
-  private static SharedPreferences sPrefs;
-  private final Gson mGson = new Gson();
+  @SuppressWarnings("NotNullFieldNotInitialized")
+  @NonNull
+  private IsolinesManager mIsolinesManager;
 
-  private boolean mAreCountersInitialized;
-  private boolean mIsFrameworkInitialized;
+  @SuppressWarnings("NotNullFieldNotInitialized")
+  @NonNull
+  private GuidesManager mGuidesManager;
+
+  @SuppressWarnings("NotNullFieldNotInitialized")
+  @NonNull
+  private MapDownloadManager mMapDownloadManager;
+
+  private boolean mFrameworkInitialized;
+  private boolean mPlatformInitialized;
+
+  private Handler mMainLoopHandler;
+  private final Object mMainQueueToken = new Object();
+  @NonNull
+  private final AppBackgroundTracker.OnVisibleAppLaunchListener mVisibleAppLaunchListener = new VisibleAppLaunchListener();
+  @SuppressWarnings("NullableProblems")
+  @NonNull
+  private ConnectivityListener mConnectivityListener;
+  @NonNull
+  private final MapManager.StorageCallback mStorageCallbacks = new StorageCallbackImpl();
+  @SuppressWarnings("NullableProblems")
+  @NonNull
+  private AppBackgroundTracker.OnTransitionListener mBackgroundListener;
+  @SuppressWarnings("NullableProblems")
+  @NonNull
+  private ExternalLibrariesMediator mMediator;
+  @SuppressWarnings("NullableProblems")
+  @NonNull
+  private PurchaseOperationObservable mPurchaseOperationObservable;
+  @SuppressWarnings("NullableProblems")
+  @NonNull
+  private MediaPlayerWrapper mPlayer;
+  @SuppressWarnings("NullableProblems")
+  @NonNull
+  private GeofenceRegistry mGeofenceRegistry;
+  private boolean mFirstLaunch;
+
+  @NonNull
+  public SubwayManager getSubwayManager()
+  {
+    return mSubwayManager;
+  }
+
+  @NonNull
+  public IsolinesManager getIsolinesManager()
+  {
+    return mIsolinesManager;
+  }
 
   public MwmApplication()
   {
     super();
-    sSelf = this;
   }
 
-  public static MwmApplication get()
+  @NonNull
+  public static MwmApplication from(@NonNull Context context)
   {
-    return sSelf;
+    return (MwmApplication) context.getApplicationContext();
   }
 
-  public static Gson gson()
+  @NonNull
+  public static AppBackgroundTracker backgroundTracker(@NonNull Context context)
   {
-    return sSelf.mGson;
+    return ((MwmApplication) context.getApplicationContext()).getBackgroundTracker();
   }
 
-  public static SharedPreferences prefs()
+  @NonNull
+  public static SharedPreferences prefs(@NonNull Context context)
   {
-    return sPrefs;
+    String prefFile = context.getString(R.string.pref_file_name);
+    return context.getSharedPreferences(prefFile, MODE_PRIVATE);
   }
 
   @Override
-  public void onCountryProgressChanged(int group, int position, long[] sizes) {}
-
-  @Override
-  public void onCountryStatusChanged(int group, int position, int oldStatus, int newStatus)
+  protected void attachBaseContext(Context base)
   {
-    Notifier.cancelDownloadSuggest();
-    if (newStatus == MapStorage.DOWNLOAD_FAILED)
-    {
-      CountryItem item = ActiveCountryTree.getCountryItem(group, position);
-      Notifier.notifyDownloadFailed(ActiveCountryTree.getCoreIndex(group, position), item.getName());
-    }
+    super.attachBaseContext(base);
+    MultiDex.install(this);
   }
 
-  @Override
-  public void onCountryGroupChanged(int oldGroup, int oldPosition, int newGroup, int newPosition)
-  {
-    if (oldGroup == ActiveCountryTree.GROUP_NEW && newGroup == ActiveCountryTree.GROUP_UP_TO_DATE)
-      Statistics.INSTANCE.trackMapChanged(Statistics.EventName.MAP_DOWNLOADED);
-    else if (oldGroup == ActiveCountryTree.GROUP_OUT_OF_DATE && newGroup == ActiveCountryTree.GROUP_UP_TO_DATE)
-      Statistics.INSTANCE.trackMapChanged(Statistics.EventName.MAP_UPDATED);
-  }
-
-  @Override
-  public void onCountryOptionsChanged(int group, int position, int newOptions, int requestOptions) {}
-
+  @SuppressWarnings("ResultOfMethodCallIgnored")
   @Override
   public void onCreate()
   {
     super.onCreate();
+    LoggerFactory.INSTANCE.initialize(this);
+    mLogger = LoggerFactory.INSTANCE.getLogger(LoggerFactory.Type.MISC);
+    mBackgroundListener = new AppBaseTransitionListener(this);
+    getLogger().d(TAG, "Application is created");
+    mMainLoopHandler = new Handler(getMainLooper());
+    mMediator = new ExternalLibrariesMediator(this);
+    mMediator.initSensitiveDataToleranceLibraries();
+    mMediator.initSensitiveDataStrictLibrariesAsync();
+    Statistics.INSTANCE.initialize(this);
+    ConnectionState.INSTANCE.initialize(this);
+    CrashlyticsUtils.INSTANCE.initialize(this);
+    Statistics.INSTANCE.setMediator(mMediator);
+    
+    initNotificationChannels();
 
-    initPaths();
-    nativeInitPlatform(getApkPath(), getDataStoragePath(), getTempPath(), getObbGooglePath(),
-                       BuildConfig.FLAVOR, BuildConfig.BUILD_TYPE,
-                       Yota.isFirstYota(), UiUtils.isSmallTablet() || UiUtils.isBigTablet());
-    initParse();
-    sPrefs = getSharedPreferences(getString(R.string.pref_file_name), MODE_PRIVATE);
+    mBackgroundTracker = new AppBackgroundTracker(this);
+    mBackgroundTracker.addListener(mVisibleAppLaunchListener);
+    mSubwayManager = new SubwayManager(this);
+    mIsolinesManager = new IsolinesManager(this);
+    mGuidesManager = new GuidesManager(this);
+    mMapDownloadManager = new MapDownloadManager(this);
+    mConnectivityListener = new ConnectivityJobScheduler(this);
+    mConnectivityListener.listen();
+
+    mPurchaseOperationObservable = new PurchaseOperationObservable();
+    mPlayer = new MediaPlayerWrapper(this);
+    mGeofenceRegistry = new GeofenceRegistryImpl(this);
+    WebView.setWebContentsDebuggingEnabled(Utils.isDebugOrBeta());
   }
 
-  public void initNativeCore()
+  private void initNotificationChannels()
   {
-    if (mIsFrameworkInitialized)
+    NotificationChannelProvider channelProvider = NotificationChannelFactory.createProvider(this);
+    channelProvider.setUGCChannel();
+    channelProvider.setDownloadingChannel();
+  }
+
+  /**
+   * Initialize native core of application: platform and framework. Caller must handle returned value
+   * and do nothing with native code if initialization is failed.
+   *
+   * @return boolean - indicator whether native initialization is successful or not.
+   */
+  public boolean initCore()
+  {
+    initNativePlatform();
+    if (!mPlatformInitialized)
+      return false;
+
+    initNativeFramework();
+    return mFrameworkInitialized;
+  }
+
+  private void initNativePlatform()
+  {
+    if (mPlatformInitialized)
+      return;
+
+    final boolean isInstallationIdFound = mMediator.setInstallationIdToCrashlytics();
+
+    final String settingsPath = StorageUtils.getSettingsPath();
+    getLogger().d(TAG, "onCreate(), setting path = " + settingsPath);
+    final String filesPath = StorageUtils.getFilesPath(this);
+    getLogger().d(TAG, "onCreate(), files path = " + filesPath);
+    final String tempPath = StorageUtils.getTempPath(this);
+    getLogger().d(TAG, "onCreate(), temp path = " + tempPath);
+
+    // If platform directories are not created it means that native part of app will not be able
+    // to work at all. So, we just ignore native part initialization in this case, e.g. when the
+    // external storage is damaged or not available (read-only).
+    if (!createPlatformDirectories(settingsPath, filesPath, tempPath))
+      return;
+
+    // First we need initialize paths and platform to have access to settings and other components.
+    nativeInitPlatform(StorageUtils.getApkPath(this),
+                       StorageUtils.getStoragePath(settingsPath),
+                       filesPath, tempPath, StorageUtils.getObbGooglePath(),
+                       BuildConfig.FLAVOR,
+                       BuildConfig.BUILD_TYPE, UiUtils.isTablet(this));
+
+    Config.setStatisticsEnabled(SharedPropertiesUtils.isStatisticsEnabled(this));
+
+    if (!isInstallationIdFound)
+      mMediator.setInstallationIdToCrashlytics();
+
+    mBackgroundTracker.addListener(mBackgroundListener);
+    Editor.init(this);
+    UGC.init(this);
+    mPlatformInitialized = true;
+  }
+
+  private boolean createPlatformDirectories(@NonNull String settingsPath,
+                                            @NonNull String filesPath,
+                                            @NonNull String tempPath)
+  {
+    if (SharedPropertiesUtils.shouldEmulateBadExternalStorage(this))
+      return false;
+
+    return StorageUtils.createDirectory(this, settingsPath) &&
+           StorageUtils.createDirectory(this, filesPath) &&
+           StorageUtils.createDirectory(this, tempPath);
+  }
+
+  private void initNativeFramework()
+  {
+    if (mFrameworkInitialized)
       return;
 
     nativeInitFramework();
-    ActiveCountryTree.addListener(this);
-    initNativeStrings();
-    BookmarkManager.getIcons(); // init BookmarkManager (automatically loads bookmarks)
-    TtsPlayer.INSTANCE.init(this);
-    mIsFrameworkInitialized = true;
-  }
 
-  @SuppressWarnings("ResultOfMethodCallIgnored")
-  private void initPaths()
-  {
-    new File(getDataStoragePath()).mkdirs();
-    new File(getTempPath()).mkdirs();
+    MapManager.nativeSubscribe(mStorageCallbacks);
+
+    initNativeStrings();
+    ThemeSwitcher.INSTANCE.initialize(this);
+    SearchEngine.INSTANCE.initialize(null);
+    BookmarkManager.loadBookmarks();
+    TtsPlayer.INSTANCE.initialize(this);
+    ThemeSwitcher.INSTANCE.restart(false);
+    LocationHelper.INSTANCE.initialize(this);
+    RoutingController.get().initialize(null);
+    TrafficManager.INSTANCE.initialize(null);
+    SubwayManager.from(this).initialize(null);
+    IsolinesManager.from(this).initialize(null);
+    GuidesManager.from(this).initialize(null);
+    TrackRecorder.INSTANCE.initialize(this);
+    mPurchaseOperationObservable.initialize(null);
+    mBackgroundTracker.addListener(this);
+    mFrameworkInitialized = true;
   }
 
   private void initNativeStrings()
   {
-    nativeAddLocalization("country_status_added_to_queue", getString(R.string.country_status_added_to_queue));
-    nativeAddLocalization("country_status_downloading", getString(R.string.country_status_downloading));
-    nativeAddLocalization("country_status_download", getString(R.string.country_status_download));
-    nativeAddLocalization("country_status_download_without_routing", getString(R.string.country_status_download_without_routing));
-    nativeAddLocalization("country_status_download_failed", getString(R.string.country_status_download_failed));
-    nativeAddLocalization("try_again", getString(R.string.try_again));
-    nativeAddLocalization("not_enough_free_space_on_sdcard", getString(R.string.not_enough_free_space_on_sdcard));
-    nativeAddLocalization("dropped_pin", getString(R.string.dropped_pin));
-    nativeAddLocalization("my_places", getString(R.string.my_places));
-    nativeAddLocalization("my_position", getString(R.string.my_position));
-    nativeAddLocalization("routes", getString(R.string.routes));
-
-    nativeAddLocalization("routing_failed_unknown_my_position", getString(R.string.routing_failed_unknown_my_position));
-    nativeAddLocalization("routing_failed_has_no_routing_file", getString(R.string.routing_failed_has_no_routing_file));
-    nativeAddLocalization("routing_failed_start_point_not_found", getString(R.string.routing_failed_start_point_not_found));
-    nativeAddLocalization("routing_failed_dst_point_not_found", getString(R.string.routing_failed_dst_point_not_found));
-    nativeAddLocalization("routing_failed_cross_mwm_building", getString(R.string.routing_failed_cross_mwm_building));
-    nativeAddLocalization("routing_failed_route_not_found", getString(R.string.routing_failed_route_not_found));
-    nativeAddLocalization("routing_failed_internal_error", getString(R.string.routing_failed_internal_error));
+    nativeAddLocalization("core_entrance", getString(R.string.core_entrance));
+    nativeAddLocalization("core_exit", getString(R.string.core_exit));
+    nativeAddLocalization("core_my_places", getString(R.string.core_my_places));
+    nativeAddLocalization("core_my_position", getString(R.string.core_my_position));
+    nativeAddLocalization("core_placepage_unknown_place", getString(R.string.core_placepage_unknown_place));
+    nativeAddLocalization("postal_code", getString(R.string.postal_code));
+    nativeAddLocalization("wifi", getString(R.string.wifi));
   }
 
-  public String getApkPath()
+  public boolean arePlatformAndCoreInitialized()
   {
-    try
-    {
-      return getPackageManager().getApplicationInfo(BuildConfig.APPLICATION_ID, 0).sourceDir;
-    } catch (final NameNotFoundException e)
-    {
-      Log.e(TAG, "Can't get apk path from PackageManager");
-      return "";
-    }
+    return mFrameworkInitialized && mPlatformInitialized;
   }
 
-  public String getDataStoragePath()
+  @NonNull
+  public AppBackgroundTracker getBackgroundTracker()
   {
-    return Environment.getExternalStorageDirectory().getAbsolutePath() + Constants.MWM_DIR_POSTFIX;
-  }
-
-  public String getTempPath()
-  {
-    final File cacheDir = getExternalCacheDir();
-    if (cacheDir != null)
-      return cacheDir.getAbsolutePath();
-
-    return Environment.getExternalStorageDirectory().getAbsolutePath() +
-        String.format(Constants.STORAGE_PATH, BuildConfig.APPLICATION_ID, Constants.CACHE_DIR);
-  }
-
-  private String getObbGooglePath()
-  {
-    final String storagePath = Environment.getExternalStorageDirectory().getAbsolutePath();
-    return storagePath.concat(String.format(Constants.OBB_PATH, BuildConfig.APPLICATION_ID));
+    return mBackgroundTracker;
   }
 
   static
@@ -183,59 +310,141 @@ public class MwmApplication extends Application
     System.loadLibrary("mapswithme");
   }
 
-  /**
-   * Initializes native Platform with paths. Should be called before usage of any other native components.
-   */
-  private native void nativeInitPlatform(String apkPath, String storagePath, String tmpPath, String obbGooglePath,
-                                         String flavorName, String buildType, boolean isYota, boolean isTablet);
-
-  private native void nativeInitFramework();
-
-  public native boolean nativeIsBenchmarking();
-
-  private native void nativeAddLocalization(String name, String value);
-
-  /*
-   * init Parse SDK
-   */
-  private void initParse()
+  @SuppressWarnings("unused")
+  void sendAppsFlyerTags(@NonNull String tag, @NonNull KeyValue[] params)
   {
-    Parse.initialize(this, PrivateVariables.parseApplicationId(), PrivateVariables.parseClientKey());
-    ParseInstallation.getCurrentInstallation().saveInBackground(new SaveCallback()
-    {
-      @Override
-      public void done(ParseException e)
-      {
-        SharedPreferences prefs = prefs();
-        String previousId = prefs.getString(PREF_PARSE_INSTALLATION_ID, "");
-        String previousToken = prefs.getString(PREF_PARSE_DEVICE_TOKEN, "");
-
-        String newId = ParseInstallation.getCurrentInstallation().getInstallationId();
-        String newToken = ParseInstallation.getCurrentInstallation().getString("deviceToken");
-        if (!previousId.equals(newId) || !previousToken.equals(newToken))
-        {
-          org.alohalytics.Statistics.logEvent(AlohaHelper.PARSE_INSTALLATION_ID, newId);
-          org.alohalytics.Statistics.logEvent(AlohaHelper.PARSE_DEVICE_TOKEN, newToken);
-          prefs.edit()
-               .putString(PREF_PARSE_INSTALLATION_ID, newId)
-               .putString(PREF_PARSE_DEVICE_TOKEN, newToken).apply();
-        }
-      }
-    });
+    HashMap<String, Object> paramsMap = new HashMap<>();
+    for (KeyValue p : params)
+      paramsMap.put(p.getKey(), p.getValue());
+    AppsFlyerLib.getInstance().trackEvent(this, tag, paramsMap);
   }
 
-  public void initCounters()
+  public void sendPushWooshTags(String tag, String[] values)
   {
-    if (!mAreCountersInitialized)
+    getMediator().getEventLogger().sendTags(tag, values);
+  }
+
+  @NonNull
+  public ExternalLibrariesMediator getMediator()
+  {
+    return mMediator;
+  }
+
+  @NonNull
+  PurchaseOperationObservable getPurchaseOperationObservable()
+  {
+    return mPurchaseOperationObservable;
+  }
+
+  public static void onUpgrade(@NonNull Context context)
+  {
+    Counters.resetAppSessionCounters(context);
+  }
+
+  @SuppressWarnings("unused")
+  void forwardToMainThread(final long taskPointer)
+  {
+    Message m = Message.obtain(mMainLoopHandler, new Runnable()
     {
-      mAreCountersInitialized = true;
-      Config.updateLaunchCounter();
-      PreferenceManager.setDefaultValues(this, R.xml.prefs_misc, false);
+      @Override
+      public void run()
+      {
+        nativeProcessTask(taskPointer);
+      }
+    });
+    m.obj = mMainQueueToken;
+    mMainLoopHandler.sendMessage(m);
+  }
+
+  @NonNull
+  public ConnectivityListener getConnectivityListener()
+  {
+    return mConnectivityListener;
+  }
+
+  @NonNull
+  public MediaPlayerWrapper getMediaPlayer()
+  {
+    return mPlayer;
+  }
+
+  @NonNull
+  public GeofenceRegistry getGeofenceRegistry()
+  {
+    return mGeofenceRegistry;
+  }
+
+  private native void nativeInitPlatform(String apkPath, String storagePath, String privatePath,
+                                         String tmpPath, String obbGooglePath, String flavorName,
+                                         String buildType, boolean isTablet);
+  private static native void nativeInitFramework();
+  private static native void nativeProcessTask(long taskPointer);
+  private static native void nativeAddLocalization(String name, String value);
+  private static native void nativeOnTransit(boolean foreground);
+
+  @NonNull
+  public Logger getLogger()
+  {
+    return mLogger;
+  }
+
+  public void setFirstLaunch(boolean isFirstLaunch)
+  {
+    mFirstLaunch = isFirstLaunch;
+  }
+
+  public boolean isFirstLaunch()
+  {
+    return mFirstLaunch;
+  }
+
+  @Override
+  public void onTransit(boolean foreground)
+  {
+    nativeOnTransit(foreground);
+  }
+
+  @NonNull
+  public GuidesManager getGuidesManager()
+  {
+    return mGuidesManager;
+  }
+
+  @NonNull
+  public MapDownloadManager getMapDownloadManager()
+  {
+    return mMapDownloadManager;
+  }
+
+  private class VisibleAppLaunchListener implements AppBackgroundTracker.OnVisibleAppLaunchListener
+  {
+    @Override
+    public void onVisibleAppLaunch()
+    {
+      Statistics.INSTANCE.trackColdStartupInfo(MwmApplication.this);
     }
   }
 
-  public void onUpgrade()
+  private class StorageCallbackImpl implements MapManager.StorageCallback
   {
-    Config.resetAppSessionCounters();
+    @Override
+    public void onStatusChanged(List<MapManager.StorageCallbackData> data)
+    {
+      Notifier notifier = Notifier.from(MwmApplication.this);
+      for (MapManager.StorageCallbackData item : data)
+        if (item.isLeafNode && item.newStatus == CountryItem.STATUS_FAILED)
+        {
+          if (MapManager.nativeIsAutoretryFailed())
+          {
+            notifier.notifyDownloadFailed(item.countryId, MapManager.nativeGetName(item.countryId));
+            MapManager.sendErrorStat(Statistics.EventName.DOWNLOADER_ERROR, MapManager.nativeGetError(item.countryId));
+          }
+
+          return;
+        }
+    }
+
+    @Override
+    public void onProgress(String countryId, long localSize, long remoteSize) {}
   }
 }

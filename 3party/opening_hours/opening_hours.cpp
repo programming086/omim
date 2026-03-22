@@ -26,10 +26,14 @@
 #include "rules_evaluation.hpp"
 #include "parse_opening_hours.hpp"
 
+#include <algorithm>
 #include <cstdlib>
+#include <functional>
 #include <iomanip>
 #include <ios>
 #include <ostream>
+#include <tuple>
+#include <type_traits>
 #include <vector>
 
 namespace
@@ -92,10 +96,26 @@ class StreamFlagsKeeper
   std::ios_base::fmtflags m_flags;
 };
 
-void PrintPaddedNumber(std::ostream & ost, uint32_t const number, uint32_t const padding = 1)
+template <typename TNumber>
+constexpr bool IsChar(TNumber) noexcept
 {
+  return std::is_same<signed char, TNumber>::value ||
+         std::is_same<unsigned char, TNumber>::value ||
+         std::is_same<char, TNumber>::value;
+};
+
+template <typename TNumber, typename std::enable_if<!IsChar(TNumber{}), void*>::type = nullptr>
+void PrintPaddedNumber(std::ostream & ost, TNumber const number, uint32_t const padding = 1)
+{
+  static_assert(std::is_integral<TNumber>::value, "number should be of integral type.");
   StreamFlagsKeeper keeper(ost);
   ost << std::setw(padding) << std::setfill('0') << number;
+}
+
+template <typename TNumber, typename std::enable_if<IsChar(TNumber{}), void*>::type = nullptr>
+void PrintPaddedNumber(std::ostream & ost, TNumber const number, uint32_t const padding = 1)
+{
+  PrintPaddedNumber(ost, static_cast<int32_t>(number), padding);
 }
 
 void PrintHoursMinutes(std::ostream & ost,
@@ -258,6 +278,16 @@ std::ostream & operator<<(std::ostream & ost, Time const & time)
   return ost;
 }
 
+bool operator==(Time const & lhs, Time const & rhs)
+{
+  if (lhs.IsEmpty() && rhs.IsEmpty())
+    return true;
+
+  return lhs.GetType() == rhs.GetType() &&
+         lhs.GetHours() == rhs.GetHours() &&
+         lhs.GetMinutes() == rhs.GetMinutes();
+}
+
 // TimespanPeriod ----------------------------------------------------------------------------------
 TimespanPeriod::TimespanPeriod(HourMinutes const & hm):
     m_hourMinutes(hm),
@@ -282,6 +312,16 @@ std::ostream & operator<<(std::ostream & ost, TimespanPeriod const p)
   return ost;
 }
 
+bool operator==(TimespanPeriod const & lhs, TimespanPeriod const & rhs)
+{
+  if (lhs.IsEmpty() && rhs.IsEmpty())
+    return true;
+
+  return lhs.GetType() == rhs.GetType() &&
+         lhs.GetHourMinutes() == rhs.GetHourMinutes() &&
+         lhs.GetMinutes() == rhs.GetMinutes();
+}
+
 // Timespan ----------------------------------------------------------------------------------------
 bool Timespan::HasExtendedHours() const
 {
@@ -299,7 +339,15 @@ bool Timespan::HasExtendedHours() const
   if (endHM.IsExtended())
     return true;
 
-  return endHM.GetDurationCount() != 0 && (endHM.GetDuration() < startHM.GetDuration());
+  return endHM.GetDuration() <= startHM.GetDuration();
+}
+
+void Timespan::ExpandPlus()
+{
+  if (HasPlus())
+  {
+    SetEnd(HourMinutes(24_h));
+  }
 }
 
 std::ostream & operator<<(std::ostream & ost, Timespan const & span)
@@ -322,6 +370,25 @@ std::ostream & operator<<(std::ostream & ost, osmoh::TTimespans const & timespan
   return ost;
 }
 
+bool operator==(Timespan const & lhs, Timespan const & rhs)
+{
+  if (lhs.IsEmpty() && rhs.IsEmpty())
+    return true;
+
+  if (lhs.IsEmpty() != rhs.IsEmpty() ||
+      lhs.HasStart() != rhs.HasStart() ||
+      lhs.HasEnd() != rhs.HasEnd() ||
+      lhs.HasPlus() != rhs.HasPlus() ||
+      lhs.HasPeriod() != rhs.HasPeriod())
+  {
+    return false;
+  }
+
+  return lhs.GetStart() == rhs.GetStart() &&
+         lhs.GetEnd() == rhs.GetEnd() &&
+         lhs.GetPeriod() == lhs.GetPeriod();
+}
+
 // NthWeekdayOfTheMonthEntry -----------------------------------------------------------------------
 std::ostream & operator<<(std::ostream & ost, NthWeekdayOfTheMonthEntry const entry)
 {
@@ -332,8 +399,13 @@ std::ostream & operator<<(std::ostream & ost, NthWeekdayOfTheMonthEntry const en
   return ost;
 }
 
+bool NthWeekdayOfTheMonthEntry::operator==(NthWeekdayOfTheMonthEntry const & rhs) const
+{
+  return m_start == rhs.m_start && m_end == rhs.m_end;
+}
+
 // WeekdayRange ------------------------------------------------------------------------------------
-bool WeekdayRange::HasWday(Weekday const & wday) const
+bool WeekdayRange::HasWday(Weekday const wday) const
 {
   if (IsEmpty() || wday == Weekday::None)
     return false;
@@ -341,9 +413,16 @@ bool WeekdayRange::HasWday(Weekday const & wday) const
   if (!HasEnd())
     return GetStart() == wday;
 
-  return GetStart() <= wday && wday <= GetEnd();
+  return (GetStart() <= GetEnd())
+      ? GetStart() <= wday && wday <= GetEnd()
+      : wday <= GetEnd() || GetStart() <= wday;
 }
 
+bool WeekdayRange::operator==(WeekdayRange const & rhs) const
+{
+  return m_start == rhs.m_start && m_end == rhs.m_end && m_offset == rhs.m_offset &&
+         m_nths == rhs.m_nths;
+}
 
 std::ostream & operator<<(std::ostream & ost, Weekday const wday)
 {
@@ -423,6 +502,11 @@ std::ostream & operator<<(std::ostream & ost, THolidays const & holidays)
   return ost;
 }
 
+bool Holiday::operator==(Holiday const & rhs) const
+{
+  return m_plural == rhs.m_plural && m_offset == rhs.m_offset;
+}
+
 // Weekdays ----------------------------------------------------------------------------------------
 
 std::ostream & operator<<(std::ostream & ost, Weekdays const & weekday)
@@ -432,6 +516,11 @@ std::ostream & operator<<(std::ostream & ost, Weekdays const & weekday)
     ost << ", ";
   ost << weekday.GetWeekdayRanges();
   return ost;
+}
+
+bool Weekdays::operator==(Weekdays const & rhs) const
+{
+  return m_weekdayRanges == rhs.m_weekdayRanges && m_holidays == rhs.m_holidays;
 }
 
 // DateOffset --------------------------------------------------------------------------------------
@@ -444,6 +533,18 @@ std::ostream & operator<<(std::ostream & ost, DateOffset const & offset)
   }
   PrintOffset(ost, offset.GetOffset(), offset.HasWDayOffset());
   return ost;
+}
+
+bool DateOffset::operator==(DateOffset const & rhs) const
+{
+  return m_wdayOffest == rhs.m_wdayOffest && m_positive == rhs.m_positive &&
+         m_offset == rhs.m_offset;
+}
+
+bool DateOffset::operator<(DateOffset const & rhs) const
+{
+  return std::tie(m_wdayOffest, m_positive, m_offset) <
+         std::tie(rhs.m_wdayOffest, rhs.m_positive, rhs.m_offset);
 }
 
 // MonthDay ----------------------------------------------------------------------------------------
@@ -548,6 +649,18 @@ std::ostream & operator<<(std::ostream & ost, MonthDay const md)
   return ost;
 }
 
+bool MonthDay::operator==(MonthDay const & rhs) const
+{
+  return m_year == rhs.m_year && m_month == rhs.m_month && m_daynum == rhs.m_daynum &&
+         m_variable_date == rhs.m_variable_date && m_offset == rhs.m_offset;
+}
+
+bool MonthDay::operator<(MonthDay const & rhs) const
+{
+  return std::tie(m_year, m_month, m_daynum, m_variable_date, m_offset) <
+         std::tie(rhs.m_year, rhs.m_month, rhs.m_daynum, rhs.m_variable_date, rhs.m_offset);
+}
+
 // MonthdayRange -----------------------------------------------------------------------------------
 std::ostream & operator<<(std::ostream & ost, MonthdayRange const & range)
 {
@@ -568,6 +681,12 @@ std::ostream & operator<<(std::ostream & ost, TMonthdayRanges const & ranges)
 {
   PrintVector(ost, ranges);
   return ost;
+}
+
+bool MonthdayRange::operator==(MonthdayRange const & rhs) const
+{
+  return m_start == rhs.m_start && m_end == rhs.m_end && m_period == rhs.m_period &&
+         m_plus == rhs.m_plus;
 }
 
 // YearRange ---------------------------------------------------------------------------------------
@@ -597,6 +716,12 @@ std::ostream & operator<<(std::ostream & ost, TYearRanges const ranges)
   return ost;
 }
 
+bool YearRange::operator==(YearRange const & rhs) const
+{
+  return m_start == rhs.m_start && m_end == rhs.m_end && m_plus == rhs.m_plus &&
+         m_period == rhs.m_period;
+}
+
 // WeekRange ---------------------------------------------------------------------------------------
 std::ostream & operator<<(std::ostream & ost, WeekRange const range)
 {
@@ -621,7 +746,36 @@ std::ostream & operator<<(std::ostream & ost, TWeekRanges const ranges)
   return ost;
 }
 
+bool WeekRange::operator==(WeekRange const & rhs) const
+{
+  return m_start == rhs.m_start && m_end == rhs.m_end && m_period == rhs.m_period;
+}
+
 // RuleSequence ------------------------------------------------------------------------------------
+bool RuleSequence::HasMonthDay() const
+{
+  for (auto const & monthRange : GetMonths())
+  {
+    if (monthRange.GetStart().GetDayNum())
+      return true;
+
+    if (monthRange.GetEnd().GetDayNum())
+      return true;
+  }
+
+  return false;
+}
+
+bool RuleSequence::operator==(RuleSequence const & rhs) const
+{
+  return m_twentyFourHours == rhs.m_twentyFourHours && m_years == rhs.m_years &&
+         m_months == rhs.m_months && m_weeks == rhs.m_weeks && m_weekdays == rhs.m_weekdays &&
+         m_times == rhs.m_times && m_comment == rhs.m_comment &&
+         m_anySeparator == rhs.m_anySeparator &&
+         m_separatorForReadability == rhs.m_separatorForReadability &&
+         m_modifier == rhs.m_modifier && m_modifierComment == rhs.m_modifierComment;
+}
+
 std::ostream & operator<<(std::ostream & ost, RuleSequence::Modifier const modifier)
 {
   switch (modifier)
@@ -747,5 +901,57 @@ bool OpeningHours::IsUnknown(time_t const dateTime) const
 bool OpeningHours::IsValid() const
 {
   return m_valid;
+}
+
+bool OpeningHours::IsTwentyFourHours() const
+{
+  return m_rule.size() == 1 && m_rule[0].IsTwentyFourHours();
+}
+
+bool OpeningHours::HasWeekdaySelector() const
+{
+  return std::any_of(m_rule.cbegin(), m_rule.cend(), std::mem_fn(&osmoh::RuleSequence::HasWeekdays));
+}
+
+bool OpeningHours::HasMonthSelector() const
+{
+  return std::any_of(m_rule.cbegin(), m_rule.cend(), std::mem_fn(&osmoh::RuleSequence::HasMonths));
+}
+
+bool OpeningHours::HasWeekSelector() const
+{
+  return std::any_of(m_rule.cbegin(), m_rule.cend(), std::mem_fn(&osmoh::RuleSequence::HasWeeks));
+}
+
+bool OpeningHours::HasYearSelector() const
+{
+  return std::any_of(m_rule.cbegin(), m_rule.cend(), std::mem_fn(&osmoh::RuleSequence::HasYears));
+}
+
+void swap(OpeningHours & lhs, OpeningHours & rhs)
+{
+  std::swap(lhs.m_rule, rhs.m_rule);
+  std::swap(lhs.m_valid, rhs.m_valid);
+}
+
+bool OpeningHours::operator==(OpeningHours const & rhs) const
+{
+  return m_valid == rhs.m_valid && m_rule == rhs.m_rule;
+}
+
+std::ostream & operator<<(std::ostream & ost, OpeningHours const & oh)
+{
+  ost << oh.GetRule();
+  return ost;
+}
+
+std::string ToString(osmoh::OpeningHours const & openingHours)
+{
+  if (!openingHours.IsValid())
+    return {};
+
+  std::ostringstream stream;
+  stream << openingHours;
+  return stream.str();
 }
 } // namespace osmoh

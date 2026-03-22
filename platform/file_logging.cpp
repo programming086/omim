@@ -1,10 +1,14 @@
 #include "platform/file_logging.hpp"
 
-#include "std/mutex.hpp"
+#include "platform/platform.hpp"
 
 #include "coding/file_writer.hpp"
 
-#include "platform/platform.hpp"
+#include <memory>
+#include <mutex>
+#include <sstream>
+
+using namespace std;
 
 namespace
 {
@@ -18,7 +22,7 @@ namespace
   }
 }
 
-void LogMessageFile(my::LogLevel level, my::SrcPoint const & srcPoint, string const & msg)
+void LogMessageFile(base::LogLevel level, base::SrcPoint const & srcPoint, string const & msg)
 {
   static mutex mtx;
   static unique_ptr<FileWriter> file;
@@ -31,6 +35,7 @@ void LogMessageFile(my::LogLevel level, my::SrcPoint const & srcPoint, string co
   case LWARNING: recordType.assign("WARN "); break;
   case LERROR: recordType.assign("ERROR "); break;
   case LCRITICAL: recordType.assign("FATAL "); break;
+  case NUM_LOG_LEVELS: CHECK(false, ()); break;
   }
 
   lock_guard<mutex> lock(mtx);

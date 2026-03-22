@@ -1,31 +1,35 @@
 #include "testing/testing.hpp"
 
+#include "platform/mwm_version.hpp"
 #include "platform/platform.hpp"
+#include "platform/platform_tests_support/scoped_file.hpp"
 
-#include "defines.hpp"
-
-#include "coding/file_name_utils.hpp"
 #include "coding/file_writer.hpp"
 #include "coding/internal/file_data.hpp"
 
+#include "base/file_name_utils.hpp"
 #include "base/logging.hpp"
 #include "base/scope_guard.hpp"
 
-#include "std/bind.hpp"
-#include "std/initializer_list.hpp"
-#include "std/set.hpp"
+#include <functional>
+#include <initializer_list>
+#include <set>
+#include <string>
+#include <utility>
+
+#include "defines.hpp"
 
 namespace
 {
 char const * TEST_FILE_NAME = "some_temporary_unit_test_file.tmp";
 
-void CheckFilesPresence(string const & baseDir, unsigned typeMask,
-                        initializer_list<pair<string, size_t>> const & files)
+void CheckFilesPresence(std::string const & baseDir, unsigned typeMask,
+                        std::initializer_list<std::pair<std::string, size_t>> const & files)
 {
   Platform::TFilesWithType fwts;
   Platform::GetFilesByType(baseDir, typeMask, fwts);
 
-  multiset<string> filesSet;
+  std::multiset<std::string> filesSet;
   for (auto const & fwt : fwts)
     filesSet.insert(fwt.first);
 
@@ -36,26 +40,26 @@ void CheckFilesPresence(string const & baseDir, unsigned typeMask,
 
 UNIT_TEST(WritableDir)
 {
-  string const path = GetPlatform().WritableDir() + TEST_FILE_NAME;
+  std::string const path = GetPlatform().WritableDir() + TEST_FILE_NAME;
 
   try
   {
-    my::FileData f(path, my::FileData::OP_WRITE_TRUNCATE);
+    base::FileData f(path, base::FileData::OP_WRITE_TRUNCATE);
   }
   catch (Writer::OpenException const &)
   {
-    LOG(LCRITICAL, ("Can't create file"));
+    LOG(LCRITICAL, ("Can't create file", path));
     return;
   }
 
-  my::DeleteFileX(path);
+  base::DeleteFileX(path);
 }
 
 UNIT_TEST(WritablePathForFile)
 {
   Platform & pl = GetPlatform();
-  string const p1 = pl.WritableDir() + TEST_FILE_NAME;
-  string const p2 = pl.WritablePathForFile(TEST_FILE_NAME);
+  std::string const p1 = pl.WritableDir() + TEST_FILE_NAME;
+  std::string const p2 = pl.WritablePathForFile(TEST_FILE_NAME);
   TEST_EQUAL(p1, p2, ());
 }
 
@@ -63,7 +67,7 @@ UNIT_TEST(GetReader)
 {
   char const * NON_EXISTING_FILE = "mgbwuerhsnmbui45efhdbn34.tmp";
   char const * arr[] = {
-    "resources-ldpi/basic.skn",
+    "resources-mdpi_clear/symbols.sdf",
     "classificator.txt",
     "minsk-pass.mwm"
   };
@@ -92,10 +96,10 @@ UNIT_TEST(GetFilesInDir_Smoke)
   Platform & pl = GetPlatform();
   Platform::FilesList files1, files2;
 
-  string const dir = pl.WritableDir();
+  std::string const dir = pl.ResourcesDir();
 
   pl.GetFilesByExt(dir, DATA_FILE_EXTENSION, files1);
-  TEST_GREATER(files1.size(), 0, ("/data/ folder should contain some data files"));
+  TEST_GREATER(files1.size(), 0, (dir, "folder should contain some data files"));
 
   pl.GetFilesByRegExp(dir, ".*\\" DATA_FILE_EXTENSION "$", files2);
   TEST_EQUAL(files1, files2, ());
@@ -107,13 +111,12 @@ UNIT_TEST(GetFilesInDir_Smoke)
 
 UNIT_TEST(DirsRoutines)
 {
-  Platform & platform = GetPlatform();
-  string const baseDir = platform.WritableDir();
-  string const testDir = my::JoinFoldersToPath(baseDir, "test-dir");
-  string const testFile = my::JoinFoldersToPath(testDir, "test-file");
+  std::string const baseDir = GetPlatform().WritableDir();
+  std::string const testDir = base::JoinPath(baseDir, "test-dir");
+  std::string const testFile = base::JoinPath(testDir, "test-file");
 
   TEST(!Platform::IsFileExistsByFullPath(testDir), ());
-  TEST_EQUAL(platform.MkDir(testDir), Platform::ERR_OK, ());
+  TEST_EQUAL(Platform::MkDir(testDir), Platform::ERR_OK, ());
 
   TEST(Platform::IsFileExistsByFullPath(testDir), ());
   TEST(Platform::IsDirectoryEmpty(testDir), ());
@@ -131,45 +134,44 @@ UNIT_TEST(DirsRoutines)
 
 UNIT_TEST(GetFilesByType)
 {
-  string const kTestDirBaseName = "test-dir";
-  string const kTestFileBaseName = "test-file";
+  std::string const kTestDirBaseName = "test-dir";
+  std::string const kTestFileBaseName = "test-file";
 
-  Platform & platform = GetPlatform();
-  string const baseDir = platform.WritableDir();
+  std::string const baseDir = GetPlatform().WritableDir();
 
-  string const testDir = my::JoinFoldersToPath(baseDir, kTestDirBaseName);
-  TEST_EQUAL(platform.MkDir(testDir), Platform::ERR_OK, ());
-  MY_SCOPE_GUARD(removeTestDir, bind(&Platform::RmDir, testDir));
+  std::string const testDir = base::JoinPath(baseDir, kTestDirBaseName);
+  TEST_EQUAL(Platform::MkDir(testDir), Platform::ERR_OK, ());
+  SCOPE_GUARD(removeTestDir, bind(&Platform::RmDir, testDir));
 
-  string const testFile = my::JoinFoldersToPath(baseDir, kTestFileBaseName);
+  std::string const testFile = base::JoinPath(baseDir, kTestFileBaseName);
   TEST(!Platform::IsFileExistsByFullPath(testFile), ());
   {
     FileWriter writer(testFile);
   }
   TEST(Platform::IsFileExistsByFullPath(testFile), ());
-  MY_SCOPE_GUARD(removeTestFile, bind(FileWriter::DeleteFileX, testFile));
+  SCOPE_GUARD(removeTestFile, bind(FileWriter::DeleteFileX, testFile));
 
   CheckFilesPresence(baseDir, Platform::FILE_TYPE_DIRECTORY,
-                     {{
-                       kTestDirBaseName, 1 /* present */
-                      },
-                      {
-                       kTestFileBaseName, 0 /* not present */
-                      }});
+  {{
+     kTestDirBaseName, 1 /* present */
+   },
+   {
+     kTestFileBaseName, 0 /* not present */
+   }});
   CheckFilesPresence(baseDir, Platform::FILE_TYPE_REGULAR,
-                     {{
-                       kTestDirBaseName, 0 /* not present */
-                      },
-                      {
-                       kTestFileBaseName, 1 /* present */
-                      }});
+  {{
+     kTestDirBaseName, 0 /* not present */
+   },
+   {
+     kTestFileBaseName, 1 /* present */
+   }});
   CheckFilesPresence(baseDir, Platform::FILE_TYPE_DIRECTORY | Platform::FILE_TYPE_REGULAR,
-                     {{
-                       kTestDirBaseName, 1 /* present */
-                      },
-                      {
-                       kTestFileBaseName, 1 /* present */
-                      }});
+  {{
+     kTestDirBaseName, 1 /* present */
+   },
+   {
+     kTestFileBaseName, 1 /* present */
+   }});
 }
 
 UNIT_TEST(GetFileSize)
@@ -179,15 +181,16 @@ UNIT_TEST(GetFileSize)
   TEST(!pl.GetFileSizeByName("adsmngfuwrbfyfwe", size), ());
   TEST(!pl.IsFileExistsByFullPath("adsmngfuwrbfyfwe"), ());
 
+  std::string const fileName = pl.WritablePathForFile(TEST_FILE_NAME);
   {
-    FileWriter testFile(TEST_FILE_NAME);
+    FileWriter testFile(fileName);
     testFile.Write("HOHOHO", 6);
   }
   size = 0;
-  TEST(Platform::GetFileSizeByFullPath(TEST_FILE_NAME, size), ());
+  TEST(Platform::GetFileSizeByFullPath(fileName, size), ());
   TEST_EQUAL(size, 6, ());
 
-  FileWriter::DeleteFileX(TEST_FILE_NAME);
+  FileWriter::DeleteFileX(fileName);
 
   {
     FileWriter testFile(pl.WritablePathForFile(TEST_FILE_NAME));
@@ -211,4 +214,90 @@ UNIT_TEST(GetWritableStorageStatus)
 {
   TEST_EQUAL(Platform::STORAGE_OK, GetPlatform().GetWritableStorageStatus(100000), ());
   TEST_EQUAL(Platform::NOT_ENOUGH_SPACE, GetPlatform().GetWritableStorageStatus(uint64_t(-1)), ());
+}
+
+UNIT_TEST(RmDirRecursively)
+{
+  std::string const testDir1 = base::JoinPath(GetPlatform().WritableDir(), "test_dir1");
+  TEST_EQUAL(Platform::MkDir(testDir1), Platform::ERR_OK, ());
+  SCOPE_GUARD(removeTestDir1, bind(&Platform::RmDir, testDir1));
+
+  std::string const testDir2 = base::JoinPath(testDir1, "test_dir2");
+  TEST_EQUAL(Platform::MkDir(testDir2), Platform::ERR_OK, ());
+  SCOPE_GUARD(removeTestDir2, bind(&Platform::RmDir, testDir2));
+
+  std::string const filePath = base::JoinPath(testDir2, "test_file");
+  {
+    FileWriter testFile(filePath);
+    testFile.Write("HOHOHO", 6);
+  }
+  SCOPE_GUARD(removeTestFile, bind(&base::DeleteFileX, filePath));
+
+  TEST(Platform::IsFileExistsByFullPath(filePath), ());
+  TEST(Platform::IsFileExistsByFullPath(testDir1), ());
+  TEST(Platform::IsFileExistsByFullPath(testDir2), ());
+
+  TEST_EQUAL(Platform::ERR_DIRECTORY_NOT_EMPTY, Platform::RmDir(testDir1), ());
+
+  TEST(Platform::IsFileExistsByFullPath(filePath), ());
+  TEST(Platform::IsFileExistsByFullPath(testDir1), ());
+  TEST(Platform::IsFileExistsByFullPath(testDir2), ());
+
+  TEST(Platform::RmDirRecursively(testDir1), ());
+
+  TEST(!Platform::IsFileExistsByFullPath(filePath), ());
+  TEST(!Platform::IsFileExistsByFullPath(testDir1), ());
+  TEST(!Platform::IsFileExistsByFullPath(testDir2), ());
+}
+
+UNIT_TEST(MkDirRecursively)
+{
+  using namespace platform::tests_support;
+  auto const writablePath = GetPlatform().WritableDir();
+  auto const workPath = base::JoinPath(writablePath, "MkDirRecursively");
+  auto const resetDir =  [](std::string const & path) {
+    if (Platform::IsFileExistsByFullPath(path) && !Platform::RmDirRecursively(path))
+       return false;
+
+    return Platform::MkDirChecked(path);
+  };
+
+  CHECK(resetDir(workPath), ());
+  auto const path = base::JoinPath(workPath, "test1", "test2", "test3");
+  TEST(Platform::MkDirRecursively(path), ());
+  TEST(Platform::IsFileExistsByFullPath(path), ());
+  TEST(Platform::IsDirectory(path), ());
+
+  CHECK(resetDir(workPath), ());
+  auto const filePath = base::JoinPath(workPath, "test1");
+  FileWriter testFile(filePath);
+  SCOPE_GUARD(removeTestFile, bind(&base::DeleteFileX, filePath));
+
+  TEST(!Platform::MkDirRecursively(path), ());
+  TEST(!Platform::IsFileExistsByFullPath(path), ());
+
+  CHECK(Platform::RmDirRecursively(workPath), ());
+}
+
+UNIT_TEST(Platform_ThreadRunner)
+{
+  {
+    Platform::ThreadRunner m_runner;
+
+    bool called = false;
+    GetPlatform().RunTask(Platform::Thread::File, [&called]
+    {
+      called = true;
+      testing::Notify();
+    });
+    testing::Wait();
+
+    TEST(called, ());
+  }
+
+  GetPlatform().RunTask(Platform::Thread::File, []
+  {
+    TEST(false, ("The task must not be posted when thread runner is dead. "
+                 "But app must not be crashed. It is normal behaviour during destruction"));
+  });
 }

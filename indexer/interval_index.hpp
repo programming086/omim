@@ -1,6 +1,4 @@
 #pragma once
-#include "indexer/interval_index_iface.hpp"
-
 #include "coding/endianness.hpp"
 #include "coding/byte_stream.hpp"
 #include "coding/reader.hpp"
@@ -9,8 +7,9 @@
 #include "base/assert.hpp"
 #include "base/buffer_vector.hpp"
 
+#include <cstdint>
 
-class IntervalIndexBase : public IntervalIndexIFace
+class IntervalIndexBase
 {
 public:
 #pragma pack(push, 1)
@@ -33,7 +32,7 @@ public:
   enum { kVersion = 1 };
 };
 
-template <class ReaderT>
+template <class ReaderT, typename Value>
 class IntervalIndex : public IntervalIndexBase
 {
   typedef IntervalIndexBase base_t;
@@ -67,20 +66,16 @@ public:
         end = KeyEnd();
       --end;  // end is inclusive in ForEachImpl().
       ForEachNode(f, beg, end, m_Header.m_Levels, 0,
-                  m_LevelOffsets[m_Header.m_Levels + 1] - m_LevelOffsets[m_Header.m_Levels]);
+                  m_LevelOffsets[m_Header.m_Levels + 1] - m_LevelOffsets[m_Header.m_Levels],
+                  0 /* started keyBase */);
     }
   }
 
-  virtual void DoForEach(FunctionT const & f, uint64_t beg, uint64_t end)
-  {
-    ForEach(f, beg, end);
-  }
-
 private:
-
   template <typename F>
   void ForEachLeaf(F const & f, uint64_t const beg, uint64_t const end,
-                   uint32_t const offset, uint32_t const size) const
+      uint32_t const offset, uint32_t const size,
+      uint64_t keyBase /* discarded part of object key value in the parent nodes*/) const
   {
     buffer_vector<uint8_t, 1024> data;
     data.resize_no_init(size);
@@ -89,29 +84,30 @@ private:
     ArrayByteSource src(&data[0]);
 
     void const * pEnd = &data[0] + size;
-    uint32_t value = 0;
+    Value value = 0;
     while (src.Ptr() < pEnd)
     {
       uint32_t key = 0;
       src.Read(&key, m_Header.m_LeafBytes);
-      key = SwapIfBigEndian(key);
+      key = SwapIfBigEndianMacroBased(key);
       if (key > end)
         break;
-      value += ReadVarInt<int32_t>(src);
+      value += ReadVarInt<int64_t>(src);
       if (key >= beg)
-        f(value);
+        f(keyBase + key, value);
     }
   }
 
   template <typename F>
   void ForEachNode(F const & f, uint64_t beg, uint64_t end, int level,
-                   uint32_t offset, uint32_t size) const
+      uint32_t offset, uint32_t size,
+      uint64_t keyBase /* discarded part of object key value in the parent nodes */) const
   {
     offset += m_LevelOffsets[level];
 
     if (level == 0)
     {
-      ForEachLeaf(f, beg, end, offset, size);
+      ForEachLeaf(f, beg, end, offset, size, keyBase);
       return;
     }
 
@@ -145,12 +141,12 @@ private:
           {
             uint64_t const beg1 = (i == beg0) ? (beg & levelBytesFF) : 0;
             uint64_t const end1 = (i == end0) ? (end & levelBytesFF) : levelBytesFF;
-            ForEachNode(f, beg1, end1, level - 1, childOffset, childSize);
+            ForEachNode(f, beg1, end1, level - 1, childOffset, childSize, keyBase + (uint64_t{i} << skipBits));
           }
           childOffset += childSize;
         }
       }
-      ASSERT(end0 != (1 << m_Header.m_BitsPerLevel) - 1 ||
+      ASSERT(end0 != (static_cast<uint32_t>(1) << m_Header.m_BitsPerLevel) - 1 ||
              static_cast<uint8_t const *>(src.Ptr()) - &data[0] == size,
              (beg, end, beg0, end0, offset, size, src.Ptr(), &data[0]));
     }
@@ -167,7 +163,7 @@ private:
         {
           uint64_t const beg1 = (i == beg0) ? (beg & levelBytesFF) : 0;
           uint64_t const end1 = (i == end0) ? (end & levelBytesFF) : levelBytesFF;
-          ForEachNode(f, beg1, end1, level - 1, childOffset, childSize);
+          ForEachNode(f, beg1, end1, level - 1, childOffset, childSize, keyBase + (uint64_t{i} << skipBits));
         }
         childOffset += childSize;
       }

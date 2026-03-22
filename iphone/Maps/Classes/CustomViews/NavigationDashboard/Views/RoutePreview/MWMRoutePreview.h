@@ -1,32 +1,34 @@
-#import "MWMNavigationView.h"
+#import "MWMCircularProgressState.h"
+#import "MWMRouterType.h"
 
-@protocol MWMRoutePreviewDataSource <NSObject>
+typedef NS_ENUM(NSInteger, MWMDrivingOptionsState) {
+  MWMDrivingOptionsStateNone,
+  MWMDrivingOptionsStateDefine,
+  MWMDrivingOptionsStateChange
+};
 
-@required
-- (NSString *)source;
-- (NSString *)destination;
+@class MWMNavigationDashboardEntity;
+@class MWMNavigationDashboardManager;
+@class MWMTaxiCollectionView;
+@class MWMRoutePreview;
+
+@protocol MWMRoutePreviewDelegate
+
+- (void)routePreviewDidPressDrivingOptions:(MWMRoutePreview *)routePreview;
 
 @end
 
-@class MWMNavigationDashboardEntity;
-@class MWMRouteTypeButton;
-@class MWMNavigationDashboardManager;
-@class MWMCircularProgress;
+@interface MWMRoutePreview : UIView
 
-@interface MWMRoutePreview : MWMNavigationView
+@property(nonatomic) MWMDrivingOptionsState drivingOptionsState;
+@property(weak, nonatomic) id<MWMRoutePreviewDelegate> delegate;
 
-@property (weak, nonatomic, readonly) IBOutlet UIButton * extendButton;
-@property (nonatomic, readonly) MWMCircularProgress * pedestrianProgressView;
-@property (nonatomic, readonly) MWMCircularProgress * vehicleProgressView;
-@property (weak, nonatomic) id<MWMRoutePreviewDataSource> dataSource;
-@property (weak, nonatomic) MWMNavigationDashboardManager * dashboardManager;
+- (void)addToView:(UIView *)superview;
+- (void)remove;
 
-- (void)configureWithEntity:(MWMNavigationDashboardEntity *)entity;
 - (void)statePrepare;
-- (void)statePlanning;
-- (void)stateError;
-- (void)stateReady;
-- (void)reloadData;
-- (void)selectProgress:(MWMCircularProgress *)progress;
+- (void)selectRouter:(MWMRouterType)routerType;
+- (void)router:(MWMRouterType)routerType setState:(MWMCircularProgressState)state;
+- (void)router:(MWMRouterType)routerType setProgress:(CGFloat)progress;
 
 @end

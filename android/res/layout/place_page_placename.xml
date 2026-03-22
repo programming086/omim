@@ -1,33 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout
-  android:id="@+id/ll__place_name"
   xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:tools="http://schemas.android.com/tools"
+  android:id="@+id/ll__place_name"
+  style="@style/PlacePageItemFrame"
   android:layout_width="match_parent"
-  android:layout_height="wrap_content"
-  android:background="?attr/clickableBackground"
-  android:gravity="center_vertical"
-  android:paddingBottom="@dimen/margin_half"
-  android:paddingTop="@dimen/margin_half"
-  android:visibility="gone"
-  tools:background="#6000FF00"
+  android:layout_height="72dp"
+  tools:background="#2000FF00"
   tools:visibility="visible">
 
   <ImageView
     android:id="@+id/iv__place_name"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
+    style="@style/PlacePageMetadataIcon"
     android:layout_centerVertical="true"
-    android:layout_marginRight="@dimen/margin_base"
-    android:src="@drawable/ic_adress"/>
+    android:src="@drawable/ic_address"/>
+
+  <Space
+    android:id="@+id/anchor_center"
+    android:layout_width="0dp"
+    android:layout_height="4dp"
+    android:layout_centerVertical="true"/>
 
   <TextView
     android:id="@+id/tv__place_address"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    style="@style/PlacePageMetadataText"
+    android:layout_above="@id/anchor_center"
+    android:layout_toEndOf="@id/iv__place_name"
     android:layout_toRightOf="@id/iv__place_name"
-    android:textColor="@color/text_place_page"
-    android:textSize="@dimen/text_size_body_1"
     tools:text="Sample place"/>
 
   <TextView
@@ -35,7 +34,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_alignLeft="@id/tv__place_address"
-    android:layout_below="@id/tv__place_address"
+    android:layout_alignStart="@id/tv__place_address"
+    android:layout_below="@id/anchor_center"
     android:textAppearance="@style/MwmTextAppearance.Body3"
     tools:text="Post address"/>
 </RelativeLayout>

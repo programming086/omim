@@ -4,6 +4,7 @@
 
 #include "base/logging.hpp"
 
+using namespace std;
 
 namespace
 {
@@ -13,7 +14,7 @@ namespace
   {
     size_t & m_count;
   public:
-    DoDump(size_t & count) : m_count(count)
+    explicit DoDump(size_t & count) : m_count(count)
     {
       m_count = 0;
     }
@@ -31,7 +32,7 @@ namespace
 
     size_t count;
     info.ForEachTriangle(DoDump(count));
-    TEST_EQUAL(count, trianglesCount, ());
+    TEST_EQUAL(count, static_cast<size_t>(trianglesCount), ());
     return count;
   }
 

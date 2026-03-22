@@ -1,5 +1,5 @@
-
 #include "platform/constants.hpp"
+#include "platform/measurement_utils.hpp"
 #include "platform/platform.hpp"
 #include "platform/settings.hpp"
 
@@ -7,18 +7,25 @@
 
 #include "base/logging.hpp"
 
-#include "std/algorithm.hpp"
-#include "std/regex.hpp"
 #include "std/target_os.hpp"
 
+#include <algorithm>
+#include <future>
+#include <memory>
+#include <regex>
+#include <string>
+
+#include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
 #include <QtCore/QFileInfo>
 #include <QtCore/QLocale>
 
-ModelReader * Platform::GetReader(string const & file, string const & searchScope) const
+using namespace std;
+
+unique_ptr<ModelReader> Platform::GetReader(string const & file, string const & searchScope) const
 {
-  return new FileReader(ReadPathForFile(file, searchScope),
-                        READER_CHUNK_LOG_SIZE, READER_CHUNK_LOG_COUNT);
+  return make_unique<FileReader>(ReadPathForFile(file, searchScope),
+                                 READER_CHUNK_LOG_SIZE, READER_CHUNK_LOG_COUNT);
 }
 
 bool Platform::GetFileSizeByName(string const & fileName, uint64_t & size) const
@@ -58,7 +65,8 @@ int Platform::VideoMemoryLimit() const
   return 20 * 1024 * 1024;
 }
 
-Platform::EError Platform::MkDir(string const & dirName) const
+// static
+Platform::EError Platform::MkDir(string const & dirName)
 {
   if (QDir().exists(dirName.c_str()))
     return Platform::ERR_FILE_ALREADY_EXISTS;
@@ -72,12 +80,12 @@ Platform::EError Platform::MkDir(string const & dirName) const
 
 void Platform::SetupMeasurementSystem() const
 {
-  Settings::Units u;
-  if (Settings::Get("Units", u))
+  auto units = measurement_utils::Units::Metric;
+  if (settings::Get(settings::kMeasurementUnits, units))
     return;
   bool const isMetric = QLocale::system().measurementSystem() == QLocale::MetricSystem;
-  u = isMetric ? Settings::Metric : Settings::Foot;
-  Settings::Set("Units", u);
+  units = isMetric ? measurement_utils::Units::Metric : measurement_utils::Units::Imperial;
+  settings::Set(settings::kMeasurementUnits, units);
 }
 
 extern Platform & GetPlatform()

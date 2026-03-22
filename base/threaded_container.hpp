@@ -4,11 +4,11 @@
 #include "base/condition.hpp"
 #include "base/timer.hpp"
 
-struct ThreadedContainer : public my::Cancellable
+struct ThreadedContainer : public base::Cancellable
 {
 protected:
 
-  my::Timer m_Timer;
+  base::Timer m_Timer;
 
   mutable threads::Condition m_Cond;
 

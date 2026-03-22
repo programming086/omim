@@ -7,17 +7,18 @@
 #include "platform/local_country_file_utils.hpp"
 #include "platform/platform.hpp"
 
-#include "coding/file_container.hpp"
+#include "coding/files_container.hpp"
 
 #include "base/scope_guard.hpp"
 
 #include "defines.hpp"
 
-#include "std/bind.hpp"
-#include "std/string.hpp"
-
+#include <functional>
+#include <memory>
+#include <string>
 
 using namespace platform;
+using namespace std;
 
 namespace feature
 {
@@ -64,31 +65,6 @@ namespace feature
     TEST_EQUAL(static_cast<size_t>(7), table->GetFeatureIndexbyOffset(1024), ());
   }
 
-  UNIT_TEST(FeaturesOffsetsTable_CreateIfNotExistsAndLoad)
-  {
-    string const testFileName = "minsk-pass";
-
-    LocalCountryFile localFile = LocalCountryFile::MakeForTesting(testFileName);
-    string const indexFile = CountryIndexes::GetPath(localFile, CountryIndexes::Index::Offsets);
-    FileWriter::DeleteFileX(indexFile);
-
-    unique_ptr<FeaturesOffsetsTable> table = FeaturesOffsetsTable::CreateIfNotExistsAndLoad(localFile);
-    MY_SCOPE_GUARD(deleteTestFileIndexGuard, bind(&FileWriter::DeleteFileX, cref(indexFile)));
-    TEST(table.get(), ());
-
-    uint64_t builderSize = 0;
-    FilesContainerR cont(GetPlatform().GetReader(testFileName + DATA_FILE_EXTENSION));
-    FeaturesVectorTest(cont).GetVector().ForEach([&builderSize](FeatureType const &, uint32_t)
-    {
-      ++builderSize;
-    });
-    TEST_EQUAL(builderSize, table->size(), ());
-
-    table = unique_ptr<FeaturesOffsetsTable>();
-    table = unique_ptr<FeaturesOffsetsTable>(FeaturesOffsetsTable::Load(indexFile));
-    TEST_EQUAL(builderSize, table->size(), ());
-  }
-
   UNIT_TEST(FeaturesOffsetsTable_ReadWrite)
   {
     string const testFileName = "test_file";
@@ -103,7 +79,8 @@ namespace feature
     FileWriter::DeleteFileX(indexFile);
 
     FeaturesOffsetsTable::Builder builder;
-    FeaturesVector::ForEachOffset(baseContainer.GetReader(DATA_FILE_TAG), [&builder](uint32_t offset)
+    // minsk-pass.mwm has old format and old FEATURES_FILE_TAG name.
+    FeaturesVector::ForEachOffset(baseContainer.GetReader(FEATURES_FILE_TAG_V1_V9), [&builder](uint32_t offset)
     {
       builder.PushOffset(offset);
     });
@@ -113,8 +90,8 @@ namespace feature
     TEST_EQUAL(builder.size(), table->size(), ());
 
     string const testFile = pl.WritablePathForFile(testFileName + DATA_FILE_EXTENSION);
-    MY_SCOPE_GUARD(deleteTestFileGuard, bind(&FileWriter::DeleteFileX, cref(testFile)));
-    MY_SCOPE_GUARD(deleteTestFileIndexGuard, bind(&FileWriter::DeleteFileX, cref(indexFile)));
+    SCOPE_GUARD(deleteTestFileGuard, bind(&FileWriter::DeleteFileX, cref(testFile)));
+    SCOPE_GUARD(deleteTestFileIndexGuard, bind(&FileWriter::DeleteFileX, cref(indexFile)));
 
     // Store table in a temporary data file.
     {

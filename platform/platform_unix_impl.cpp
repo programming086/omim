@@ -1,15 +1,14 @@
 #include "platform/platform.hpp"
 #include "platform/platform_unix_impl.hpp"
 
-#include "coding/file_name_utils.hpp"
-
+#include "base/file_name_utils.hpp"
 #include "base/logging.hpp"
 #include "base/scope_guard.hpp"
 
-#include "std/algorithm.hpp"
-#include "std/cstring.hpp"
-#include "std/regex.hpp"
-#include "std/unique_ptr.hpp"
+#include <algorithm>
+#include <cstring>
+#include <memory>
+#include <regex>
 
 #include <dirent.h>
 #include <sys/types.h>
@@ -21,6 +20,8 @@
 #else
   #include <sys/vfs.h>
 #endif
+
+using namespace std;
 
 namespace
 {
@@ -39,6 +40,7 @@ void Platform::GetSystemFontNames(FilesList & res) const
 #if defined(OMIM_OS_MAC) || defined(OMIM_OS_IPHONE)
 #else
   char const * fontsWhitelist[] = {
+    "Roboto-Medium.ttf",
     "Roboto-Regular.ttf",
     "DroidSansFallback.ttf",
     "DroidSansFallbackFull.ttf",
@@ -144,10 +146,24 @@ Platform::EError Platform::GetFileType(string const & path, EFileType & type)
   return ERR_OK;
 }
 
+// static
 bool Platform::IsFileExistsByFullPath(string const & filePath)
 {
   struct stat s;
   return stat(filePath.c_str(), &s) == 0;
+}
+
+//static
+void Platform::DisableBackupForFile(string const & filePath) {}
+
+// static
+string Platform::GetCurrentWorkingDirectory() noexcept
+{
+  char path[PATH_MAX];
+  char const * const dir = getcwd(path, PATH_MAX);
+  if (dir == nullptr)
+    return {};
+  return dir;
 }
 
 bool Platform::IsDirectoryEmpty(string const & directory)
@@ -184,18 +200,36 @@ Platform::TStorageStatus Platform::GetWritableStorageStatus(uint64_t neededSize)
   struct statfs st;
   int const ret = statfs(m_writableDir.c_str(), &st);
 
-  LOG(LDEBUG, ("statfs return = ", ret,
-               "; block size = ", st.f_bsize,
-               "; blocks available = ", st.f_bavail));
+  LOG(LDEBUG, ("statfs return =", ret,
+               "; block size =", st.f_bsize,
+               "; blocks available =", st.f_bavail));
 
   if (ret != 0)
+  {
+    LOG(LERROR, ("Path:", m_writableDir, "statfs error:", ErrnoToError()));
     return STORAGE_DISCONNECTED;
+  }
 
   /// @todo May be add additional storage space.
   if (st.f_bsize * st.f_bavail < neededSize)
     return NOT_ENOUGH_SPACE;
 
   return STORAGE_OK;
+}
+
+uint64_t Platform::GetWritableStorageSpace() const
+{
+  struct statfs st;
+  int const ret = statfs(m_writableDir.c_str(), &st);
+
+  LOG(LDEBUG, ("statfs return =", ret,
+               "; block size =", st.f_bsize,
+               "; blocks available =", st.f_bavail));
+
+  if (ret != 0)
+    LOG(LERROR, ("Path:", m_writableDir, "statfs error:", ErrnoToError()));
+
+  return (ret != 0) ? 0 : st.f_bsize * st.f_bavail;
 }
 
 namespace pl

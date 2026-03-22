@@ -1,13 +1,11 @@
 #pragma once
 
-#include "../../std/algorithm.hpp"
-
+#include <algorithm>
 
 struct json_struct_t;
 
-namespace my
+namespace base
 {
-
 class JsonHandle
 {
   void IncRef();
@@ -38,7 +36,7 @@ public:
 
   void swap(JsonHandle & json)
   {
-    ::swap(m_pJson, json.m_pJson);
+    std::swap(m_pJson, json.m_pJson);
   }
 
   json_struct_t * get() const
@@ -67,5 +65,4 @@ public:
 private:
   json_struct_t * m_pJson;
 };
-
-}
+}  // namespace base

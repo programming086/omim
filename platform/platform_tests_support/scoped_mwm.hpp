@@ -1,10 +1,10 @@
 #pragma once
 
-#include "scoped_file.hpp"
+#include "platform/platform_tests_support/scoped_file.hpp"
 
 #include "base/macros.hpp"
 
-#include "std/string.hpp"
+#include <string>
 
 namespace platform
 {
@@ -15,7 +15,10 @@ class ScopedFile;
 class ScopedMwm
 {
 public:
-  ScopedMwm(string const & relativePath);
+  explicit ScopedMwm(std::string const & relativePath);
+
+  std::string const & GetFullPath() const { return m_file.GetFullPath(); }
+
 private:
   ScopedFile m_file;
 

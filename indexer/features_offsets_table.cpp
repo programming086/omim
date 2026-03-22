@@ -1,21 +1,21 @@
 #include "indexer/features_offsets_table.hpp"
+
+#include "indexer/dat_section_header.hpp"
 #include "indexer/features_vector.hpp"
 
 #include "platform/local_country_file.hpp"
 #include "platform/local_country_file_utils.hpp"
 #include "platform/platform.hpp"
 
-#include "coding/file_container.hpp"
+#include "coding/files_container.hpp"
 #include "coding/internal/file_data.hpp"
 
 #include "base/assert.hpp"
 #include "base/logging.hpp"
 #include "base/scope_guard.hpp"
 
-#include "std/string.hpp"
-
-
 using namespace platform;
+using namespace std;
 
 namespace feature
 {
@@ -78,60 +78,14 @@ namespace feature
     return table;
   }
 
-  // static
-  unique_ptr<FeaturesOffsetsTable> FeaturesOffsetsTable::CreateImpl(
-      platform::LocalCountryFile const & localFile,
-      FilesContainerR const & cont, string const & storePath)
-  {
-    LOG(LINFO, ("Creating features offset table file", storePath));
-
-    CountryIndexes::PreparePlaceOnDisk(localFile);
-
-    return Build(cont, storePath);
-  }
-
-  unique_ptr<FeaturesOffsetsTable> FeaturesOffsetsTable::Build(FilesContainerR const & cont,
-                                                               string const & storePath)
+  void FeaturesOffsetsTable::Build(ModelReaderPtr & reader, string const & storePath)
   {
     Builder builder;
-    FeaturesVector::ForEachOffset(cont.GetReader(DATA_FILE_TAG), [&builder] (uint32_t offset)
-    {
-      builder.PushOffset(offset);
-    });
+    FeaturesVector::ForEachOffset(reader,
+                                  [&builder](uint32_t offset) { builder.PushOffset(offset); });
 
     unique_ptr<FeaturesOffsetsTable> table(Build(builder));
     table->Save(storePath);
-    return table;
-  }
-
-  // static
-  unique_ptr<FeaturesOffsetsTable> FeaturesOffsetsTable::CreateIfNotExistsAndLoad(
-      LocalCountryFile const & localFile, FilesContainerR const & cont)
-  {
-    string const offsetsFilePath = CountryIndexes::GetPath(localFile, CountryIndexes::Index::Offsets);
-
-    if (Platform::IsFileExistsByFullPath(offsetsFilePath))
-      return LoadImpl(offsetsFilePath);
-
-    return CreateImpl(localFile, cont, offsetsFilePath);
-  }
-
-  // static
-  unique_ptr<FeaturesOffsetsTable> FeaturesOffsetsTable::CreateIfNotExistsAndLoad(
-      LocalCountryFile const & localFile)
-  {
-    string const offsetsFilePath = CountryIndexes::GetPath(localFile, CountryIndexes::Index::Offsets);
-
-    if (Platform::IsFileExistsByFullPath(offsetsFilePath))
-      return LoadImpl(offsetsFilePath);
-
-    return CreateImpl(localFile, FilesContainerR(localFile.GetPath(MapOptions::Map)), offsetsFilePath);
-  }
-
-  // static
-  unique_ptr<FeaturesOffsetsTable> FeaturesOffsetsTable::CreateIfNotExistsAndLoad(FilesContainerR const & cont)
-  {
-    return CreateIfNotExistsAndLoad(LocalCountryFile::MakeTemporary(cont.GetFileName()), cont);
   }
 
   void FeaturesOffsetsTable::Save(string const & filePath)
@@ -139,7 +93,7 @@ namespace feature
     LOG(LINFO, ("Saving features offsets table to ", filePath));
     string const fileNameTmp = filePath + EXTENSION_TMP;
     succinct::mapper::freeze(m_table, fileNameTmp.c_str());
-    my::RenameFileX(fileNameTmp, filePath);
+    base::RenameFileX(fileNameTmp, filePath);
   }
 
   uint32_t FeaturesOffsetsTable::GetFeatureOffset(size_t index) const
@@ -173,9 +127,17 @@ namespace feature
     try
     {
       string const destPath = filePath + ".offsets";
-      MY_SCOPE_GUARD(fileDeleter, bind(FileWriter::DeleteFileX, destPath));
+      SCOPE_GUARD(fileDeleter, bind(FileWriter::DeleteFileX, destPath));
 
-      (void)feature::FeaturesOffsetsTable::Build(FilesContainerR(filePath), destPath);
+      FilesContainerR::TReader reader = FilesContainerR(filePath).GetReader(FEATURES_FILE_TAG);
+
+      DatSectionHeader header;
+      header.Read(*reader.GetPtr());
+      CHECK(header.m_version == DatSectionHeader::Version::V0,
+            (base::Underlying(header.m_version)));
+      auto featuresSubreader = reader.SubReader(header.m_featuresOffset, header.m_featuresSize);
+      feature::FeaturesOffsetsTable::Build(featuresSubreader, destPath);
+
       FilesContainerW(filePath, FileWriter::OP_WRITE_EXISTING).Write(destPath, FEATURE_OFFSETS_FILE_TAG);
       return true;
     }

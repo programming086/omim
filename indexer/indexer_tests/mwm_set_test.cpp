@@ -1,23 +1,27 @@
 #include "testing/testing.hpp"
 
-#include "test_mwm_set.hpp"
+#include "platform/platform_tests_support/scoped_mwm.cpp"
+
+#include "indexer/indexer_tests/test_mwm_set.hpp"
 
 #include "indexer/mwm_set.hpp"
 
 #include "base/macros.hpp"
 
-#include "std/initializer_list.hpp"
-#include "std/unordered_map.hpp"
+#include <initializer_list>
+#include <unordered_map>
 
+using namespace std;
 using platform::CountryFile;
 using platform::LocalCountryFile;
 using tests::TestMwmSet;
+using namespace platform::tests_support;
 
-using TMwmsInfo = unordered_map<string, shared_ptr<MwmInfo>>;
+using MwmsInfo = unordered_map<string, shared_ptr<MwmInfo>>;
 
 namespace
 {
-void GetMwmsInfo(MwmSet const & mwmSet, TMwmsInfo & mwmsInfo)
+void GetMwmsInfo(MwmSet const & mwmSet, MwmsInfo & mwmsInfo)
 {
   vector<shared_ptr<MwmInfo>> mwmsInfoList;
   mwmSet.GetMwmsInfo(mwmsInfoList);
@@ -27,7 +31,7 @@ void GetMwmsInfo(MwmSet const & mwmSet, TMwmsInfo & mwmsInfo)
     mwmsInfo[info->GetCountryName()] = info;
 }
 
-void TestFilesPresence(TMwmsInfo const & mwmsInfo, initializer_list<string> const & expectedNames)
+void TestFilesPresence(MwmsInfo const & mwmsInfo, initializer_list<string> const & expectedNames)
 {
   TEST_EQUAL(expectedNames.size(), mwmsInfo.size(), ());
   for (string const & countryFileName : expectedNames)
@@ -38,7 +42,14 @@ void TestFilesPresence(TMwmsInfo const & mwmsInfo, initializer_list<string> cons
 UNIT_TEST(MwmSetSmokeTest)
 {
   TestMwmSet mwmSet;
-  TMwmsInfo mwmsInfo;
+  MwmsInfo mwmsInfo;
+
+  ScopedMwm mwm0("0.mwm");
+  ScopedMwm mwm1("1.mwm");
+  ScopedMwm mwm2("2.mwm");
+  ScopedMwm mwm3("3.mwm");
+  ScopedMwm mwm4("4.mwm");
+  ScopedMwm mwm5("5.mwm");
 
   UNUSED_VALUE(mwmSet.Register(LocalCountryFile::MakeForTesting("0")));
   UNUSED_VALUE(mwmSet.Register(LocalCountryFile::MakeForTesting("1")));
@@ -105,6 +116,8 @@ UNIT_TEST(MwmSetSmokeTest)
 
 UNIT_TEST(MwmSetIdTest)
 {
+  ScopedMwm mwm3("3.mwm");
+
   TestMwmSet mwmSet;
   TEST_EQUAL(MwmSet::RegResult::Success,
              mwmSet.Register(LocalCountryFile::MakeForTesting("3")).second, ());
@@ -128,6 +141,7 @@ UNIT_TEST(MwmSetIdTest)
 
 UNIT_TEST(MwmSetLockAndIdTest)
 {
+  ScopedMwm mwm4("4.mwm");
   TestMwmSet mwmSet;
   MwmSet::MwmId id;
 

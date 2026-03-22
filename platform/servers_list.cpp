@@ -1,6 +1,6 @@
 #include "platform/servers_list.hpp"
+
 #include "platform/http_request.hpp"
-#include "platform/settings.hpp"
 #include "platform/platform.hpp"
 
 #include "base/logging.hpp"
@@ -10,14 +10,13 @@
 
 namespace downloader
 {
-
 // Returns false if can't parse urls. Note that it also clears outUrls.
-bool ParseServerList(string const & jsonStr, vector<string> & outUrls)
+bool ParseServerList(std::string const & jsonStr, std::vector<std::string> & outUrls)
 {
   outUrls.clear();
   try
   {
-    my::Json root(jsonStr.c_str());
+    base::Json root(jsonStr.c_str());
     for (size_t i = 0; i < json_array_size(root.get()); ++i)
     {
       char const * url = json_string_value(json_array_get(root.get(), i));
@@ -25,24 +24,25 @@ bool ParseServerList(string const & jsonStr, vector<string> & outUrls)
         outUrls.push_back(url);
     }
   }
-  catch (my::Json::Exception const & ex)
+  catch (base::Json::Exception const & ex)
   {
     LOG(LERROR, ("Can't parse server list json:", ex.Msg(), jsonStr));
   }
   return !outUrls.empty();
 }
 
-void GetServerListFromRequest(HttpRequest const & request, vector<string> & urls)
+void GetServersList(std::string const & src, std::vector<std::string> & urls)
 {
-  if (request.Status() == HttpRequest::ECompleted && ParseServerList(request.Data(), urls))
-  {
+  if (!src.empty() && ParseServerList(src, urls))
     return;
-  }
-  else
-  {
-    VERIFY(ParseServerList(GetPlatform().DefaultUrlsJSON(), urls), ());
-    LOG(LWARNING, ("Can't get servers list from request, using default servers:", urls));
-  }
+
+  VERIFY(ParseServerList(GetPlatform().DefaultUrlsJSON(), urls), ());
+  LOG(LWARNING, ("Can't get servers list from request, using default servers:", urls));
 }
 
+void GetServersList(HttpRequest const & request, std::vector<std::string> & urls)
+{
+  auto const src = request.GetStatus() == DownloadStatus::Completed ? request.GetData() : "";
+  GetServersList(src, urls);
+}
 } // namespace downloader

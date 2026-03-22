@@ -1,4 +1,3 @@
-#include "base/SRC_FIRST.hpp"
 #include "testing/testing.hpp"
 
 #include "base/scope_guard.hpp"
@@ -14,7 +13,7 @@ UNIT_TEST(ScopeGuard)
 {
     {
         b = false;
-        MY_SCOPE_GUARD(guard, &SetB);
+        SCOPE_GUARD(guard, &SetB);
         TEST_EQUAL(b, false, ("Start test condition"));
     }
     TEST_EQUAL(b, true, ("scope_guard works in destructor"));
@@ -24,7 +23,7 @@ UNIT_TEST(ScopeGuardRelease)
 {
     {
         b = false;
-        MY_SCOPE_GUARD(guard, &SetB);
+        SCOPE_GUARD(guard, &SetB);
         TEST_EQUAL(b, false, ("Start test condition"));
         guard.release();
     }

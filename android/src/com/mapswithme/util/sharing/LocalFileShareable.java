@@ -3,14 +3,16 @@ package com.mapswithme.util.sharing;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
+
+import com.mapswithme.util.StorageUtils;
 
 public class LocalFileShareable extends BaseShareable
 {
   private final String mFileName;
   private final String mMimeType;
 
-  public LocalFileShareable(Activity context, String fileName, String mimeType)
+  LocalFileShareable(Activity context, String fileName, String mimeType)
   {
     super(context);
     mFileName = fileName;
@@ -21,7 +23,8 @@ public class LocalFileShareable extends BaseShareable
   protected void modifyIntent(Intent intent, @Nullable SharingTarget target)
   {
     super.modifyIntent(intent, target);
-    intent.putExtra(android.content.Intent.EXTRA_STREAM, Uri.parse("file://" + mFileName));
+    Uri fileUri = StorageUtils.getUriForFilePath(getActivity(), mFileName);
+    intent.putExtra(android.content.Intent.EXTRA_STREAM, fileUri);
   }
 
   @Override

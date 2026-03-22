@@ -2,30 +2,46 @@ package com.mapswithme.maps.search;
 
 import android.app.Activity;
 import android.text.TextUtils;
-import com.mapswithme.maps.MwmActivity;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import com.mapswithme.maps.api.ParsedMwmRequest;
 import com.mapswithme.maps.widget.SearchToolbarController;
 import com.mapswithme.util.UiUtils;
 
 public class FloatingSearchToolbarController extends SearchToolbarController
 {
-  public FloatingSearchToolbarController(Activity activity)
+  @Nullable
+  private VisibilityListener mVisibilityListener;
+  @Nullable
+  private SearchToolbarListener mListener;
+
+  public interface VisibilityListener
   {
-    super(activity.getWindow().getDecorView(), activity);
+    void onSearchVisibilityChanged(boolean visible);
+  }
+
+  public FloatingSearchToolbarController(@NonNull Activity activity,
+                                         @Nullable SearchToolbarListener listener,
+                                         @Nullable RoomsGuestsMenuStateCallback callback)
+  {
+    super(activity.getWindow().getDecorView(), activity, callback);
+    mListener = listener;
   }
 
   @Override
   public void onUpClick()
   {
-    ((MwmActivity) mActivity).showSearch(getQuery());
+    if (mListener != null)
+      mListener.onSearchUpClick(getQuery());
     cancelSearchApiAndHide(true);
   }
 
   @Override
-  protected void onQueryClick(String query)
+  protected void onQueryClick(@Nullable String query)
   {
     super.onQueryClick(query);
-    ((MwmActivity) mActivity).showSearch(getQuery());
+    if (mListener != null)
+      mListener.onSearchQueryClick(getQuery());
     hide();
   }
 
@@ -33,6 +49,8 @@ public class FloatingSearchToolbarController extends SearchToolbarController
   protected void onClearClick()
   {
     super.onClearClick();
+    if (mListener != null)
+      mListener.onSearchClearClick();
     cancelSearchApiAndHide(false);
   }
 
@@ -42,13 +60,21 @@ public class FloatingSearchToolbarController extends SearchToolbarController
 
     if (ParsedMwmRequest.hasRequest())
     {
-      UiUtils.appearSlidingDown(mToolbar, null);
+      UiUtils.show(getToolbar());
+
+      if (mVisibilityListener != null)
+        mVisibilityListener.onSearchVisibilityChanged(true);
+
       setQuery(ParsedMwmRequest.getCurrentRequest().getTitle());
     }
-    else if (!TextUtils.isEmpty(SearchEngine.getQuery()))
+    else if (!TextUtils.isEmpty(SearchEngine.INSTANCE.getQuery()))
     {
-      UiUtils.appearSlidingDown(mToolbar, null);
-      setQuery(SearchEngine.getQuery());
+      UiUtils.show(getToolbar());
+
+      if (mVisibilityListener != null)
+        mVisibilityListener.onSearchVisibilityChanged(true);
+
+      setQuery(SearchEngine.INSTANCE.getQuery());
     }
     else
     {
@@ -59,8 +85,7 @@ public class FloatingSearchToolbarController extends SearchToolbarController
 
   private void cancelSearchApiAndHide(boolean clearText)
   {
-    SearchEngine.cancelApiCall();
-    SearchEngine.cancelSearch();
+    SearchEngine.INSTANCE.cancel();
 
     if (clearText)
       clear();
@@ -70,10 +95,27 @@ public class FloatingSearchToolbarController extends SearchToolbarController
 
   public boolean hide()
   {
-    if (!UiUtils.isVisible(mToolbar))
+    if (!UiUtils.isVisible(getToolbar()))
       return false;
 
-    UiUtils.disappearSlidingUp(mToolbar, null);
+    UiUtils.hide(getToolbar());
+
+    if (mVisibilityListener != null)
+      mVisibilityListener.onSearchVisibilityChanged(false);
+
     return true;
+  }
+
+  public void setVisibilityListener(@Nullable VisibilityListener visibilityListener)
+  {
+    mVisibilityListener = visibilityListener;
+  }
+
+
+  public interface SearchToolbarListener
+  {
+    void onSearchUpClick(@Nullable String query);
+    void onSearchQueryClick(@Nullable String query);
+    void onSearchClearClick();
   }
 }

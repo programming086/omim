@@ -1,19 +1,24 @@
+#include "platform/constants.hpp"
+#include "platform/measurement_utils.hpp"
 #include "platform/platform.hpp"
 #include "platform/platform_unix_impl.hpp"
-#include "platform/constants.hpp"
 #include "platform/settings.hpp"
 
 #include "coding/zip_reader.hpp"
-#include "coding/file_name_utils.hpp"
 
+#include "base/file_name_utils.hpp"
 #include "base/logging.hpp"
-#include "base/thread.hpp"
 #include "base/string_utils.hpp"
+#include "base/thread.hpp"
 
-#include "std/regex.hpp"
+#include <memory>
+#include <regex>
+#include <string>
 
 #include <unistd.h>     // for sysconf
 #include <sys/stat.h>
+
+using namespace std;
 
 Platform::Platform()
 {
@@ -76,23 +81,26 @@ size_t GetSearchSources(string const & file, string const & searchScope,
 #ifdef DEBUG
 class DbgLogger
 {
-  string const & m_file;
-  SourceT m_src;
 public:
-  DbgLogger(string const & file) : m_file(file) {}
-  void SetSource(SourceT src) { m_src = src; }
+  explicit DbgLogger(string const & file) : m_file(file) {}
+
   ~DbgLogger()
   {
     LOG(LDEBUG, ("Source for file", m_file, "is", m_src));
   }
+
+  void SetSource(SourceT src) { m_src = src; }
+
+private:
+  string const & m_file;
+  SourceT m_src;
 };
 #endif
+}  // namespace
 
-}
-
-ModelReader * Platform::GetReader(string const & file, string const & searchScope) const
+unique_ptr<ModelReader> Platform::GetReader(string const & file, string const & searchScope) const
 {
-  string const ext = my::GetFileExtension(file);
+  string const ext = base::GetFileExtension(file);
   ASSERT(!ext.empty(), ());
 
   uint32_t const logPageSize = (ext == DATA_FILE_EXTENSION) ? READER_CHUNK_LOG_SIZE : 10;
@@ -137,7 +145,7 @@ ModelReader * Platform::GetReader(string const & file, string const & searchScop
       {
         try
         {
-          return new ZipFileReader(m_extResFiles[j], file, logPageSize, logPageCount);
+          return make_unique<ZipFileReader>(m_extResFiles[j], file, logPageSize, logPageCount);
         }
         catch (Reader::OpenException const &)
         {
@@ -149,7 +157,7 @@ ModelReader * Platform::GetReader(string const & file, string const & searchScop
     {
       string const path = m_writableDir + file;
       if (IsFileExistsByFullPath(path))
-        return new FileReader(path, logPageSize, logPageCount);
+        return make_unique<FileReader>(path, logPageSize, logPageCount);
       break;
     }
 
@@ -157,23 +165,24 @@ ModelReader * Platform::GetReader(string const & file, string const & searchScop
     {
       string const path = m_settingsDir + file;
       if (IsFileExistsByFullPath(path))
-        return new FileReader(path, logPageSize, logPageCount);
+        return make_unique<FileReader>(path, logPageSize, logPageCount);
       break;
     }
 
     case FULL_PATH:
       if (IsFileExistsByFullPath(file))
-        return new FileReader(file, logPageSize, logPageCount);
+        return make_unique<FileReader>(file, logPageSize, logPageCount);
       break;
 
     case RESOURCE:
       ASSERT_EQUAL(file.find("assets/"), string::npos, ());
       try
       {
-        return new ZipFileReader(m_resourcesDir, "assets/" + file, logPageSize, logPageCount);
+        return make_unique<ZipFileReader>(m_resourcesDir, "assets/" + file, logPageSize, logPageCount);
       }
-      catch (Reader::OpenException const &)
+      catch (Reader::OpenException const & e)
       {
+        LOG(LWARNING, ("Can't get reader:", e.what()));
       }
       break;
 
@@ -185,7 +194,7 @@ ModelReader * Platform::GetReader(string const & file, string const & searchScop
 
   LOG(LWARNING, ("Can't get reader for:", file));
   MYTHROW(FileAbsentException, ("File not found", file));
-  return 0;
+  return nullptr;
 }
 
 void Platform::GetFilesByRegExp(string const & directory, string const & regexp, FilesList & res)
@@ -193,7 +202,7 @@ void Platform::GetFilesByRegExp(string const & directory, string const & regexp,
   if (ZipFileReader::IsZip(directory))
   {
     // Get files list inside zip file
-    typedef ZipFileReader::FileListT FilesT;
+    typedef ZipFileReader::FileList FilesT;
     FilesT fList;
     ZipFileReader::FilesList(directory, fList);
 
@@ -241,7 +250,8 @@ bool Platform::GetFileSizeByName(string const & fileName, uint64_t & size) const
   }
 }
 
-Platform::EError Platform::MkDir(string const & dirName) const
+// static
+Platform::EError Platform::MkDir(string const & dirName)
 {
   if (0 != mkdir(dirName.c_str(), 0755))
     return ErrnoToError();
@@ -250,33 +260,10 @@ Platform::EError Platform::MkDir(string const & dirName) const
 
 void Platform::SetupMeasurementSystem() const
 {
-  Settings::Units u;
-  if (Settings::Get("Units", u))
+  auto units = measurement_utils::Units::Metric;
+  if (settings::Get(settings::kMeasurementUnits, units))
     return;
   // @TODO Add correct implementation
-  u = Settings::Metric;
-  Settings::Set("Units", u);
-}
-
-namespace
-{
-class FunctorWrapper : public threads::IRoutine
-{
-  Platform::TFunctor m_fn;
-
-public:
-  FunctorWrapper(Platform::TFunctor const & fn) : m_fn(fn) {}
-
-  void Do() override { m_fn(); }
-};
-}
-
-void Platform::RunAsync(TFunctor const & fn, Priority p)
-{
-  UNUSED_VALUE(p);
-
-  // We don't need to store thread handler in POSIX, just create and
-  // run.  Unfortunately we can't use std::async() here since it
-  // doesn't attach to JVM threads.
-  threads::Thread().Create(make_unique<FunctorWrapper>(fn));
+  units = measurement_utils::Units::Metric;
+  settings::Set(settings::kMeasurementUnits, units);
 }

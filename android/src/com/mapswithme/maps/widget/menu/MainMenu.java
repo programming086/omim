@@ -1,48 +1,43 @@
 package com.mapswithme.maps.widget.menu;
 
-import android.animation.Animator;
-import android.app.Activity;
-import android.graphics.Bitmap;
-import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.TransitionDrawable;
-import android.support.annotation.Nullable;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
-import com.mapswithme.country.ActiveCountryTree;
-import com.mapswithme.maps.Framework;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import com.mapswithme.maps.ClickMenuDelegate;
 import com.mapswithme.maps.MwmActivity;
-import com.mapswithme.maps.MwmApplication;
 import com.mapswithme.maps.R;
-import com.mapswithme.maps.routing.RoutingInfo;
-import com.mapswithme.maps.widget.RotateByAlphaDrawable;
-import com.mapswithme.maps.widget.TrackedTransitionDrawable;
+import com.mapswithme.maps.downloader.MapManager;
+import com.mapswithme.maps.downloader.UpdateInfo;
+import com.mapswithme.maps.maplayer.Mode;
+import com.mapswithme.maps.routing.RoutingController;
+import com.mapswithme.util.SharedPropertiesUtils;
 import com.mapswithme.util.UiUtils;
+import com.mapswithme.util.statistics.StatisticValueConverter;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 
-public class MainMenu
+public class MainMenu extends BaseMenu
 {
   public enum State
   {
     MENU
-    {
-      @Override
-      boolean showToggle()
-      {
-        return false;
-      }
-    },
+        {
+          @Override
+          boolean showToggle()
+          {
+            return true;
+          }
+        },
     NAVIGATION,
-    ROUTE_PREPARE;
+    ROUTE_PREPARE
+        {
+          @Override
+          boolean showToggle()
+          {
+            return false;
+          }
+        };
 
     boolean showToggle()
     {
@@ -50,99 +45,114 @@ public class MainMenu
     }
   }
 
-  private static final int ANIMATION_DURATION = MwmApplication.get().getResources().getInteger(R.integer.anim_menu);
-  private static final String TAG_COLLAPSE = MwmApplication.get().getString(R.string.tag_menu_collapse);
-
-  private final int mButtonsWidth = UiUtils.dimen(R.dimen.menu_line_button_width);
-  private final int mPanelWidth = UiUtils.dimen(R.dimen.panel_width);
-
-  private final Container mContainer;
-  private final ViewGroup mFrame;
   private final View mButtonsFrame;
-  private final View mNavigationFrame;
   private final View mRoutePlanFrame;
-  private final View mContentFrame;
-  private final View mAnimationSpacer;
-  private final View mAnimationSymmetricalGap;
   private final View mNewsMarker;
 
-  private final TextView mCurrentPlace;
-  private final TextView mNewsCounter;
+  private final MenuToggle mToggle;
 
-  private boolean mCollapsed;
-  private final List<View> mCollapseViews = new ArrayList<>();
-
-  private final MyPositionButton mMyPositionButton;
-  private final Toggle mToggle;
-  private Button mRouteStartButton;
-
-  private int mContentHeight;
-
-  // Maps Item into button view placed on mContentFrame
-  private final Map<Item, View> mItemViews = new HashMap<>();
-
-  private boolean mAnimating;
-
-  private final MwmActivity.LeftAnimationTrackListener mAnimationTrackListener = new MwmActivity.LeftAnimationTrackListener()
+  public enum Item implements BaseMenu.Item, StatisticValueConverter<String>
   {
-    private float mSymmetricalGapScale;
-
-    @Override
-    public void onTrackStarted(boolean collapsed)
-    {
-      for (View v : mCollapseViews)
-      {
-        if (collapsed)
-          UiUtils.show(v);
-
-        v.setAlpha(collapsed ? 0.0f : 1.0f);
-        v.animate()
-         .alpha(collapsed ? 1.0f : 0.0f)
-         .start();
-      }
-
-      mToggle.setCollapsed(!collapsed, true);
-
-      mSymmetricalGapScale = (float) mButtonsWidth / mPanelWidth;
-    }
-
-    @Override
-    public void onTrackFinished(boolean collapsed)
-    {
-      mCollapsed = collapsed;
-      updateMarker();
-
-      if (collapsed)
-        for (View v : mCollapseViews)
-          UiUtils.hide(v);
-    }
-
-    @Override
-    public void onTrackLeftAnimation(float offset)
-    {
-      ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) mAnimationSpacer.getLayoutParams();
-      lp.rightMargin = (int) offset;
-      mAnimationSpacer.setLayoutParams(lp);
-
-      if (mAnimationSymmetricalGap == null)
-        return;
-
-      lp = (ViewGroup.MarginLayoutParams) mAnimationSymmetricalGap.getLayoutParams();
-      lp.width = mButtonsWidth - (int) (mSymmetricalGapScale * offset);
-      mAnimationSymmetricalGap.setLayoutParams(lp);
-    }
-  };
-
-  public enum Item
-  {
-    TOGGLE(R.id.toggle),
-    SEARCH(R.id.search),
-    P2P(R.id.p2p),
-    BOOKMARKS(R.id.bookmarks),
-    SHARE(R.id.share),
-    DOWNLOADER(R.id.download_maps),
-    SETTINGS(R.id.settings),
-    SHOWCASE(R.id.showcase);
+    MENU(R.id.toggle)
+        {
+          @NonNull
+          @Override
+          public ClickMenuDelegate createClickDelegate(@NonNull MwmActivity activity,
+                                                       @NonNull Item item)
+          {
+            return new MwmActivity.MenuClickDelegate(activity, item);
+          }
+        },
+    ADD_PLACE(R.id.add_place)
+        {
+          @NonNull
+          @Override
+          public ClickMenuDelegate createClickDelegate(@NonNull MwmActivity activity,
+                                                       @NonNull Item item)
+          {
+            throw new UnsupportedOperationException("Main menu option doesn't support it!");
+          }
+        },
+    DOWNLOAD_GUIDES(R.id.download_guides)
+        {
+          @NonNull
+          @Override
+          public ClickMenuDelegate createClickDelegate(@NonNull MwmActivity activity,
+                                                       @NonNull Item item)
+          {
+            throw new UnsupportedOperationException("Main menu option doesn't support it!");
+          }
+        },
+    SEARCH(R.id.search)
+        {
+          @NonNull
+          @Override
+          public ClickMenuDelegate createClickDelegate(@NonNull MwmActivity activity,
+                                                       @NonNull Item item)
+          {
+            return new MwmActivity.SearchClickDelegate(activity, item);
+          }
+        },
+    POINT_TO_POINT(R.id.p2p)
+        {
+          @NonNull
+          @Override
+          public ClickMenuDelegate createClickDelegate(@NonNull MwmActivity activity,
+                                                       @NonNull Item item)
+          {
+            return new MwmActivity.PointToPointDelegate(activity, item);
+          }
+        },
+    DISCOVERY(R.id.discovery)
+        {
+          @NonNull
+          @Override
+          public ClickMenuDelegate createClickDelegate(@NonNull MwmActivity activity,
+                                                       @NonNull Item item)
+          {
+            return new MwmActivity.DiscoveryDelegate(activity, item);
+          }
+        },
+    BOOKMARKS(R.id.bookmarks)
+        {
+          @NonNull
+          @Override
+          public ClickMenuDelegate createClickDelegate(@NonNull MwmActivity activity,
+                                                       @NonNull Item item)
+          {
+            return new MwmActivity.BookmarksDelegate(activity, item);
+          }
+        },
+    SHARE_MY_LOCATION(R.id.share)
+        {
+          @NonNull
+          @Override
+          public ClickMenuDelegate createClickDelegate(@NonNull MwmActivity activity,
+                                                       @NonNull Item item)
+          {
+            throw new UnsupportedOperationException("Main menu option doesn't support it!");
+          }
+        },
+    DOWNLOAD_MAPS(R.id.download_maps)
+        {
+          @NonNull
+          @Override
+          public ClickMenuDelegate createClickDelegate(@NonNull MwmActivity activity,
+                                                       @NonNull Item item)
+          {
+            throw new UnsupportedOperationException("Main menu option doesn't support it!");
+          }
+        },
+    SETTINGS(R.id.settings)
+        {
+          @NonNull
+          @Override
+          public ClickMenuDelegate createClickDelegate(@NonNull MwmActivity activity,
+                                                       @NonNull Item item)
+          {
+            throw new UnsupportedOperationException("Main menu option doesn't support it!");
+          }
+        };
 
     private final int mViewId;
 
@@ -150,369 +160,172 @@ public class MainMenu
     {
       mViewId = viewId;
     }
-  }
-
-  public interface Container
-  {
-    Activity getActivity();
-    void onItemClick(Item item);
-  }
-
-  private class AnimationListener extends UiUtils.SimpleAnimatorListener
-  {
-    @Override
-    public void onAnimationStart(android.animation.Animator animation)
-    {
-      mAnimating = true;
-    }
 
     @Override
-    public void onAnimationEnd(android.animation.Animator animation)
+    public int getViewId()
     {
-      mAnimating = false;
+      return mViewId;
+    }
+
+    public void onClicked(@NonNull MwmActivity activity, @NonNull Item item)
+    {
+      ClickMenuDelegate delegate = createClickDelegate(activity, item);
+      delegate.onMenuItemClick();
+    }
+
+    @NonNull
+    public abstract ClickMenuDelegate createClickDelegate(@NonNull MwmActivity activity,
+                                                          @NonNull Item item);
+
+    @NonNull
+    @Override
+    public String toStatisticValue()
+    {
+      return name().toLowerCase(Locale.ENGLISH);
     }
   }
 
-  private class Toggle
-  {
-    final ImageView mButton;
-    final boolean mAlwaysShow;
-
-    final TransitionDrawable mOpenImage;
-    final TransitionDrawable mCollapseImage;
-
-    public Toggle(View frame)
-    {
-      mButton = (ImageView) frame.findViewById(R.id.toggle);
-      mAlwaysShow = (mFrame.findViewById(R.id.disable_toggle) == null);
-      mapItem(Item.TOGGLE, frame);
-
-      int sz = UiUtils.dimen(R.dimen.menu_line_height);
-      Rect bounds = new Rect(0, 0, sz, sz);
-
-      mOpenImage = new TrackedTransitionDrawable(new Drawable[] { new RotateByAlphaDrawable(R.drawable.ic_menu_open, false)
-                                                                      .setInnerBounds(bounds),
-                                                                  new RotateByAlphaDrawable(R.drawable.ic_menu_close, true)
-                                                                      .setInnerBounds(bounds)
-                                                                      .setBaseAngle(-90) });
-      mCollapseImage = new TrackedTransitionDrawable(new Drawable[] { new RotateByAlphaDrawable(R.drawable.ic_menu_open, false)
-                                                                          .setInnerBounds(bounds),
-                                                                      new RotateByAlphaDrawable(R.drawable.ic_menu_close, true)
-                                                                          .setInnerBounds(bounds) });
-      mOpenImage.setCrossFadeEnabled(true);
-      mCollapseImage.setCrossFadeEnabled(true);
-    }
-
-    public void setState(State state, boolean animate)
-    {
-      UiUtils.showIf(mAlwaysShow || state.showToggle(), mButton);
-      setCollapsed(mCollapsed, animate);
-    }
-
-    private void transitImage(TransitionDrawable image, boolean forward, boolean animate)
-    {
-      if (!UiUtils.isVisible(mButton))
-        animate = false;
-
-      mButton.setImageDrawable(image);
-
-      if (forward)
-        image.startTransition(animate ? ANIMATION_DURATION : 0);
-      else
-        image.reverseTransition(animate ? ANIMATION_DURATION : 0);
-
-      if (!animate)
-        image.getDrawable(forward ? 1 : 0).setAlpha(0xFF);
-    }
-
-    public void setOpen(boolean open, boolean animate)
-    {
-      transitImage(mOpenImage, open, animate);
-    }
-
-    public void setCollapsed(boolean collapse, boolean animate)
-    {
-      transitImage(mCollapseImage, collapse, animate);
-    }
-  }
-
-  private View mapItem(final Item item, View frame)
-  {
-    View res = frame.findViewById(item.mViewId);
-    if (res != null)
-    {
-      if (TAG_COLLAPSE.equals(res.getTag()))
-        mCollapseViews.add(res);
-
-      res.setOnClickListener(new View.OnClickListener()
-      {
-        @Override
-        public void onClick(View v)
-        {
-          mContainer.onItemClick(item);
-        }
-      });
-    }
-    return res;
-  }
-
-  private void mapItem(Item item)
+  private void mapItem(MainMenu.Item item)
   {
     mapItem(item, mButtonsFrame);
-    mItemViews.put(item, mapItem(item, mContentFrame));
   }
 
-  private void adjustCollapsedItems()
+  @Override
+  void afterLayoutMeasured(Runnable procAfterCorrection)
   {
-    for (View v: mCollapseViews)
-    {
-      UiUtils.showIf(!mCollapsed, v);
-      v.setAlpha(mCollapsed ? 0.0f : 1.0f);
-    }
-
-    if (mAnimationSymmetricalGap == null)
-      return;
-
-    LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) mAnimationSymmetricalGap.getLayoutParams();
-    lp.width = (mCollapsed ? 0 : mButtonsWidth);
-    mAnimationSymmetricalGap.setLayoutParams(lp);
+    UiUtils.showIf(!RoutingController.get().isNavigating(), mFrame);
+    super.afterLayoutMeasured(procAfterCorrection);
   }
 
-  private void adjustTransparency()
+  @Override
+  public void onResume(@Nullable Runnable procAfterMeasurement)
   {
-    mFrame.setBackgroundColor(mFrame.getContext().getResources().getColor(isOpen() ? R.color.menu_background_open
-                                                                                   : R.color.menu_background_closed));
-  }
-
-  private boolean isLayoutCorrected()
-  {
-    return UiUtils.isVisible(mFrame);
-  }
-
-  private void correctLayout()
-  {
-    if (isLayoutCorrected())
-      return;
-
-    UiUtils.measureView(mContentFrame, new UiUtils.OnViewMeasuredListener()
-    {
-      @Override
-      public void onViewMeasured(int width, int height)
-      {
-        mContentHeight = height;
-
-        UiUtils.hide(mContentFrame);
-        UiUtils.show(mFrame);
-      }
-    });
-  }
-
-  public void updateMarker()
-  {
-    int count = ActiveCountryTree.getOutOfDateCount();
-    UiUtils.showIf((!mCollapsed || mCollapseViews.isEmpty()) && (count > 0) && !isOpen(), mNewsMarker);
-    UiUtils.showIf(count > 0, mNewsCounter);
-
-    if (count > 0)
-      mNewsCounter.setText(String.valueOf(count));
-  }
-
-  public void onResume()
-  {
-    correctLayout();
     updateMarker();
   }
 
-  public void updateRoutingInfo(RoutingInfo info)
+  @Override
+  public boolean isOpen()
   {
-    if (info != null)
-      updateRoutingInfo(info.currentStreet);
+    return false;
   }
 
-  private void updateRoutingInfo(String info)
+  @Override
+  public boolean isAnimating()
   {
-    mCurrentPlace.setText(info);
+    return false;
+  }
+
+  @Override
+  public boolean open(boolean animate)
+  {
+    return false;
+  }
+
+  @Override
+  public boolean close(boolean animate, @Nullable Runnable onCloseListener)
+  {
+    if (onCloseListener != null)
+      onCloseListener.run();
+    return false;
+  }
+
+  @Override
+  public void toggle(boolean animate)
+  {
+    // Do nothing.
+  }
+
+  @Override
+  public void updateMarker()
+  {
+    UpdateInfo info = MapManager.nativeGetUpdateInfo(null);
+    int count = (info == null ? 0 : info.filesCount);
+
+    boolean show = (count > 0 && !isOpen());
+
+    UiUtils.showIf(show, mNewsMarker);
+
+    if (show)
+      return;
+
+    for (Mode mode : Mode.values())
+    {
+      show = SharedPropertiesUtils.shouldShowNewMarkerForLayerMode(mFrame.getContext(), mode);
+      if (show)
+        break;
+    }
+
+    UiUtils.showIf(show, mNewsMarker);
+  }
+
+  @Override
+  protected void setToggleState(boolean open, boolean animate)
+  {
+    // Do nothing.
   }
 
   private void init()
   {
+    mapItem(Item.ADD_PLACE);
+    mapItem(Item.DOWNLOAD_GUIDES);
     mapItem(Item.SEARCH);
-    mapItem(Item.P2P);
+    mapItem(Item.POINT_TO_POINT);
+    mapItem(Item.DISCOVERY);
     mapItem(Item.BOOKMARKS);
-    mapItem(Item.SHARE);
-    mapItem(Item.DOWNLOADER);
+    mapItem(Item.SHARE_MY_LOCATION);
+    mapItem(Item.DOWNLOAD_MAPS);
     mapItem(Item.SETTINGS);
-    mapItem(Item.SHOWCASE);
 
-    adjustCollapsedItems();
-    adjustTransparency();
-    setState(State.MENU, false);
+    setState(State.MENU, false, false);
   }
 
-  public MainMenu(ViewGroup frame, Container container)
+  public MainMenu(View frame, ItemClickListener<Item> itemClickListener)
   {
-    mContainer = container;
-    mFrame = frame;
+    super(frame, itemClickListener);
 
-    View lineFrame = mFrame.findViewById(R.id.line_frame);
-    mButtonsFrame = lineFrame.findViewById(R.id.buttons_frame);
-    mNavigationFrame = lineFrame.findViewById(R.id.navigation_frame);
-    mRoutePlanFrame = lineFrame.findViewById(R.id.routing_plan_frame);
-    mContentFrame = mFrame.findViewById(R.id.content_frame);
+    mButtonsFrame = mLineFrame.findViewById(R.id.buttons_frame);
+    mRoutePlanFrame = mLineFrame.findViewById(R.id.routing_plan_frame);
 
-    mAnimationSpacer = mFrame.findViewById(R.id.animation_spacer);
-    mAnimationSymmetricalGap = mButtonsFrame.findViewById(R.id.symmetrical_gap);
-
-    mCurrentPlace = (TextView) mNavigationFrame.findViewById(R.id.current_place);
-
-    mMyPositionButton = new MyPositionButton(lineFrame.findViewById(R.id.my_position));
-    mToggle = new Toggle(lineFrame);
+    mToggle = new MenuToggle(mLineFrame, getHeightResId());
+    mapItem(Item.MENU, mLineFrame);
 
     mNewsMarker = mButtonsFrame.findViewById(R.id.marker);
-    mNewsCounter = (TextView) mContentFrame.findViewById(R.id.counter);
-
-    if (mRoutePlanFrame != null)
-      mRouteStartButton = (Button) mRoutePlanFrame.findViewById(R.id.start);
 
     init();
   }
 
-  public void setState(State state, boolean animateToggle)
+  @Override
+  protected int getHeightResId()
   {
-    mToggle.setState(state, animateToggle);
-
-    boolean expandContent;
-    if (mRoutePlanFrame == null)
-    {
-      UiUtils.showIf(state != State.NAVIGATION, mButtonsFrame);
-      expandContent = false;
-    }
-    else
-    {
-      UiUtils.showIf(state == State.MENU, mButtonsFrame);
-      UiUtils.showIf(state == State.ROUTE_PREPARE, mRoutePlanFrame);
-      expandContent = (state == State.NAVIGATION ||
-                       state == State.ROUTE_PREPARE);
-    }
-
-    UiUtils.showIf(state == State.NAVIGATION, mNavigationFrame);
-    UiUtils.showIf(expandContent,
-                   mItemViews.get(Item.SEARCH),
-                   mItemViews.get(Item.BOOKMARKS));
-
-    if (isLayoutCorrected())
-    {
-      mContentFrame.measure(ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT);
-      mContentHeight = mContentFrame.getMeasuredHeight();
-    }
-
-    if (state == State.NAVIGATION)
-      updateRoutingInfo(Framework.nativeGetRouteFollowingInfo());
+    return R.dimen.menu_line_height;
   }
 
-  public boolean isOpen()
+  public void setState(State state, boolean animateToggle, boolean isFullScreen)
   {
-    return UiUtils.isVisible(mContentFrame);
-  }
-
-  public boolean open(boolean animate)
-  {
-    if ((animate && mAnimating) || isOpen())
-      return false;
-
-    UiUtils.show(mContentFrame);
-    adjustCollapsedItems();
-    adjustTransparency();
-    updateMarker();
-
-    mToggle.setOpen(true, animate);
-    if (!animate)
-      return true;
-
-    mFrame.setTranslationY(mContentHeight);
-    mFrame.animate()
-          .setDuration(ANIMATION_DURATION)
-          .translationY(0.0f)
-          .setListener(new AnimationListener())
-          .start();
-
-    return true;
-  }
-
-  public boolean close(boolean animate)
-  {
-    return close(animate, null);
-  }
-
-  public boolean close(boolean animate, @Nullable final Runnable onCloseListener)
-  {
-    if (mAnimating || !isOpen())
+    if (state != State.NAVIGATION)
     {
-      if (onCloseListener != null)
-        onCloseListener.run();
-
-      return false;
-    }
-
-    adjustCollapsedItems();
-
-    if (!animate)
-    {
-      UiUtils.hide(mContentFrame);
-      adjustTransparency();
-      updateMarker();
-
+      mToggle.show(state.showToggle());
       mToggle.setOpen(false, false);
 
-      if (onCloseListener != null)
-        onCloseListener.run();
+      boolean isRouting = state == State.ROUTE_PREPARE;
+      if (mRoutePlanFrame == null)
+      {
+        UiUtils.show(mButtonsFrame);
+      }
+      else
+      {
+        UiUtils.showIf(state == State.MENU, mButtonsFrame);
+        UiUtils.showIf(isRouting, mRoutePlanFrame);
+        if (isRouting)
+          mToggle.hide();
+      }
 
-      return true;
+      setVisible(Item.ADD_PLACE, !isRouting);
     }
 
-    mToggle.setOpen(false, true);
-
-    mFrame.animate()
-          .setDuration(ANIMATION_DURATION)
-          .translationY(mContentHeight)
-          .setListener(new AnimationListener()
-          {
-            @Override
-            public void onAnimationEnd(Animator animation)
-            {
-              super.onAnimationEnd(animation);
-
-              mFrame.setTranslationY(0.0f);
-              UiUtils.hide(mContentFrame);
-              adjustTransparency();
-              updateMarker();
-
-              if (onCloseListener != null)
-                onCloseListener.run();
-            }
-          }).start();
-
-    return true;
-  }
-
-  public void toggle(boolean animate)
-  {
-    if (mAnimating)
-      return;
-
-    boolean show = !isOpen();
-
-    if (show)
-      open(animate);
-    else
-      close(animate);
-  }
-
-  public void show(boolean show)
-  {
-    close(false);
-    UiUtils.showIf(show, mFrame);
+    show(state != State.NAVIGATION && !isFullScreen);
+    UiUtils.showIf(state == State.MENU, mButtonsFrame);
+    UiUtils.showIf(state == State.ROUTE_PREPARE, mRoutePlanFrame);
   }
 
   public void setEnabled(Item item, boolean enable)
@@ -525,40 +338,10 @@ public class MainMenu
     button.setEnabled(enable);
   }
 
-  public View getFrame()
+  private void setVisible(@NonNull Item item, boolean show)
   {
-    return mFrame;
-  }
-
-  public MyPositionButton getMyPositionButton()
-  {
-    return mMyPositionButton;
-  }
-
-  public MwmActivity.LeftAnimationTrackListener getLeftAnimationTrackListener()
-  {
-    return mAnimationTrackListener;
-  }
-
-  public void showShowcase(boolean show)
-  {
-    UiUtils.showIf(show, mItemViews.get(Item.SHOWCASE));
-  }
-
-  public void setShowcaseText(String text)
-  {
-    ((TextView)mItemViews.get(Item.SHOWCASE)).setText(text);
-  }
-
-  public void setShowcaseDrawable(Bitmap bitmap)
-  {
-    // TODO d.yunitsky uncomment or delete in future, when decision with dynamic vs static icons will be made
-//    final Drawable drawable = new BitmapDrawable(mFrame.getResources(), Bitmap.createScaledBitmap(bitmap, UiUtils.dp(48), UiUtils.dp(48), true));
-//    ((TextView) mItemViews.get(Item.SHOWCASE)).setCompoundDrawablesWithIntrinsicBounds(drawable, null, null, null);
-  }
-
-  public Button getRouteStartButton()
-  {
-    return mRouteStartButton;
+    final View itemInButtonsFrame = mButtonsFrame.findViewById(item.mViewId);
+    if (itemInButtonsFrame != null)
+      UiUtils.showIf(show, itemInButtonsFrame);
   }
 }

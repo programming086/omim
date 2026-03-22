@@ -1,4 +1,9 @@
-#include "timegm.hpp"
+#include "base/timegm.hpp"
+
+#include "base/assert.hpp"
+#include "base/timer.hpp"
+
+#include <chrono>
 
 // There are issues with this implementation due to absence
 // of time_t fromat specification. There are no guarantees
@@ -10,16 +15,12 @@
 
 namespace
 {
+
 // Number of days elapsed since Jan 01 up to each month
 // (except for February in leap years).
 int const g_monoff[] = {
   0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334
 };
-
-bool IsLeapYear(int year)
-{
-  return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-}
 
 int LeapDaysCount(int y1, int y2)
 {
@@ -31,14 +32,30 @@ int LeapDaysCount(int y1, int y2)
 
 namespace base
 {
+
+int DaysOfMonth(int year, int month)
+{
+  ASSERT_GREATER_OR_EQUAL(month, 1, ());
+  ASSERT_LESS_OR_EQUAL(month, 12, ());
+
+  int const february = base::IsLeapYear(year) ? 29 : 28;
+  int const daysPerMonth[12] = { 31, february, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+  return daysPerMonth[month - 1];
+}
+
+bool IsLeapYear(int year)
+{
+  return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+}
+
 // Inspired by python's calendar.py
 time_t TimeGM(std::tm const & tm)
 {
   int year;
-  time_t days;
-  time_t hours;
-  time_t minutes;
-  time_t seconds;
+  int days;
+  int hours;
+  int minutes;
+  int seconds;
 
   year = 1900 + tm.tm_year;
   days = 365 * (year - 1970) + LeapDaysCount(1970, year);
@@ -52,6 +69,23 @@ time_t TimeGM(std::tm const & tm)
   minutes = hours * 60 + tm.tm_min;
   seconds = minutes * 60 + tm.tm_sec;
 
-  return seconds;
+  return base::SecondsSinceEpochToTimeT(seconds);
+}
+
+time_t TimeGM(int year, int month, int day, int hour, int min, int sec)
+{
+  ASSERT_GREATER_OR_EQUAL(month, 1, ());
+  ASSERT_LESS_OR_EQUAL(month, 12, ());
+  ASSERT_GREATER_OR_EQUAL(day, 1, ());
+  ASSERT_LESS_OR_EQUAL(day, DaysOfMonth(year, month), ());
+
+  tm t = {};
+  t.tm_year = year - 1900;
+  t.tm_mon = month - 1;
+  t.tm_mday = day;
+  t.tm_hour = hour;
+  t.tm_min = min;
+  t.tm_sec = sec;
+  return TimeGM(t);
 }
 } // namespace base

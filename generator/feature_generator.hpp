@@ -4,43 +4,50 @@
 
 #include "coding/file_writer.hpp"
 
-#include "std/string.hpp"
-#include "std/vector.hpp"
-
-class FeatureBuilder1;
+#include <cstdint>
+#include <limits>
+#include <string>
+#include <vector>
 
 namespace feature
 {
-// Writes features to dat file.
+class FeatureBuilder;
+
+// Writes features to file.
 class FeaturesCollector
 {
-  char m_writeBuffer[48000];
-  size_t m_writePosition = 0;
-  uint32_t m_featureID = 0;
+public:
+  static size_t constexpr kBufferSize = 48000;
+
+  FeaturesCollector(std::string const & fName, FileWriter::Op op = FileWriter::Op::OP_WRITE_TRUNCATE);
+  virtual ~FeaturesCollector();
+
+  static uint64_t GetCurrentPosition();
+  std::string const & GetFilePath() const { return m_dataFile.GetName(); }
+  /// \brief Serializes |f|.
+  /// \returns Feature id of serialized feature.
+  virtual uint32_t Collect(FeatureBuilder const & f);
+  virtual uint32_t Collect(FeatureBuilder & f)
+  {
+    return Collect(const_cast<FeatureBuilder const &>(f));
+  }
+  virtual void Finish() {}
 
 protected:
-  FileWriter m_datFile;
+  /// \return Feature offset in the file, which is used as an ID later
+  uint32_t WriteFeatureBase(std::vector<char> const & bytes, FeatureBuilder const & fb);
+  void Flush();
+
+  FileWriter m_dataFile;
   m2::RectD m_bounds;
 
 private:
   void Write(char const * src, size_t size);
   void FlushBuffer();
 
-protected:
-  static uint32_t GetFileSize(FileWriter const & f);
-
-  /// @return feature offset in the file, which is used as an ID later
-  uint32_t WriteFeatureBase(vector<char> const & bytes, FeatureBuilder1 const & fb);
-
-  void Flush();
-
-public:
-  FeaturesCollector(string const & fName);
-  virtual ~FeaturesCollector();
-
-  string const & GetFilePath() const { return m_datFile.GetName(); }
-
-  virtual void operator()(FeatureBuilder1 const & f);
+  std::vector<char> m_writeBuffer;
+  size_t m_writePosition = 0;
+  uint32_t m_featureID = 0;
 };
 
 class FeaturesAndRawGeometryCollector : public FeaturesCollector
@@ -49,10 +56,12 @@ class FeaturesAndRawGeometryCollector : public FeaturesCollector
   size_t m_rawGeometryCounter = 0;
 
 public:
-  FeaturesAndRawGeometryCollector(string const & featuresFileName,
-                                  string const & rawGeometryFileName);
-  ~FeaturesAndRawGeometryCollector();
+  FeaturesAndRawGeometryCollector(std::string const & featuresFileName,
+                                  std::string const & rawGeometryFileName);
+  ~FeaturesAndRawGeometryCollector() override;
 
-  void operator()(FeatureBuilder1 const & f) override;
+  uint32_t Collect(FeatureBuilder const & f) override;
 };
-}
+
+uint32_t CheckedFilePosCast(FileWriter const & f);
+}  // namespace feature

@@ -1,34 +1,31 @@
 #include "base/base.hpp"
+
 #include "base/assert.hpp"
 #include "base/exception.hpp"
+#include "base/logging.hpp"
+#include "base/src_point.hpp"
 
 #include "std/target_os.hpp"
-#include "std/iostream.hpp"
 
-#include <cassert>
-#include <cstdlib>
+#include <iostream>
 
-
-namespace my
+namespace base
 {
-  void OnAssertFailedDefault(SrcPoint const & srcPoint, string const & msg)
-  {
-    std::cerr << "ASSERT FAILED" << endl
-              << srcPoint.FileName() << ":" << srcPoint.Line() << endl
-              << msg << endl;
+bool OnAssertFailedDefault(SrcPoint const & srcPoint, std::string const & msg)
+{
+  auto & logger = LogHelper::Instance();
 
-#ifdef DEBUG
-    assert(false);
-#else
-    std::abort();
-#endif
-  }
-
-  AssertFailedFn OnAssertFailed = &OnAssertFailedDefault;
-
-  AssertFailedFn SetAssertFunction(AssertFailedFn fn)
-  {
-    std::swap(OnAssertFailed, fn);
-    return fn;
-  }
+  std::cerr << "TID(" << logger.GetThreadID() << ") ASSERT FAILED" << std::endl
+            << srcPoint.FileName() << ":" << srcPoint.Line() << std::endl
+            << msg << std::endl;
+  return true;
 }
+
+AssertFailedFn OnAssertFailed = &OnAssertFailedDefault;
+
+AssertFailedFn SetAssertFunction(AssertFailedFn fn)
+{
+  std::swap(OnAssertFailed, fn);
+  return fn;
+}
+}  // namespace base

@@ -3,36 +3,48 @@ package com.mapswithme.maps;
 import android.animation.Animator;
 import android.animation.ValueAnimator;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
+
+import androidx.annotation.IntegerRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 import android.view.View;
 import android.view.animation.AccelerateInterpolator;
 
+import com.mapswithme.util.Listeners;
 import com.mapswithme.util.UiUtils;
 
 class PanelAnimator
 {
-  private static final int DURATION = MwmApplication.get().getResources().getInteger(R.integer.anim_panel);
-  private static final int WIDTH = UiUtils.dimen(R.dimen.panel_width);
-
   private final MwmActivity mActivity;
-  private final MwmActivity.LeftAnimationTrackListener mAnimationTrackListener;
+  private final Listeners<MwmActivity.LeftAnimationTrackListener> mAnimationTrackListeners = new Listeners<>();
   private final View mPanel;
+  private final int mWidth;
+  @IntegerRes
+  private final int mDuration;
 
-  public PanelAnimator(MwmActivity activity, @NonNull MwmActivity.LeftAnimationTrackListener animationTrackListener)
+  PanelAnimator(MwmActivity activity)
   {
     mActivity = activity;
-    mAnimationTrackListener = animationTrackListener;
+    mWidth = UiUtils.dimen(activity.getApplicationContext(), R.dimen.panel_width);
     mPanel = mActivity.findViewById(R.id.fragment_container);
+    mDuration = mActivity.getResources().getInteger(R.integer.anim_panel);
+  }
+
+  void registerListener(@NonNull MwmActivity.LeftAnimationTrackListener animationTrackListener)
+  {
+    mAnimationTrackListeners.register(animationTrackListener);
   }
 
   private void track(ValueAnimator animation)
   {
     float offset = (Float) animation.getAnimatedValue();
     mPanel.setTranslationX(offset);
-    mPanel.setAlpha(offset / WIDTH + 1.0f);
-    mAnimationTrackListener.onTrackLeftAnimation(offset + WIDTH);
+    mPanel.setAlpha(offset / mWidth + 1.0f);
+
+    for (MwmActivity.LeftAnimationTrackListener listener: mAnimationTrackListeners)
+      listener.onTrackLeftAnimation(offset + mWidth);
+    mAnimationTrackListeners.finishIterate();
   }
 
   /** @param completionListener will be called before the fragment becomes actually visible */
@@ -47,14 +59,7 @@ class PanelAnimator
         return;
       }
 
-      hide(new Runnable()
-      {
-        @Override
-        public void run()
-        {
-          show(clazz, args, completionListener);
-        }
-      });
+      hide(() -> show(clazz, args, completionListener));
 
       return;
     }
@@ -65,28 +70,26 @@ class PanelAnimator
 
     UiUtils.show(mPanel);
 
-    mAnimationTrackListener.onTrackStarted(false);
+    for (MwmActivity.LeftAnimationTrackListener listener: mAnimationTrackListeners)
+      listener.onTrackStarted(false);
+    mAnimationTrackListeners.finishIterate();
 
-    ValueAnimator animator = ValueAnimator.ofFloat(-WIDTH, 0.0f);
-    animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener()
-    {
-      @Override
-      public void onAnimationUpdate(ValueAnimator animation)
-      {
-        track(animation);
-      }
-    });
+    ValueAnimator animator = ValueAnimator.ofFloat(-mWidth, 0.0f);
+    animator.addUpdateListener(animation -> track(animation));
     animator.addListener(new UiUtils.SimpleAnimatorListener()
     {
       @Override
       public void onAnimationEnd(Animator animation)
       {
-        mAnimationTrackListener.onTrackFinished(true);
-        mActivity.adjustCompass(WIDTH);
+        for (MwmActivity.LeftAnimationTrackListener listener: mAnimationTrackListeners)
+          listener.onTrackStarted(true);
+        mAnimationTrackListeners.finishIterate();
+
+        mActivity.adjustCompass(UiUtils.getCompassYOffset(mActivity));
       }
     });
 
-    animator.setDuration(DURATION);
+    animator.setDuration(mDuration);
     animator.setInterpolator(new AccelerateInterpolator());
     animator.start();
   }
@@ -100,32 +103,31 @@ class PanelAnimator
       return;
     }
 
-    mAnimationTrackListener.onTrackStarted(true);
+    for (MwmActivity.LeftAnimationTrackListener listener: mAnimationTrackListeners)
+      listener.onTrackStarted(true);
+    mAnimationTrackListeners.finishIterate();
 
-    ValueAnimator animator = ValueAnimator.ofFloat(0.0f, -WIDTH);
-    animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener()
-    {
-      @Override
-      public void onAnimationUpdate(ValueAnimator animation)
-      {
-        track(animation);
-      }
-    });
+    ValueAnimator animator = ValueAnimator.ofFloat(0.0f, -mWidth);
+    animator.addUpdateListener(animation -> track(animation));
     animator.addListener(new UiUtils.SimpleAnimatorListener()
     {
       @Override
       public void onAnimationEnd(Animator animation)
       {
         UiUtils.hide(mPanel);
-        mAnimationTrackListener.onTrackFinished(false);
-        mActivity.adjustCompass(0);
+
+        for (MwmActivity.LeftAnimationTrackListener listener: mAnimationTrackListeners)
+          listener.onTrackStarted(false);
+        mAnimationTrackListeners.finishIterate();
+
+        mActivity.adjustCompass(UiUtils.getCompassYOffset(mActivity));
 
         if (completionListener != null)
           completionListener.run();
       }
     });
 
-    animator.setDuration(DURATION);
+    animator.setDuration(mDuration);
     animator.setInterpolator(new AccelerateInterpolator());
     animator.start();
   }

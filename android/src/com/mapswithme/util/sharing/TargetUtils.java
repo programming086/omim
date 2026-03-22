@@ -1,33 +1,35 @@
 package com.mapswithme.util.sharing;
 
-import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Build;
-import android.provider.Telephony;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
-final class TargetUtils
+public final class TargetUtils
 {
+  public static final String TYPE_TEXT_PLAIN = "text/plain";
   static final String TYPE_MESSAGE_RFC822 = "message/rfc822";
-  static final String TYPE_TEXT_PLAIN = "text/plain";
   static final String EXTRA_SMS_BODY = "sms_body";
   static final String EXTRA_SMS_TEXT = Intent.EXTRA_TEXT;
   static final String URI_STRING_SMS = "sms:";
 
   private TargetUtils() {}
 
-  public static void fillSmsIntent(Activity activity, Intent smsIntent, String body)
+  public static void fillSmsIntent(Intent smsIntent, String body)
   {
     smsIntent.setData(Uri.parse(URI_STRING_SMS));
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
-    {
-      final String defaultSms = Telephony.Sms.getDefaultSmsPackage(activity);
-      smsIntent.setType(TYPE_TEXT_PLAIN);
-      smsIntent.putExtra(EXTRA_SMS_TEXT, body);
-      if (defaultSms != null)
-        smsIntent.setPackage(defaultSms);
-    }
-    else
-      smsIntent.putExtra(EXTRA_SMS_BODY, body);
+    smsIntent.putExtra(EXTRA_SMS_BODY, body);
+  }
+
+  @Nullable
+  public static Intent makeAppSettingsLocationIntent(@NonNull Context context)
+  {
+    Intent intent = new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+    if (intent.resolveActivity(context.getPackageManager()) != null)
+      return intent;
+
+    intent = new Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS);
+    return intent.resolveActivity(context.getPackageManager()) == null ? null : intent;
   }
 }

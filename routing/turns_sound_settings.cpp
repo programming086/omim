@@ -4,7 +4,10 @@
 
 #include "base/string_utils.hpp"
 
-#include "std/algorithm.hpp"
+#include <algorithm>
+
+using namespace std;
+using namespace measurement_utils;
 
 namespace routing
 {
@@ -15,7 +18,7 @@ namespace sound
 void Settings::SetState(uint32_t notificationTimeSeconds, uint32_t minNotificationDistanceUnits,
                         uint32_t maxNotificationDistanceUnits,
                         vector<uint32_t> const & soundedDistancesUnits,
-                        ::Settings::Units lengthUnits)
+                        measurement_utils::Units lengthUnits)
 {
   m_timeSeconds = notificationTimeSeconds;
   m_minDistanceUnits = minNotificationDistanceUnits;
@@ -26,8 +29,7 @@ void Settings::SetState(uint32_t notificationTimeSeconds, uint32_t minNotificati
 
 bool Settings::IsValid() const
 {
-  return m_minDistanceUnits <= m_maxDistanceUnits &&
-         !m_soundedDistancesUnits.empty() &&
+  return m_minDistanceUnits <= m_maxDistanceUnits && !m_soundedDistancesUnits.empty() &&
          is_sorted(m_soundedDistancesUnits.cbegin(), m_soundedDistancesUnits.cend());
 }
 
@@ -36,9 +38,9 @@ uint32_t Settings::ComputeTurnDistanceM(double speedMetersPerSecond) const
   ASSERT(IsValid(), ());
 
   double const turnNotificationDistanceM = m_timeSeconds * speedMetersPerSecond;
-  return static_cast<uint32_t>(my::clamp(turnNotificationDistanceM,
-                                         ConvertUnitsToMeters(m_minDistanceUnits),
-                                         ConvertUnitsToMeters(m_maxDistanceUnits)));
+  return static_cast<uint32_t>(base::Clamp(turnNotificationDistanceM,
+                                           ConvertUnitsToMeters(m_minDistanceUnits),
+                                           ConvertUnitsToMeters(m_maxDistanceUnits)));
 }
 
 bool Settings::TooCloseForFisrtNotification(double distToTurnMeters) const
@@ -64,10 +66,8 @@ double Settings::ConvertMetersPerSecondToUnitsPerSecond(double speedInMetersPerS
 {
   switch (m_lengthUnits)
   {
-    case ::Settings::Metric:
-      return speedInMetersPerSecond;
-    case ::Settings::Foot:
-      return MeasurementUtils::MetersToFeet(speedInMetersPerSecond);
+  case Units::Metric: return speedInMetersPerSecond;
+  case Units::Imperial: return MetersToFeet(speedInMetersPerSecond);
   }
 
   ASSERT(false, ("m_lengthUnits is equal to unknown value."));
@@ -78,10 +78,8 @@ double Settings::ConvertUnitsToMeters(double distanceInUnits) const
 {
   switch (m_lengthUnits)
   {
-    case ::Settings::Metric:
-      return distanceInUnits;
-    case ::Settings::Foot:
-      return MeasurementUtils::FeetToMeters(distanceInUnits);
+  case Units::Metric: return distanceInUnits;
+  case Units::Imperial: return FeetToMeters(distanceInUnits);
   }
 
   ASSERT(false, ());
@@ -92,22 +90,26 @@ double Settings::ConvertMetersToUnits(double distanceInMeters) const
 {
   switch (m_lengthUnits)
   {
-    case ::Settings::Metric:
-      return distanceInMeters;
-    case ::Settings::Foot:
-      return MeasurementUtils::MetersToFeet(distanceInMeters);
+  case Units::Metric: return distanceInMeters;
+  case Units::Imperial: return MetersToFeet(distanceInMeters);
   }
 
   ASSERT(false, ());
   return 0.;
 }
 
-uint32_t Settings::ComputeDistToPronounceDistM(double speedMetersPerSecond) const
+uint32_t Settings::ComputeDistToPronounceDistM(double speedMetersPerSecond, bool pedestrian) const
 {
   ASSERT_LESS_OR_EQUAL(0, speedMetersPerSecond, ());
+
+  auto const startBeforeSeconds = pedestrian ? m_startBeforeSecondsPedestrian : m_startBeforeSecondsVehicle;
+  auto const minStartBeforeMeters = pedestrian ? m_minStartBeforeMetersPedestrian : m_minStartBeforeMetersVehicle;
+  auto const maxStartBeforeMeters = pedestrian ? m_maxStartBeforeMetersPedestrian : m_maxStartBeforeMetersVehicle;
+
   uint32_t const startBeforeMeters =
-      static_cast<uint32_t>(speedMetersPerSecond * m_startBeforeSeconds);
-  return my::clamp(startBeforeMeters, m_minStartBeforeMeters, m_maxStartBeforeMeters);
+      static_cast<uint32_t>(speedMetersPerSecond * startBeforeSeconds);
+
+  return base::Clamp(startBeforeMeters, minStartBeforeMeters, maxStartBeforeMeters);
 }
 
 string DebugPrint(Notification const & notification)
@@ -117,7 +119,8 @@ string DebugPrint(Notification const & notification)
       << ", m_exitNum == " << notification.m_exitNum
       << ", m_useThenInsteadOfDistance == " << notification.m_useThenInsteadOfDistance
       << ", m_turnDir == " << DebugPrint(notification.m_turnDir)
-      << ", m_lengthUnits == " << notification.m_lengthUnits << " ]" << endl;
+      << ", m_turnDirPedestrian == " << DebugPrint(notification.m_turnDirPedestrian)
+      << ", m_lengthUnits == " << DebugPrint(notification.m_lengthUnits) << " ]" << endl;
   return out.str();
 }
 

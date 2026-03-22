@@ -1,89 +1,64 @@
 #include "generator/coastlines_generator.hpp"
+
 #include "generator/feature_builder.hpp"
 
-#include "indexer/point_to_int64.hpp"
+#include "indexer/ftypes_matcher.hpp"
+
+#include "coding/point_coding.hpp"
 
 #include "geometry/region2d/binary_operators.hpp"
 
 #include "base/string_utils.hpp"
 #include "base/logging.hpp"
 
-#include "std/bind.hpp"
-#include "std/condition_variable.hpp"
-#include "std/function.hpp"
-#include "std/thread.hpp"
-#include "std/utility.hpp"
+#include <condition_variable>
+#include <functional>
+#include <thread>
+#include <utility>
 
-typedef m2::RegionI RegionT;
-typedef m2::PointI PointT;
-typedef m2::RectI RectT;
+using namespace std;
+using namespace feature;
 
-CoastlineFeaturesGenerator::CoastlineFeaturesGenerator(uint32_t coastType)
-  : m_merger(POINT_COORD_BITS), m_coastType(coastType)
-{
-}
+using RegionT = m2::RegionI;
+using PointT = m2::PointI;
+using RectT = m2::RectI;
+
+CoastlineFeaturesGenerator::CoastlineFeaturesGenerator()
+  : m_merger(kPointCoordBits) {}
 
 namespace
 {
-  m2::RectD GetLimitRect(RegionT const & rgn)
-  {
-    RectT r = rgn.GetRect();
-    return m2::RectD(r.minX(), r.minY(), r.maxX(), r.maxY());
-  }
-
-  inline PointT D2I(m2::PointD const & p)
-  {
-    m2::PointU const pu = PointD2PointU(p, POINT_COORD_BITS);
-    return PointT(static_cast<int32_t>(pu.x), static_cast<int32_t>(pu.y));
-  }
-
-  template <class TreeT> class DoCreateRegion
-  {
-    TreeT & m_tree;
-
-    RegionT m_rgn;
-    m2::PointD m_pt;
-    bool m_exist;
-
-  public:
-    DoCreateRegion(TreeT & tree) : m_tree(tree), m_exist(false) {}
-
-    bool operator()(m2::PointD const & p)
-    {
-      // This logic is to skip last polygon point (that is equal to first).
-
-      if (m_exist)
-      {
-        // add previous point to region
-        m_rgn.AddPoint(D2I(m_pt));
-      }
-      else
-        m_exist = true;
-
-      // save current point
-      m_pt = p;
-      return true;
-    }
-
-    void EndRegion()
-    {
-      m_tree.Add(m_rgn, GetLimitRect(m_rgn));
-
-      m_rgn = RegionT();
-      m_exist = false;
-    }
-  };
-}
-
-void CoastlineFeaturesGenerator::AddRegionToTree(FeatureBuilder1 const & fb)
+m2::RectD GetLimitRect(RegionT const & rgn)
 {
-  ASSERT ( fb.IsGeometryClosed(), () );
-
-  DoCreateRegion<TTree> createRgn(m_tree);
-  fb.ForEachGeometryPointEx(createRgn);
+  RectT r = rgn.GetRect();
+  return m2::RectD(r.minX(), r.minY(), r.maxX(), r.maxY());
 }
 
-void CoastlineFeaturesGenerator::operator()(FeatureBuilder1 const & fb)
+inline PointT D2I(m2::PointD const & p)
+{
+  m2::PointU const pu = PointDToPointU(p, kPointCoordBits);
+  return PointT(static_cast<int32_t>(pu.x), static_cast<int32_t>(pu.y));
+}
+}  // namespace
+
+void CoastlineFeaturesGenerator::AddRegionToTree(FeatureBuilder const & fb)
+{
+  ASSERT(fb.IsGeometryClosed(), ());
+
+  fb.ForEachPolygon([&](auto const & polygon) {
+    if (polygon.empty())
+      return;
+
+    RegionT rgn;
+    for (auto it = std::next(std::cbegin(polygon)); it != std::cend(polygon); ++it)
+      rgn.AddPoint(D2I(*it));
+
+    auto const limitRect = GetLimitRect(rgn);
+    m_tree.Add(std::move(rgn), limitRect);
+  });
+}
+
+void CoastlineFeaturesGenerator::Process(FeatureBuilder const & fb)
 {
   if (fb.IsGeometryClosed())
     AddRegionToTree(fb);
@@ -100,16 +75,23 @@ namespace
     size_t m_totalNotMergedCoastsPoints;
 
   public:
-    DoAddToTree(CoastlineFeaturesGenerator & rMain)
+    explicit DoAddToTree(CoastlineFeaturesGenerator & rMain)
       : m_rMain(rMain), m_notMergedCoastsCount(0), m_totalNotMergedCoastsPoints(0) {}
 
-    virtual void operator() (FeatureBuilder1 const & fb)
+    virtual void operator() (FeatureBuilder const & fb)
     {
       if (fb.IsGeometryClosed())
         m_rMain.AddRegionToTree(fb);
       else
       {
-        LOG(LINFO, ("Not merged coastline", fb.GetOsmIdsString()));
+        base::GeoObjectId const firstWay = fb.GetFirstOsmId();
+        base::GeoObjectId const lastWay = fb.GetLastOsmId();
+        if (firstWay == lastWay)
+          LOG(LINFO, ("Not merged coastline, way", firstWay.GetSerialId(), "(", fb.GetPointsCount(),
+                      "points)"));
+        else
+          LOG(LINFO, ("Not merged coastline, ways", firstWay.GetSerialId(), "to",
+                      lastWay.GetSerialId(), "(", fb.GetPointsCount(), "points)"));
         ++m_notMergedCoastsCount;
         m_totalNotMergedCoastsPoints += fb.GetPointsCount();
       }
@@ -156,7 +138,7 @@ class DoDifference
   vector<m2::PointD> m_points;
 
 public:
-  DoDifference(RegionT const & rgn)
+  explicit DoDifference(RegionT const & rgn)
   {
     m_res.push_back(rgn);
     m_src = rgn.GetRect();
@@ -174,8 +156,8 @@ public:
 
   void operator()(PointT const & p)
   {
-    m_points.push_back(PointU2PointD(
-        m2::PointU(static_cast<uint32_t>(p.x), static_cast<uint32_t>(p.y)), POINT_COORD_BITS));
+    m_points.push_back(PointUToPointD(
+        m2::PointU(static_cast<uint32_t>(p.x), static_cast<uint32_t>(p.y)), kPointCoordBits));
   }
 
   size_t GetPointsCount() const
@@ -186,7 +168,7 @@ public:
     return count;
   }
 
-  void AssignGeometry(FeatureBuilder1 & fb)
+  void AssignGeometry(FeatureBuilder & fb)
   {
     for (size_t i = 0; i < m_res.size(); ++i)
     {
@@ -257,7 +239,7 @@ public:
   {
     // get rect cell
     double minX, minY, maxX, maxY;
-    CellIdConverter<MercatorBounds, TCell>::GetCellBounds(cell, minX, minY, maxX, maxY);
+    CellIdConverter<mercator::Bounds, TCell>::GetCellBounds(cell, minX, minY, maxX, maxY);
 
     // create rect region
     PointT arr[] = {D2I(m2::PointD(minX, minY)), D2I(m2::PointD(minX, maxY)),
@@ -267,7 +249,7 @@ public:
     // Do 'and' with all regions and accumulate the result, including bound region.
     // In 'odd' parts we will have an ocean.
     DoDifference doDiff(rectR);
-    m_index.ForEachInRect(GetLimitRect(rectR), bind<void>(ref(doDiff), _1));
+    m_index.ForEachInRect(GetLimitRect(rectR), bind<void>(ref(doDiff), placeholders::_1));
 
     // Check if too many points for feature.
     if (cell.Level() < kHighLevel && doDiff.GetPointsCount() >= kMaxPoints)
@@ -283,7 +265,7 @@ public:
     while (true)
     {
       unique_lock<mutex> lock(m_ctx.mutexTasks);
-      m_ctx.listCondVar.wait(lock, [this]{return (!m_ctx.listTasks.empty() || m_ctx.inWork == 0);});
+      m_ctx.listCondVar.wait(lock, [&]{return (!m_ctx.listTasks.empty() || m_ctx.inWork == 0);});
       if (m_ctx.listTasks.empty())
         break;
 
@@ -307,7 +289,7 @@ public:
   }
 };
 
-void CoastlineFeaturesGenerator::GetFeatures(vector<FeatureBuilder1> & features)
+void CoastlineFeaturesGenerator::GetFeatures(vector<FeatureBuilder> & features)
 {
   size_t const maxThreads = thread::hardware_concurrency();
   CHECK_GREATER(maxThreads, 0, ("Not supported platform"));
@@ -315,14 +297,15 @@ void CoastlineFeaturesGenerator::GetFeatures(vector<FeatureBuilder1> & features)
   mutex featuresMutex;
   RegionInCellSplitter::Process(
       maxThreads, RegionInCellSplitter::kStartLevel, m_tree,
-      [&features, &featuresMutex, this](RegionInCellSplitter::TCell const & cell, DoDifference & cellData)
+      [&features, &featuresMutex](RegionInCellSplitter::TCell const & cell, DoDifference & cellData)
       {
-        FeatureBuilder1 fb;
-        fb.SetCoastCell(cell.ToInt64(RegionInCellSplitter::kHighLevel + 1), cell.ToString());
+        FeatureBuilder fb;
+        fb.SetCoastCell(cell.ToInt64(RegionInCellSplitter::kHighLevel + 1));
 
         cellData.AssignGeometry(fb);
         fb.SetArea();
-        fb.AddType(m_coastType);
+        static auto const kCoastType = ftypes::IsCoastlineChecker::Instance().GetCoastlineType();
+        fb.AddType(kCoastType);
 
         // Should represent non-empty geometry
         CHECK_GREATER(fb.GetPolygonsCount(), 0, ());

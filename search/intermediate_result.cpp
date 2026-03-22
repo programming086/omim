@@ -1,363 +1,304 @@
-#include "intermediate_result.hpp"
-#include "geometry_utils.hpp"
+#include "search/intermediate_result.hpp"
+
+#include "search/geometry_utils.hpp"
+#include "search/reverse_geocoder.hpp"
 
 #include "storage/country_info_getter.hpp"
 
-#include "indexer/ftypes_matcher.hpp"
-#include "indexer/classificator.hpp"
-#include "indexer/feature.hpp"
-#include "indexer/scales.hpp"
 #include "indexer/categories_holder.hpp"
-
-#include "geometry/angles.hpp"
+#include "indexer/classificator.hpp"
+#include "indexer/cuisines.hpp"
+#include "indexer/feature.hpp"
+#include "indexer/feature_algo.hpp"
+#include "indexer/feature_utils.hpp"
+#include "indexer/ftypes_matcher.hpp"
+#include "indexer/ftypes_sponsored.hpp"
+#include "indexer/scales.hpp"
 
 #include "platform/measurement_utils.hpp"
 
-#include "base/string_utils.hpp"
+#include "geometry/angles.hpp"
+
 #include "base/logging.hpp"
+#include "base/string_utils.hpp"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
 
 #include "3party/opening_hours/opening_hours.hpp"
 
+using namespace std;
 
 namespace search
 {
-
-/// All constants in meters.
-double const DIST_EQUAL_RESULTS = 100.0;
-double const DIST_SAME_STREET = 5000.0;
-
-
-void ProcessMetadata(FeatureType const & ft, Result::Metadata & meta)
+namespace
 {
-  ft.ParseMetadata();
-  feature::Metadata const & src = ft.GetMetadata();
+char const * const kPricingSymbol = "$";
 
-  meta.m_cuisine = src.Get(feature::Metadata::FMD_CUISINE);
+class SkipRegionInfo
+{
+  static size_t const kCount = 2;
+  uint32_t m_types[kCount];
 
-  string const openHours = src.Get(feature::Metadata::FMD_OPEN_HOURS);
-  if (!openHours.empty())
+public:
+  SkipRegionInfo()
   {
-    osmoh::OpeningHours oh(openHours);
+    char const * arr[][2] = {
+      {"place", "continent"},
+      {"place", "country"}
+    };
+    static_assert(kCount == ARRAY_SIZE(arr), "");
 
-    // TODO(mgsergio): Switch to three-stated model instead of two-staed
-    // I.e. set unknown if we can't parse or can't answer whether it's open.
-    if (oh.IsValid())
-     meta.m_isClosed = oh.IsClosed(time(nullptr));
-    else
-      meta.m_isClosed = false;
+    Classificator const & c = classif();
+    for (size_t i = 0; i < kCount; ++i)
+      m_types[i] = c.GetTypeByPath(vector<string>(arr[i], arr[i] + 2));
   }
 
-  meta.m_stars = 0;
-  (void) strings::to_int(src.Get(feature::Metadata::FMD_STARS), meta.m_stars);
-  meta.m_stars = my::clamp(meta.m_stars, 0, 5);
-}
+  bool IsSkip(uint32_t type) const
+  {
+    for (uint32_t t : m_types)
+    {
+      if (t == type)
+        return true;
+    }
+    return false;
+  }
+};
+}  // namespace
 
-namespace impl
-{
-
-template <class T> bool LessRankT(T const & r1, T const & r2)
-{
-  if (r1.m_rank != r2.m_rank)
-    return (r1.m_rank > r2.m_rank);
-
-  return (r1.m_distance < r2.m_distance);
-}
-
-template <class T> bool LessDistanceT(T const & r1, T const & r2)
-{
-  if (r1.m_distance != r2.m_distance)
-    return (r1.m_distance < r2.m_distance);
-
-  return (r1.m_rank > r2.m_rank);
-}
-
-PreResult1::PreResult1(FeatureID const & fID, uint8_t rank, m2::PointD const & center,
-                       m2::PointD const & pivot, int8_t viewportID)
-  : m_id(fID),
-    m_center(center),
-    m_rank(rank),
-    m_viewportID(viewportID)
+// PreRankerResult ---------------------------------------------------------------------------------
+PreRankerResult::PreRankerResult(FeatureID const & id, PreRankingInfo const & info,
+                                 vector<ResultTracer::Branch> const & provenance)
+  : m_id(id), m_info(info), m_provenance(provenance)
 {
   ASSERT(m_id.IsValid(), ());
 
-  CalcParams(pivot);
+  m_matchedTokensNumber = 0;
+  for (auto const & r : m_info.m_tokenRanges)
+    m_matchedTokensNumber += r.Size();
 }
 
-PreResult1::PreResult1(m2::PointD const & center, m2::PointD const & pivot)
-  : m_center(center)
+// static
+bool PreRankerResult::LessRankAndPopularity(PreRankerResult const & lhs,
+                                            PreRankerResult const & rhs)
 {
-  CalcParams(pivot);
+  if (lhs.m_info.m_rank != rhs.m_info.m_rank)
+    return lhs.m_info.m_rank > rhs.m_info.m_rank;
+  if (lhs.m_info.m_popularity != rhs.m_info.m_popularity)
+    return lhs.m_info.m_popularity > rhs.m_info.m_popularity;
+  return lhs.m_info.m_distanceToPivot < rhs.m_info.m_distanceToPivot;
 }
 
-namespace
+// static
+bool PreRankerResult::LessDistance(PreRankerResult const & lhs, PreRankerResult const & rhs)
 {
+  if (lhs.m_info.m_distanceToPivot != rhs.m_info.m_distanceToPivot)
+    return lhs.m_info.m_distanceToPivot < rhs.m_info.m_distanceToPivot;
+  return lhs.m_info.m_rank > rhs.m_info.m_rank;
+}
 
-void AssertValid(m2::PointD const & p)
+// static
+bool PreRankerResult::LessByExactMatch(PreRankerResult const & lhs, PreRankerResult const & rhs)
 {
-  ASSERT ( my::between_s(-180.0, 180.0, p.x), (p.x) );
-  ASSERT ( my::between_s(-180.0, 180.0, p.y), (p.y) );
+  auto const lhsScore = lhs.m_info.m_exactMatch && lhs.m_info.m_allTokensUsed;
+  auto const rhsScore = rhs.m_info.m_exactMatch && rhs.m_info.m_allTokensUsed;
+  if (lhsScore != rhsScore)
+    return lhsScore;
+
+  if (lhs.GetInnermostTokensNumber() != rhs.GetInnermostTokensNumber())
+    return lhs.GetInnermostTokensNumber() > rhs.GetInnermostTokensNumber();
+
+  if (lhs.GetMatchedTokensNumber() != rhs.GetMatchedTokensNumber())
+    return lhs.GetMatchedTokensNumber() > rhs.GetMatchedTokensNumber();
+
+  return LessDistance(lhs, rhs);
 }
 
-}
-
-void PreResult1::CalcParams(m2::PointD const & pivot)
+bool PreRankerResult::CategoriesComparator::operator()(PreRankerResult const & lhs,
+                                                       PreRankerResult const & rhs) const
 {
-  AssertValid(m_center);
-  m_distance = PointDistance(m_center, pivot);
+  if (m_positionIsInsideViewport)
+    return lhs.GetDistance() < rhs.GetDistance();
+
+  if (m_detailedScale)
+  {
+    bool const lhsInside = m_viewport.IsPointInside(lhs.GetInfo().m_center);
+    bool const rhsInside = m_viewport.IsPointInside(rhs.GetInfo().m_center);
+    if (lhsInside && !rhsInside)
+      return true;
+    if (rhsInside && !lhsInside)
+      return false;
+  }
+  return lhs.GetPopularity() > rhs.GetPopularity();
 }
 
-bool PreResult1::LessRank(PreResult1 const & r1, PreResult1 const & r2)
-{
-  return LessRankT(r1, r2);
-}
-
-bool PreResult1::LessDistance(PreResult1 const & r1, PreResult1 const & r2)
-{
-  return LessDistanceT(r1, r2);
-}
-
-bool PreResult1::LessPointsForViewport(PreResult1 const & r1, PreResult1 const & r2)
-{
-  return r1.m_id < r2.m_id;
-}
-
-void PreResult2::CalcParams(m2::PointD const & pivot)
-{
-  m_distance = PointDistance(GetCenter(), pivot);
-}
-
-PreResult2::PreResult2(FeatureType const & f, PreResult1 const * p, m2::PointD const & pivot,
-                       string const & displayName, string const & fileName)
-  : m_id(f.GetID()),
-    m_types(f),
-    m_str(displayName),
-    m_resultType(RESULT_FEATURE),
-    m_geomType(f.GetFeatureType())
+// RankerResult ------------------------------------------------------------------------------------
+RankerResult::RankerResult(FeatureType & f, m2::PointD const & center, m2::PointD const & pivot,
+                           string const & displayName, string const & fileName)
+  : m_id(f.GetID())
+  , m_types(f)
+  , m_str(displayName)
+  , m_resultType(ftypes::IsBuildingChecker::Instance()(m_types) ? Type::Building : Type::Feature)
+  , m_geomType(f.GetGeomType())
 {
   ASSERT(m_id.IsValid(), ());
   ASSERT(!m_types.Empty(), ());
 
   m_types.SortBySpec();
 
-  m_rank = p ? p->GetRank() : 0;
+  m_region.SetParams(fileName, center);
+  m_distance = PointDistance(center, pivot);
 
-  m2::PointD fCenter;
-  if (p && f.GetFeatureType() != feature::GEOM_POINT)
-  {
-    // Optimization tip - use precalculated center point if possible.
-    fCenter = p->GetCenter();
-  }
-  else
-    fCenter = f.GetLimitRect(FeatureType::WORST_GEOMETRY).Center();
-
-  m_region.SetParams(fileName, fCenter);
-  CalcParams(pivot);
-
-  ProcessMetadata(f, m_metadata);
+  FillDetails(f, m_details);
 }
 
-PreResult2::PreResult2(double lat, double lon)
-  : m_str("(" + MeasurementUtils::FormatLatLon(lat, lon) + ")"),
-    m_resultType(RESULT_LATLON)
+RankerResult::RankerResult(double lat, double lon)
+  : m_str("(" + measurement_utils::FormatLatLon(lat, lon) + ")"), m_resultType(Type::LatLon)
 {
-  m_region.SetParams(string(), MercatorBounds::FromLatLon(lat, lon));
+  m_region.SetParams(string(), mercator::FromLatLon(lat, lon));
 }
 
-PreResult2::PreResult2(m2::PointD const & pt, string const & str, uint32_t type)
-  : m_str(str), m_resultType(RESULT_BUILDING)
+RankerResult::RankerResult(m2::PointD const & coord, string const & postcode)
+  : m_str(postcode), m_resultType(Type::Postcode)
 {
-  m_region.SetParams(string(), pt);
-
-  m_types.Assign(type);
+  m_region.SetParams(string(), coord);
 }
 
-namespace
-{
-  class SkipRegionInfo
-  {
-    static size_t const m_count = 2;
-    uint32_t m_types[m_count];
-
-  public:
-    SkipRegionInfo()
-    {
-      char const * arr[][2] = {
-        { "place", "continent" },
-        { "place", "country" }
-      };
-      static_assert(m_count == ARRAY_SIZE(arr), "");
-
-      Classificator const & c = classif();
-      for (size_t i = 0; i < m_count; ++i)
-        m_types[i] = c.GetTypeByPath(vector<string>(arr[i], arr[i] + 2));
-    }
-
-    bool IsSkip(uint32_t type) const
-    {
-      for (uint32_t t : m_types)
-      {
-        if (t == type)
-          return true;
-      }
-      return false;
-    }
-  };
-}
-
-string PreResult2::GetRegionName(storage::CountryInfoGetter const & infoGetter,
-                                 uint32_t fType) const
+bool RankerResult::GetCountryId(storage::CountryInfoGetter const & infoGetter, uint32_t ftype,
+                                storage::CountryId & countryId) const
 {
   static SkipRegionInfo const checker;
-  if (checker.IsSkip(fType))
-    return string();
-
-  storage::CountryInfo info;
-  m_region.GetRegion(infoGetter, info);
-  return info.m_name;
+  if (checker.IsSkip(ftype))
+    return false;
+  return m_region.GetCountryId(infoGetter, countryId);
 }
 
-Result PreResult2::GenerateFinalResult(storage::CountryInfoGetter const & infoGetter,
-                                       CategoriesHolder const * pCat,
-                                       set<uint32_t> const * pTypes, int8_t locale) const
+bool RankerResult::IsEqualCommon(RankerResult const & r) const
 {
-  uint32_t const type = GetBestType(pTypes);
-  string const regionName = GetRegionName(infoGetter, type);
+  if ((m_geomType != r.m_geomType) || (m_str != r.m_str))
+    return false;
 
-  switch (m_resultType)
+  auto const bestType = GetBestType();
+  auto const rBestType = r.GetBestType();
+  if (bestType == rBestType)
+    return true;
+
+  auto const & checker = ftypes::IsWayChecker::Instance();
+  return checker(bestType) && checker(rBestType);
+}
+
+bool RankerResult::IsStreet() const { return ftypes::IsStreetOrSquareChecker::Instance()(m_types); }
+
+uint32_t RankerResult::GetBestType(vector<uint32_t> const & preferredTypes) const
+{
+  ASSERT(is_sorted(preferredTypes.begin(), preferredTypes.end()), ());
+  if (!preferredTypes.empty())
   {
-  case RESULT_FEATURE:
-    return Result(m_id, GetCenter(), m_str, regionName, ReadableFeatureType(pCat, type, locale)
-              #ifdef DEBUG
-                  + ' ' + strings::to_string(int(m_rank))
-              #endif
-                  , type, m_metadata);
-
-  case RESULT_BUILDING:
-    return Result(GetCenter(), m_str, regionName, ReadableFeatureType(pCat, type, locale));
-
-  default:
-    ASSERT_EQUAL(m_resultType, RESULT_LATLON, ());
-    return Result(GetCenter(), m_str, regionName, string());
+    for (uint32_t type : m_types)
+    {
+      if (binary_search(preferredTypes.begin(), preferredTypes.end(), type))
+        return type;
+    }
   }
+
+  return m_types.GetBestType();
 }
 
-Result PreResult2::GeneratePointResult(CategoriesHolder const * pCat, set<uint32_t> const * pTypes,
-                                       int8_t locale) const
+// RankerResult::RegionInfo ------------------------------------------------------------------------
+bool RankerResult::RegionInfo::GetCountryId(storage::CountryInfoGetter const & infoGetter,
+                                            storage::CountryId & countryId) const
 {
-  uint32_t const type = GetBestType(pTypes);
-  return Result(m_id, GetCenter(), m_str, ReadableFeatureType(pCat, type, locale));
-}
-
-bool PreResult2::LessRank(PreResult2 const & r1, PreResult2 const & r2)
-{
-  return LessRankT(r1, r2);
-}
-
-bool PreResult2::LessDistance(PreResult2 const & r1, PreResult2 const & r2)
-{
-  return LessDistanceT(r1, r2);
-}
-
-bool PreResult2::StrictEqualF::operator() (PreResult2 const & r) const
-{
-  if (m_r.m_resultType == r.m_resultType && m_r.m_resultType == RESULT_FEATURE)
+  if (!m_countryId.empty())
   {
-    if (m_r.IsEqualCommon(r))
-      return (PointDistance(m_r.GetCenter(), r.GetCenter()) < DIST_EQUAL_RESULTS);
+    countryId = m_countryId;
+    return true;
+  }
+
+  auto const id = infoGetter.GetRegionCountryId(m_point);
+  if (id != storage::kInvalidCountryId)
+  {
+    countryId = id;
+    return true;
   }
 
   return false;
 }
 
-bool PreResult2::LessLinearTypesF::operator() (PreResult2 const & r1, PreResult2 const & r2) const
+// Functions ---------------------------------------------------------------------------------------
+void FillDetails(FeatureType & ft, Result::Details & details)
 {
-  if (r1.m_geomType != r2.m_geomType)
-    return (r1.m_geomType < r2.m_geomType);
+  if (details.m_isInitialized)
+    return;
 
-  if (r1.m_str != r2.m_str)
-    return (r1.m_str < r2.m_str);
+  details.m_airportIata = ft.GetMetadata(feature::Metadata::FMD_AIRPORT_IATA);
+  details.m_brand = ft.GetMetadata(feature::Metadata::FMD_BRAND);
 
-  uint32_t const t1 = r1.GetBestType();
-  uint32_t const t2 = r2.GetBestType();
-  if (t1 != t2)
-    return (t1 < t2);
+  string const openHours = ft.GetMetadata(feature::Metadata::FMD_OPEN_HOURS);
+  if (!openHours.empty())
+  {
+    osmoh::OpeningHours const oh(openHours);
+    // TODO: We should check closed/open time for specific feature's timezone.
+    time_t const now = time(nullptr);
+    if (oh.IsValid() && !oh.IsUnknown(now))
+      details.m_isOpenNow = oh.IsOpen(now) ? osm::Yes : osm::No;
+    // In else case value us osm::Unknown, it's set in preview's constructor.
+  }
 
-  // Should stay the best feature, after unique, so add this criteria:
-  return (r1.m_distance < r2.m_distance);
+  if (strings::to_int(ft.GetMetadata(feature::Metadata::FMD_STARS), details.m_stars))
+    details.m_stars = base::Clamp(details.m_stars, 0, 5);
+  else
+    details.m_stars = 0;
+
+  bool const isSponsoredHotel = ftypes::IsBookingChecker::Instance()(ft);
+  details.m_isSponsoredHotel = isSponsoredHotel;
+  details.m_isHotel = ftypes::IsHotelChecker::Instance()(ft);
+
+  if (isSponsoredHotel)
+  {
+    auto const r = ft.GetMetadata(feature::Metadata::FMD_RATING);
+    if (!r.empty())
+    {
+      float raw;
+      if (strings::to_float(r.c_str(), raw))
+        details.m_hotelRating = raw;
+    }
+
+    int pricing;
+    if (!strings::to_int(ft.GetMetadata(feature::Metadata::FMD_PRICE_RATE), pricing))
+      pricing = 0;
+    string pricingStr;
+    CHECK_GREATER_OR_EQUAL(pricing, 0, ("Pricing must be positive!"));
+    for (auto i = 0; i < pricing; i++)
+      pricingStr.append(kPricingSymbol);
+
+    details.m_hotelPricing = pricing;
+    details.m_hotelApproximatePricing = pricingStr;
+  }
+
+  string const kFieldsSeparator = " • ";
+  auto const cuisines = feature::GetLocalizedCuisines(feature::TypesHolder(ft));
+  details.m_cuisine = strings::JoinStrings(cuisines, kFieldsSeparator);
+
+  auto const roadShields = feature::GetRoadShieldsNames(ft.GetRoadNumber());
+  details.m_roadShields = strings::JoinStrings(roadShields, kFieldsSeparator);
+
+  details.m_isInitialized = true;
 }
 
-bool PreResult2::EqualLinearTypesF::operator() (PreResult2 const & r1, PreResult2 const & r2) const
-{
-  // Note! Do compare for distance when filtering linear objects.
-  // Otherwise we will skip the results for different parts of the map.
-  return (r1.m_geomType == feature::GEOM_LINE &&
-          r1.IsEqualCommon(r2) &&
-          PointDistance(r1.GetCenter(), r2.GetCenter()) < DIST_SAME_STREET);
-}
-
-bool PreResult2::IsEqualCommon(PreResult2 const & r) const
-{
-  return (m_geomType == r.m_geomType &&
-          GetBestType() == r.GetBestType() &&
-          m_str == r.m_str);
-}
-
-bool PreResult2::IsStreet() const
-{
-  return (m_geomType == feature::GEOM_LINE &&
-          ftypes::IsStreetChecker::Instance()(m_types));
-}
-
-string PreResult2::DebugPrint() const
+string DebugPrint(RankerResult const & r)
 {
   stringstream ss;
-  ss << "{ IntermediateResult: " <<
-        "Name: " << m_str <<
-        "; Type: " << GetBestType() <<
-        "; Rank: " << int(m_rank) <<
-        "; Distance: " << m_distance << " }";
+  ss << "RankerResult ["
+     << "Name: " << r.GetName()
+     << "; Type: " << classif().GetReadableObjectName(r.GetBestType());
+
+    if (!r.GetProvenance().empty())
+      ss << "; Provenance: " << ::DebugPrint(r.GetProvenance());
+
+     ss << "; " << DebugPrint(r.GetRankingInfo())
+     << "; Linear model rank: " << r.GetLinearModelRank()
+     << "]";
   return ss.str();
 }
-
-uint32_t PreResult2::GetBestType(set<uint32_t> const * pPrefferedTypes) const
-{
-  if (pPrefferedTypes)
-  {
-    for (uint32_t type : m_types)
-    {
-      if (pPrefferedTypes->count(type) > 0)
-        return type;
-    }
-  }
-
-  // Do type truncate (2-level is enough for search results) only for
-  // non-preffered types (types from categories leave original).
-  uint32_t type = m_types.GetBestType();
-  ftype::TruncValue(type, 2);
-  return type;
-}
-
-string PreResult2::ReadableFeatureType(CategoriesHolder const * pCat,
-                                       uint32_t type, int8_t locale) const
-{
-  ASSERT_NOT_EQUAL(type, 0, ());
-  if (pCat)
-  {
-    string name;
-    if (pCat->GetNameByType(type, locale, name))
-      return name;
-  }
-
-  return classif().GetReadableObjectName(type);
-}
-
-void PreResult2::RegionInfo::GetRegion(storage::CountryInfoGetter const & infoGetter,
-                                       storage::CountryInfo & info) const
-{
-  if (!m_file.empty())
-    infoGetter.GetRegionInfo(m_file, info);
-  else
-    infoGetter.GetRegionInfo(m_point, info);
-}
-}  // namespace search::impl
 }  // namespace search

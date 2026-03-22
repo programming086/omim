@@ -1,59 +1,61 @@
-#import "LocationManager.h"
-#import "LocationPredictor.h"
-#import "ViewController.h"
-#import <MyTargetSDKCorp/MTRGNativeAppwallAd.h>
+#import "MWMMapDownloaderMode.h"
+#import "MWMViewController.h"
+#import "MWMMyPositionMode.h"
 
-#include "geometry/point2d.hpp"
-#include "geometry/rect2d.hpp"
-#include "indexer/map_style.hpp"
+#import <CoreApi/MWMUTM.h>
 
-namespace search { struct AddressInfo; }
-
+@class MWMWelcomePageController;
 @class MWMMapViewControlsManager;
-@class ShareActionSheet;
-@class MWMAPIBar;
+@class EAGLView;
+@class MWMMapDownloadDialog;
+@class BookmarksCoordinator;
+@protocol MWMLocationModeListener;
 
-@interface MapViewController : ViewController <LocationObserver, UIPopoverControllerDelegate>
-{
-	bool m_isSticking;
-	size_t m_StickyThreshold;
-	m2::PointD m_Pt1, m_Pt2;
+@interface MapViewController : MWMViewController
 
-  /// Temporary solution to improve long touch detection.
-  m2::PointD m_touchDownPoint;
-
-  CGPoint m_popoverPos;
-  
-  LocationPredictor * m_predictor;
-}
-
-- (void)setupMeasurementSystem;
++ (MapViewController *)sharedController;
+- (void)addListener:(id<MWMLocationModeListener>)listener;
+- (void)removeListener:(id<MWMLocationModeListener>)listener;
 
 // called when app is terminated by system
 - (void)onTerminate;
-- (void)onEnterForeground;
-- (void)onEnterBackground;
-
-- (void)dismissPopover;
-
-- (void)setMapStyle:(MapStyle)mapStyle;
+- (void)onGetFocus:(BOOL)isOnFocus;
 
 - (void)updateStatusBarStyle;
 
-- (void)showAPIBar;
-
 - (void)performAction:(NSString *)action;
 
-- (void)openBookmarks;
+- (void)openMapsDownloader:(MWMMapDownloaderMode)mode;
+- (void)openEditor;
+- (void)openBookmarkEditor;
+- (void)openFullPlaceDescriptionWithHtml:(NSString *)htmlString;
+- (void)showUGCAuth;
+- (void)showBookmarksLoadedAlert:(UInt64)categoryId;
+- (void)openCatalogAnimated:(BOOL)animated utm:(MWMUTM)utm;
+- (void)openCatalogDeeplink:(NSURL *)deeplinkUrl animated:(BOOL)animated utm:(MWMUTM)utm;
+- (void)openCatalogAbsoluteUrl:(NSURL *)url animated:(BOOL)animated utm:(MWMUTM)utm;
+- (void)searchText:(NSString *)text;
+- (void)openDrivingOptions;
 
-- (void)refreshAd;
-@property (nonatomic) MTRGNativeAppwallAd * appWallAd;
-@property (nonatomic, readonly) BOOL isAppWallAdActive;
+- (void)showRemoveAds;
+- (void)setPlacePageTopBound:(CGFloat)bound duration:(double)duration;
 
-@property (nonatomic) UIPopoverController * popoverVC;
-@property (nonatomic) ShareActionSheet * shareActionSheet;
-@property (nonatomic, readonly) MWMMapViewControlsManager * controlsManager;
-@property (nonatomic) m2::PointD restoreRouteDestination;
-@property (nonatomic) MWMAPIBar * apiBar;
++ (void)setViewport:(double)lat lon:(double)lon zoomLevel:(int)zoomlevel;
+
+- (void)initialize;
+- (void)enableCarPlayRepresentation;
+- (void)disableCarPlayRepresentation;
+
+- (void)dismissPlacePage;
+
+@property(nonatomic, readonly) MWMMapViewControlsManager * controlsManager;
+@property(nonatomic) MWMWelcomePageController * welcomePageController;
+@property(nonatomic, readonly) MWMMapDownloadDialog * downloadDialog;
+@property(nonatomic, readonly) BookmarksCoordinator * bookmarksCoordinator;
+
+@property(nonatomic) MWMMyPositionMode currentPositionMode;
+@property(strong, nonatomic) IBOutlet EAGLView * _Nonnull mapView;
+@property(strong, nonatomic) IBOutlet UIView * _Nonnull controlsView;
+@property(strong, nonatomic) IBOutlet UIView * _Nonnull searchViewContainer;
 
 @end

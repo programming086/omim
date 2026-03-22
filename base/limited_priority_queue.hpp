@@ -3,20 +3,19 @@
 #include "base/base.hpp"
 #include "base/assert.hpp"
 
-#include "std/algorithm.hpp"
-#include "std/functional.hpp"
-#include "std/vector.hpp"
+#include <algorithm>
+#include <functional>
+#include <vector>
 
-namespace my
+namespace base
 {
-
 // Priority queue that stores only N smallest elements.
-template <typename T, typename CompareT = less<T> >
+template <typename T, typename CompareT = std::less<T>>
 class limited_priority_queue
 {
 public:
   typedef T value_type;
-  typedef typename vector<T>::const_iterator const_iterator;
+  typedef typename std::vector<T>::const_iterator const_iterator;
 
   explicit limited_priority_queue(size_t maxSize = 1, CompareT compare = CompareT())
     : m_maxSize(maxSize == 0 ? 1 : maxSize), m_compare(compare)
@@ -79,7 +78,7 @@ public:
   void reserve(size_t n) { m_queue.reserve(n); }
 
 private:
-  vector<T> m_queue;
+  std::vector<T> m_queue;
   size_t m_maxSize;
   CompareT m_compare;
 };
@@ -89,5 +88,4 @@ void swap(limited_priority_queue<T, CompareT> & q1, limited_priority_queue<T, Co
 {
   q1.swap(q2);
 }
-
-}  // namespace my
+}  // namespace base

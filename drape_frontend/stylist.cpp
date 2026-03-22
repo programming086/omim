@@ -1,19 +1,19 @@
 #include "drape_frontend/stylist.hpp"
 
+#include "indexer/classificator.hpp"
 #include "indexer/feature.hpp"
 #include "indexer/feature_visibility.hpp"
 #include "indexer/drawing_rules.hpp"
 #include "indexer/drules_include.hpp"
 #include "indexer/scales.hpp"
 
-#include "std/bind.hpp"
+#include <algorithm>
+#include <limits>
 
 namespace df
 {
-
 namespace
 {
-
 enum Type
 {
   Line      =               1,
@@ -44,7 +44,7 @@ inline drule::rule_type_t Convert(Type t)
   }
 }
 
-// ==================================== //
+double constexpr kMinPriority = std::numeric_limits<double>::lowest();
 
 inline bool IsTypeOf(drule::Key const & key, int flags)
 {
@@ -66,172 +66,150 @@ bool IsMiddleTunnel(int const layer, double const depth)
   return layer != feature::LAYER_EMPTY && depth < 19000;
 }
 
-double CalcPopulationRank(FeatureType const & f)
-{
-  uint32_t population = f.GetPopulation();
-  if (population != 1)
-  {
-    double const maxPopulation = 3.0E6;
-    return min(maxPopulation, (double)population) / (maxPopulation * 4);
-  }
-
-  return 0.0;
-}
-
-class KeyFunctor
+class Aggregator
 {
 public:
-  KeyFunctor(FeatureType const & f,
-             feature::EGeomType type,
-             int const zoomLevel,
-             int const keyCount,
-             bool isNameExists)
-    : m_pointStyleFinded(false)
-    , m_lineStyleFinded(false)
-    , m_iconFinded(false)
-    , m_captionWithoutOffsetFinded(false)
-    , m_auxCaptionFinded(false)
+  Aggregator(FeatureType & f, feature::GeomType const type, int const zoomLevel, int const keyCount)
+    : m_pointStyleFound(false)
+    , m_lineStyleFound(false)
+    , m_auxCaptionFound(false)
+    , m_mainTextType(drule::text_type_name)
     , m_f(f)
     , m_geomType(type)
     , m_zoomLevel(zoomLevel)
-    , m_isNameExists(isNameExists)
   {
     m_rules.reserve(keyCount);
     Init();
   }
 
+  void AggregateKeys(drule::KeysT const & keys)
+  {
+    for (auto const & key : keys)
+      ProcessKey(key);
+  }
+
+  void AggregateStyleFlags(drule::KeysT const & keys, bool const nameExists)
+  {
+    for (auto const & key : keys)
+    {
+      bool const isNonEmptyCaption = IsTypeOf(key, Caption) && nameExists;
+      m_pointStyleFound |= (IsTypeOf(key, Symbol | Circle) || isNonEmptyCaption);
+      m_lineStyleFound  |= IsTypeOf(key, Line);
+    }
+  }
+
+  bool m_pointStyleFound;
+  bool m_lineStyleFound;
+  bool m_auxCaptionFound;
+  drule::text_type_t m_mainTextType;
+  buffer_vector<Stylist::TRuleWrapper, 8> m_rules;
+
+private:
   void ProcessKey(drule::Key const & key)
   {
     double depth = key.m_priority;
-    if (IsMiddleTunnel(m_depthLayer, depth) &&
-        IsTypeOf(key, Line | Area | Waymarker))
+    if (IsMiddleTunnel(m_depthLayer, depth) && IsTypeOf(key, Line))
     {
       double const layerPart = m_depthLayer * drule::layer_base_priority;
       double const depthPart = fmod(depth, drule::layer_base_priority);
       depth = layerPart + depthPart;
     }
 
-    if (IsTypeOf(key, Caption | Symbol | Circle | PathText))
-    {
-      depth += m_priorityModifier;
-      if (m_geomType == feature::GEOM_POINT) ++depth;
-    }
-    else if (IsTypeOf(key, Area))
-      depth -= m_priorityModifier;
+    drule::BaseRule const * const dRule = drule::rules().Find(key);
+    if (dRule == nullptr)
+      return;
 
-    drule::BaseRule const * dRule = drule::rules().Find(key);
-    m_rules.push_back(make_pair(dRule, depth));
+    if (dRule->GetCaption(0) != nullptr)
+      m_mainTextType = dRule->GetCaptionTextType(0);
 
-    bool isNonEmptyCaption = IsTypeOf(key, Caption) && m_isNameExists;
-    m_pointStyleFinded |= (IsTypeOf(key, Symbol | Circle) || isNonEmptyCaption);
-    m_lineStyleFinded  |= IsTypeOf(key, Line);
-    m_auxCaptionFinded |= (dRule->GetCaption(1) != 0);
+    m_auxCaptionFound |= (dRule->GetCaption(1) != nullptr);
+
+    // Skip lines with zero width. Lines can have zero width only if they have
+    // path symbols along.
+    auto const lineRule = dRule->GetLine();
+    if (lineRule != nullptr && (lineRule->width() < 1e-5 && !lineRule->has_pathsym()))
+      return;
+
+    m_rules.emplace_back(std::make_pair(dRule, depth));
   }
 
-  bool m_pointStyleFinded;
-  bool m_lineStyleFinded;
-  bool m_iconFinded;
-  bool m_captionWithoutOffsetFinded;
-  bool m_auxCaptionFinded;
-  buffer_vector<Stylist::rule_wrapper_t, 8> m_rules;
-
-private:
   void Init()
   {
     m_depthLayer = m_f.GetLayer();
     if (m_depthLayer == feature::LAYER_TRANSPARENT_TUNNEL)
       m_depthLayer = feature::LAYER_EMPTY;
 
-    if (m_geomType == feature::GEOM_POINT)
+    if (m_geomType == feature::GeomType::Point)
       m_priorityModifier = (double)m_f.GetPopulation() / 7E9;
     else
     {
       m2::RectD const r = m_f.GetLimitRect(m_zoomLevel);
-      m_priorityModifier = min(1.0, r.SizeX() * r.SizeY() * 10000.0);
+      m_priorityModifier = std::min(1.0, r.SizeX() * r.SizeY() * 10000.0);
     }
   }
 
-private:
-  FeatureType const & m_f;
-  feature::EGeomType m_geomType;
+  FeatureType & m_f;
+  feature::GeomType m_geomType;
   int const m_zoomLevel;
-  bool const m_isNameExists;
   double m_priorityModifier;
   int m_depthLayer;
 };
 
-const uint8_t CoastlineFlag  = 1;
-const uint8_t AreaStyleFlag  = 1 << 1;
-const uint8_t LineStyleFlag  = 1 << 2;
-const uint8_t PointStyleFlag = 1 << 3;
+uint8_t const CoastlineFlag  = 1;
+uint8_t const AreaStyleFlag  = 1 << 1;
+uint8_t const LineStyleFlag  = 1 << 2;
+uint8_t const PointStyleFlag = 1 << 3;
+}  // namespace
 
-} // namespace
-
-// ==================================== //
-
-CaptionDescription::CaptionDescription()
-  : m_populationRank(0.0) {}
-
-void CaptionDescription::Init(FeatureType const & f,
-                              int const zoomLevel)
+IsBuildingHasPartsChecker::IsBuildingHasPartsChecker()
 {
-  f.GetPreferredNames(m_mainText, m_auxText);
+  m_types.push_back(classif().GetTypeByPath({"building", "has_parts"}));
+}
+
+IsHatchingTerritoryChecker::IsHatchingTerritoryChecker()
+{
+  Classificator const & c = classif();
+  char const * arr[][2] = {{"leisure", "nature_reserve"},
+                           {"boundary", "national_park"},
+                           {"landuse", "military"}};
+  for (auto const & p : arr)
+    m_types.push_back(c.GetTypeByPath({p[0], p[1]}));
+}
+
+void CaptionDescription::Init(FeatureType & f, int8_t deviceLang, int const zoomLevel,
+                              feature::GeomType const type, drule::text_type_t const mainTextType,
+                              bool const auxCaptionExists)
+{
+  if (auxCaptionExists || type == feature::GeomType::Line)
+    f.GetPreferredNames(true /* allowTranslit */, deviceLang, m_mainText, m_auxText);
+  else
+    f.GetReadableName(true /* allowTranslit */, deviceLang, m_mainText);
+
+  // Set max text size to avoid VB/IB overflow in rendering.
+  size_t constexpr kMaxTextSize = 200;
+  if (m_mainText.size() > kMaxTextSize)
+    m_mainText = m_mainText.substr(0, kMaxTextSize) + "...";
 
   m_roadNumber = f.GetRoadNumber();
   m_houseNumber = f.GetHouseNumber();
-  m_populationRank = CalcPopulationRank(f);
 
-  SwapCaptions(zoomLevel);
-  DiscardLongCaption(zoomLevel);
+  ProcessZoomLevel(zoomLevel);
+  ProcessMainTextType(mainTextType);
 }
 
-void CaptionDescription::FormatCaptions(FeatureType const & f,
-                                        feature::EGeomType type,
-                                        bool auxCaptionExists)
-{
-  if (!auxCaptionExists && !m_auxText.empty() && type != feature::GEOM_LINE)
-  {
-    f.GetReadableName(m_mainText);
-    if (m_mainText == m_auxText)
-      m_auxText.clear();
-  }
-
-  if (!m_houseNumber.empty())
-  {
-    if (m_mainText.empty() || m_houseNumber.find(m_mainText) != string::npos)
-      m_houseNumber.swap(m_mainText);
-    else
-      m_mainText += ("(" + m_houseNumber + ")");
-  }
-}
-
-string const & CaptionDescription::GetMainText() const
+std::string const & CaptionDescription::GetMainText() const
 {
   return m_mainText;
 }
 
-string const & CaptionDescription::GetAuxText() const
+std::string const & CaptionDescription::GetAuxText() const
 {
   return m_auxText;
 }
 
-string const & CaptionDescription::GetRoadNumber() const
+std::string const & CaptionDescription::GetRoadNumber() const
 {
   return m_roadNumber;
-}
-
-string CaptionDescription::GetPathName() const
-{
-  // Always concat names for linear features because we process only one draw rule now.
-  if (m_mainText.empty())
-    return m_mainText;
-  else
-    return m_mainText + "   " + m_auxText;
-}
-
-double CaptionDescription::GetPopulationRank() const
-{
-  return m_populationRank;
 }
 
 bool CaptionDescription::IsNameExists() const
@@ -239,27 +217,44 @@ bool CaptionDescription::IsNameExists() const
   return !m_mainText.empty() || !m_houseNumber.empty();
 }
 
-void CaptionDescription::SwapCaptions(int const zoomLevel)
+void CaptionDescription::ProcessZoomLevel(int const zoomLevel)
 {
   if (zoomLevel <= scales::GetUpperWorldScale() && !m_auxText.empty())
   {
-    m_mainText.swap(m_auxText);
+    m_auxText.clear();
+  }
+
+  if (zoomLevel < 5 && m_mainText.size() > 50)
+  {
+    m_mainText.clear();
     m_auxText.clear();
   }
 }
 
-void CaptionDescription::DiscardLongCaption(int const zoomLevel)
+void CaptionDescription::ProcessMainTextType(drule::text_type_t const & mainTextType)
 {
-  if (zoomLevel < 5 && m_mainText.size() > 50)
-    m_mainText.clear();
-}
+  if (m_houseNumber.empty())
+    return;
 
-// ==================================== //
+  if (mainTextType == drule::text_type_housenumber)
+  {
+    m_mainText.swap(m_houseNumber);
+    m_houseNumber.clear();
+    m_isHouseNumberInMainText = true;
+  }
+  else if (mainTextType == drule::text_type_name)
+  {
+    if (m_mainText.empty() || m_houseNumber.find(m_mainText) != std::string::npos)
+    {
+      m_houseNumber.swap(m_mainText);
+      m_isHouseNumberInMainText = true;
+    }
+  }
+}
 
 Stylist::Stylist()
   : m_state(0)
-{
-}
+{}
 
 bool Stylist::IsCoastLine() const
 {
@@ -286,7 +281,7 @@ CaptionDescription const & Stylist::GetCaptionDescription() const
   return m_captionDescriptor;
 }
 
-void Stylist::ForEachRule(Stylist::rule_callback_t const & fn)
+void Stylist::ForEachRule(Stylist::TRuleCallback const & fn) const
 {
   typedef rules_t::const_iterator const_iter;
   for (const_iter it = m_rules.begin(); it != m_rules.end(); ++it)
@@ -323,32 +318,38 @@ CaptionDescription & Stylist::GetCaptionDescriptionImpl()
   return m_captionDescriptor;
 }
 
-// ==================================== //
-
-bool InitStylist(FeatureType const & f,
-                 int const zoomLevel,
-                 Stylist & s)
+bool InitStylist(FeatureType & f, int8_t deviceLang, int const zoomLevel, bool buildings3d, Stylist & s)
 {
+  feature::TypesHolder const types(f);
+
+  if (!buildings3d && ftypes::IsBuildingPartChecker::Instance()(types) &&
+      !ftypes::IsBuildingChecker::Instance()(types))
+    return false;
+
   drule::KeysT keys;
-  pair<int, bool> geomType = feature::GetDrawRule(f, zoomLevel, keys);
+  auto const geomType = feature::GetDrawRule(types, zoomLevel, keys);
+
+  feature::FilterRulesByRuntimeSelector(f, zoomLevel, keys);
 
   if (keys.empty())
     return false;
 
   drule::MakeUnique(keys);
+
   if (geomType.second)
     s.RaiseCoastlineFlag();
 
-  feature::EGeomType mainGeomType = feature::EGeomType(geomType.first);
+  auto const mainGeomType = feature::GeomType(geomType.first);
 
-  switch (mainGeomType) {
-  case feature::GEOM_POINT:
+  switch (mainGeomType)
+  {
+  case feature::GeomType::Point:
     s.RaisePointStyleFlag();
     break;
-  case feature::GEOM_LINE :
+  case feature::GeomType::Line :
     s.RaiseLineStyleFlag();
     break;
-  case feature::GEOM_AREA :
+  case feature::GeomType::Area :
     s.RaiseAreaStyleFlag();
     break;
   default:
@@ -356,20 +357,44 @@ bool InitStylist(FeatureType const & f,
     return false;
   }
 
+  Aggregator aggregator(f, mainGeomType, zoomLevel, static_cast<int>(keys.size()));
+  aggregator.AggregateKeys(keys);
+
   CaptionDescription & descr = s.GetCaptionDescriptionImpl();
-  descr.Init(f, zoomLevel);
+  descr.Init(f, deviceLang, zoomLevel, mainGeomType, aggregator.m_mainTextType, aggregator.m_auxCaptionFound);
 
-  KeyFunctor keyFunctor(f, mainGeomType, zoomLevel, keys.size(), descr.IsNameExists());
-  for_each(keys.begin(), keys.end(), bind(&KeyFunctor::ProcessKey, &keyFunctor, _1));
+  aggregator.AggregateStyleFlags(keys, descr.IsNameExists());
 
-  if (keyFunctor.m_pointStyleFinded)
+  if (aggregator.m_pointStyleFound)
     s.RaisePointStyleFlag();
-  if (keyFunctor.m_lineStyleFinded)
+  if (aggregator.m_lineStyleFound)
     s.RaiseLineStyleFlag();
 
-  s.m_rules.swap(keyFunctor.m_rules);
-  descr.FormatCaptions(f, mainGeomType, keyFunctor.m_auxCaptionFinded);
+  s.m_rules.swap(aggregator.m_rules);
+
   return true;
 }
 
-} // namespace df
+double GetFeaturePriority(FeatureType & f, int const zoomLevel)
+{
+  drule::KeysT keys;
+  std::pair<int, bool> const geomType =
+      feature::GetDrawRule(feature::TypesHolder(f), zoomLevel, keys);
+
+  feature::FilterRulesByRuntimeSelector(f, zoomLevel, keys);
+
+  auto const mainGeomType = feature::GeomType(geomType.first);
+
+  Aggregator aggregator(f, mainGeomType, zoomLevel, static_cast<int>(keys.size()));
+  aggregator.AggregateKeys(keys);
+
+  double maxPriority = kMinPriority;
+  for (auto const & rule : aggregator.m_rules)
+  {
+    if (rule.second > maxPriority)
+      maxPriority = rule.second;
+  }
+
+  return maxPriority;
+}
+}  // namespace df

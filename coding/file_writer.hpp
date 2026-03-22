@@ -1,13 +1,22 @@
 #pragma once
-#include "coding/writer.hpp"
-#include "base/base.hpp"
-#include "std/unique_ptr.hpp"
 
-namespace my { class FileData; }
+#include "coding/writer.hpp"
+#include "coding/internal/file_data.hpp"
+#include "coding/write_to_sink.hpp"
+
+#include "base/assert.hpp"
+#include "base/macros.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string>
 
 // FileWriter, not thread safe.
 class FileWriter : public Writer
 {
+  DISALLOW_COPY(FileWriter);
+
 public:
   // Values actually match internal FileData::Op enum.
   enum Op
@@ -15,44 +24,78 @@ public:
     // Create an empty file for writing. If a file with the same name already exists
     // its content is erased and the file is treated as a new empty file.
     OP_WRITE_TRUNCATE = 1,
+
     // Open a file for update. The file is created if it does not exist.
     OP_WRITE_EXISTING = 2,
+
     // Append to a file. Writing operations append data at the end of the file.
     // The file is created if it does not exist.
     // Seek should not be called, if file is opened for append.
     OP_APPEND = 3
   };
 
-  /// Works like "move semantics".
-  /// Added for use in FilesContainerW interface.
-  FileWriter(FileWriter const & rhs);
+  explicit FileWriter(std::string const & fileName,
+                      Op operation = OP_WRITE_TRUNCATE);
+  FileWriter(FileWriter && rhs) = default;
 
-  explicit FileWriter(string const & fileName,
-                      Op operation = OP_WRITE_TRUNCATE, bool bTruncOnClose = false);
-  ~FileWriter();
+  ~FileWriter() override;
 
-  void Seek(int64_t pos);
-  int64_t Pos() const;
-  void Write(void const * p, size_t size);
+  // Writer overrides:
+  void Seek(uint64_t pos) override;
+  uint64_t Pos() const override;
+  void Write(void const * p, size_t size) override;
 
-  void WritePaddingByEnd(size_t factor);
+  virtual uint64_t Size() const;
+  virtual void Flush();
 
-  void WritePaddingByPos(size_t factor);
+  std::string const & GetName() const;
 
-  uint64_t Size() const;
-  void Flush();
+  static void DeleteFileX(std::string const & fName);
 
-  void Reserve(uint64_t size);
-
-  static void DeleteFileX(string const & fName);
-
-  string const & GetName() const;
+protected:
+  base::FileData & GetFileData();
+  base::FileData const & GetFileData() const;
 
 private:
-  typedef my::FileData fdata_t;
+  std::unique_ptr<base::FileData> m_pFileData;
+};
 
-  void WritePadding(uint64_t offset, uint64_t factor);
+class FilesContainerWriter : public FileWriter
+{
+public:
+  FilesContainerWriter(std::string const & fileName, Op operation)
+    : FileWriter(fileName, operation)
+  {
+  }
 
-  unique_ptr<fdata_t> m_pFileData;
-  bool m_bTruncOnClose;
+  void WritePaddingByEnd(size_t factor) { WritePadding(Size(), factor); }
+  void WritePaddingByPos(size_t factor) { WritePadding(Pos(), factor); }
+
+private:
+  void WritePadding(uint64_t offset, uint64_t factor)
+  {
+    ASSERT_GREATER(factor, 1, ());
+    uint64_t const padding = ((offset + factor - 1) / factor) * factor - offset;
+    if (padding == 0)
+      return;
+    WriteZeroesToSink(*this, padding);
+  }
+};
+
+class TruncatingFileWriter : public FilesContainerWriter
+{
+public:
+  explicit TruncatingFileWriter(std::string const & fileName)
+    : FilesContainerWriter(fileName, FileWriter::OP_WRITE_EXISTING)
+  {
+  }
+
+  TruncatingFileWriter(TruncatingFileWriter && rhs) = default;
+
+  // Writer overrides:
+  ~TruncatingFileWriter() override
+  {
+    GetFileData().Flush();
+    GetFileData().Truncate(Pos());
+  }
 };

@@ -1,22 +1,22 @@
 package com.mapswithme.maps.settings;
 
 import android.app.Activity;
-import android.content.DialogInterface;
 import android.os.Bundle;
-import android.support.v7.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.TextView;
+
 import com.mapswithme.maps.R;
 import com.mapswithme.maps.base.OnBackPressListener;
-import com.mapswithme.maps.widget.BaseShadowController;
 import com.mapswithme.util.Constants;
 import com.mapswithme.util.Utils;
 
 import java.util.List;
+import java.util.Locale;
 
 public class StoragePathFragment extends BaseSettingsFragment
                               implements StoragePathManager.MoveFilesListener,
@@ -26,7 +26,7 @@ public class StoragePathFragment extends BaseSettingsFragment
   private ListView mList;
 
   private StoragePathAdapter mAdapter;
-  private StoragePathManager mPathManager = new StoragePathManager();
+  private final StoragePathManager mPathManager = new StoragePathManager();
 
   @Override
   protected int getLayoutRes()
@@ -35,18 +35,12 @@ public class StoragePathFragment extends BaseSettingsFragment
   }
 
   @Override
-  protected BaseShadowController createShadowController()
-  {
-    return null;
-  }
-
-  @Override
   public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
   {
-    super.onCreateView(inflater, container, savedInstanceState);
+    View root = super.onCreateView(inflater, container, savedInstanceState);
 
-    mHeader = (TextView) mFrame.findViewById(R.id.header);
-    mList = (ListView) mFrame.findViewById(R.id.list);
+    mHeader = (TextView) root.findViewById(R.id.header);
+    mList = (ListView) root.findViewById(R.id.list);
     mList.setOnItemClickListener(new AdapterView.OnItemClickListener()
     {
       @Override
@@ -56,7 +50,7 @@ public class StoragePathFragment extends BaseSettingsFragment
       }
     });
 
-    return mFrame;
+    return root;
   }
 
   @Override
@@ -114,14 +108,8 @@ public class StoragePathFragment extends BaseSettingsFragment
 
     new AlertDialog.Builder(activity)
         .setTitle(message)
-        .setPositiveButton(R.string.report_a_bug, new DialogInterface.OnClickListener()
-        {
-          @Override
-          public void onClick(DialogInterface dialog, int which)
-          {
-            Utils.sendSupportMail(activity, message);
-          }
-        }).show();
+        .setPositiveButton(R.string.report_a_bug,
+                           (dialog, which) -> Utils.sendBugReport(activity, message)).show();
   }
 
   static String getSizeString(long size)
@@ -140,19 +128,12 @@ public class StoragePathFragment extends BaseSettingsFragment
     }
 
     // left 1 digit after the comma and add postfix string
-    return String.format("%.1f %s", (double) size / current, units[i]);
+    return String.format(Locale.US, "%.1f %s", (double) size / current, units[i]);
   }
 
   @Override
   public boolean onBackPressed()
   {
-    SettingsActivity activity = (SettingsActivity)getActivity();
-    if (activity.onIsMultiPane())
-    {
-      activity.switchToHeader(R.id.group_map);
-      return true;
-    }
-
     return false;
   }
 }

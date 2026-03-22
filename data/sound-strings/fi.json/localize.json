@@ -1,14 +1,15 @@
 {
-"make_a_slight_right_turn":"Loiva oikea.",
+"make_a_slight_right_turn":"Pysy oikealla.",
 "make_a_right_turn":"Käänny oikealle.",
 "make_a_sharp_right_turn":"Jyrkkä oikea.",
 "enter_the_roundabout":"Aja liikenneympyrään.",
 "leave_the_roundabout":"Poistu liikenneympyrästä.",
-"make_a_slight_left_turn":"Loiva vasen.",
+"make_a_slight_left_turn":"Pysy vasemmalla.",
 "make_a_left_turn":"Käänny vasemmalle.",
 "make_a_sharp_left_turn":"Jyrkkä vasen.",
 "make_a_u_turn":"Tee U-käännös.",
 "go_straight":"Aja suoraan.",
+"exit":"Poistu.",
 "destination":"Olet perillä.",
 "you_have_reached_the_destination":"Olet saapunut.",
 "in_50_meters":"Viidenkymmenen metrin päässä",
@@ -28,7 +29,7 @@
 "in_2_kilometers":"Kahden kilometrin päässä",
 "in_2_5_kilometers":"Kahden ja puolen kilometrin päässä",
 "in_3_kilometers":"Kolmen kilometrin päässä",
-"then":"Sitten.",
+"then":"Sitten",
 "take_the_1_exit":"Poistu seuraavassa liittymässä.",
 "take_the_2_exit":"Poistu toisessa liittymässä.",
 "take_the_3_exit":"Poistu kolmannessa liittymässä.",
@@ -38,7 +39,7 @@
 "take_the_7_exit":"Poistu seitsemännessä liittymässä.",
 "take_the_8_exit":"Poistu kahdeksannessa liittymässä.",
 "take_the_9_exit":"Poistu yhdeksännessä liittymässä.",
-"take_the_10_exit":"Poistu kymmenennessäliittymässä.",
+"take_the_10_exit":"Poistu kymmenennessä liittymässä.",
 "take_the_11_exit":"Poistu yhdennessätoista liittymässä.",
 "in_50_feet":"Viidenkymmenen jalan päässä",
 "in_100_feet":"Sadan jalan päässä",
@@ -61,5 +62,6 @@
 "in_5000_feet":"Viidentuhannen jalan päässä",
 "in_1_mile":"Mailin päässä",
 "in_1_5_miles":"Puolentoista mailin päässä",
-"in_2_miles":"Kahden mailin päässä"
+"in_2_miles":"Kahden mailin päässä",
+"unknown_camera":"Edessä on kamera"
 }

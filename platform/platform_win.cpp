@@ -6,13 +6,16 @@
 #include "coding/file_writer.hpp"
 
 #include "std/windows.hpp"
-#include "std/bind.hpp"
+
+#include <functional>
 
 #include <direct.h>
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+using namespace std;
 
 static bool GetUserWritableDir(string & outDir)
 {
@@ -95,6 +98,19 @@ bool Platform::IsFileExistsByFullPath(string const & filePath)
   return ::GetFileAttributesA(filePath.c_str()) != INVALID_FILE_ATTRIBUTES;
 }
 
+//static
+void Platform::DisableBackupForFile(string const & filePath) {}
+
+// static
+string Platform::GetCurrentWorkingDirectory() noexcept
+{
+  char path[PATH_MAX];
+  char const * const dir = getcwd(path, PATH_MAX);
+  if (dir == nullptr)
+    return {};
+  return dir;
+}
+
 // static
 Platform::EError Platform::RmDir(string const & dirName)
 {
@@ -123,22 +139,37 @@ string Platform::UniqueClientId() const
   return "@TODO";
 }
 
-void Platform::RunOnGuiThread(TFunctor const & fn)
+string Platform::AdvertisingId() const
 {
-  /// @todo
-  fn();
+  return {};
 }
 
-void Platform::RunAsync(TFunctor const & fn, Priority p)
+string Platform::MacAddress(bool md5Decoded) const
 {
-  /// @todo
-  fn();
+  // Not implemented.
+  UNUSED_VALUE(md5Decoded);
+  return {};
+}
+
+string Platform::DeviceName() const
+{
+  return OMIM_OS_NAME;
+}
+
+string Platform::DeviceModel() const
+{
+  return {};
 }
 
 Platform::EConnectionType Platform::ConnectionStatus()
 {
   // @TODO Add implementation
   return EConnectionType::CONNECTION_NONE;
+}
+
+Platform::ChargingStatus Platform::GetChargingStatus()
+{
+  return Platform::ChargingStatus::Plugged;
 }
 
 Platform::TStorageStatus Platform::GetWritableStorageStatus(uint64_t neededSize) const
@@ -166,7 +197,7 @@ bool Platform::GetFileSizeByFullPath(string const & filePath, uint64_t & size)
   HANDLE hFile = CreateFileA(filePath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
   if (hFile != INVALID_HANDLE_VALUE)
   {
-    MY_SCOPE_GUARD(autoClose, bind(&CloseHandle, hFile));
+    SCOPE_GUARD(autoClose, bind(&CloseHandle, hFile));
     LARGE_INTEGER fileSize;
     if (0 != GetFileSizeEx(hFile, &fileSize))
     {
@@ -175,8 +206,4 @@ bool Platform::GetFileSizeByFullPath(string const & filePath, uint64_t & size)
     }
   }
   return false;
-}
-
-void Platform::GetSystemFontNames(FilesList & res) const
-{
 }

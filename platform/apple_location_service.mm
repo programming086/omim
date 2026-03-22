@@ -34,12 +34,6 @@ public:
     m_locationManager.desiredAccuracy = kCLLocationAccuracyBest;
   }
 
-  virtual ~AppleLocationService()
-  {
-    [m_locationManager release];
-    [m_objCppWrapper release];
-  }
-
   void OnLocationUpdate(GpsInfo const & info)
   {
     m_observer.OnLocationUpdated(info);
@@ -88,17 +82,15 @@ public:
   //info.m_verticalAccuracy = location.verticalAccuracy;
   //info.m_altitude = location.altitude;
   //info.m_course = location.course;
-  //info.m_speed = location.speed;
+  //info.m_speedMpS = location.speed;
 }
 
 - (void)locationManager:(CLLocationManager *)manager
-    didUpdateToLocation:(CLLocation *)newLocation
-           fromLocation:(CLLocation *)oldLocation
+     didUpdateLocations:(NSArray<CLLocation *> *)locations
 {
   UNUSED_VALUE(manager);
-  UNUSED_VALUE(oldLocation);
   GpsInfo newInfo;
-  [LocationManagerWrapper location:newLocation toGpsInfo:newInfo];
+  [LocationManagerWrapper location:locations.firstObject toGpsInfo:newInfo];
   m_service->OnLocationUpdate(newInfo);
 }
 
@@ -106,7 +98,7 @@ public:
        didFailWithError:(NSError *)error
 {
   UNUSED_VALUE(manager);
-  LOG(LWARNING, ("locationManager failed with error", error.code, [error.description UTF8String]));
+  LOG(LWARNING, ("locationManager failed with error", error.code, error.description.UTF8String));
 
   if (error.code == kCLErrorDenied)
     m_service->OnDeniedError();

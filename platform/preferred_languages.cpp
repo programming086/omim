@@ -5,31 +5,27 @@
 #include "base/macros.hpp"
 
 #include "std/target_os.hpp"
-#include "std/set.hpp"
+
+#include <string>
+#include <vector>
+
+using namespace std;
 
 #if defined(OMIM_OS_MAC) || defined(OMIM_OS_IPHONE)
   #include <CoreFoundation/CFLocale.h>
   #include <CoreFoundation/CFString.h>
-
 #elif defined(OMIM_OS_WINDOWS)
-  #include "../std/windows.hpp"
+  #include "std/windows.hpp"
   // for XP it's not defined
   #define MUI_LANGUAGE_NAME 0x8
-
 #elif defined(OMIM_OS_LINUX)
-  #include "../std/cstdlib.hpp"
-
+  #include <cstdlib>
 #elif defined(OMIM_OS_ANDROID)
   /// Body for this function is inside android/jni sources
   string GetAndroidSystemLanguage();
-
-#elif defined(OMIM_OS_TIZEN)
-  #include "tizen_utils.hpp"
 #else
   #error "Define language preferences for your platform"
-
 #endif
-
 
 #ifdef OMIM_OS_WINDOWS
 struct MSLocale
@@ -44,20 +40,40 @@ static const MSLocale gLocales[] = {{0x1,"ar"},{0x2,"bg"},{0x3,"ca"},{0x4,"zh-Ha
 
 namespace languages
 {
-
 void GetSystemPreferred(vector<string> & languages)
 {
-#if defined(OMIM_OS_MAC) || defined(OMIM_OS_IPHONE)
-  // Mac and iOS implementation
-  CFArrayRef langs = CFLocaleCopyPreferredLanguages();
-  char buf[30];
-  for (CFIndex i = 0; i < CFArrayGetCount(langs); ++i)
+#if defined(OMIM_OS_MAC) || defined(OMIM_OS_IPHONE) || defined(OMIM_OS_LINUX)
+  // check environment variables
+  char const * p = getenv("LANGUAGE");
+  if (p && strlen(p))  // LANGUAGE can contain several values divided by ':'
   {
-    CFStringRef strRef = (CFStringRef)CFArrayGetValueAtIndex(langs, i);
-    CFStringGetCString(strRef, buf, 30, kCFStringEncodingUTF8);
-    languages.push_back(buf);
+    string const str(p);
+    strings::SimpleTokenizer iter(str, ":");
+    for (; iter; ++iter)
+      languages.push_back(*iter);
   }
-  CFRelease(langs);
+  else if ((p = getenv("LC_ALL")))
+    languages.push_back(p);
+  else if ((p = getenv("LC_MESSAGES")))
+    languages.push_back(p);
+  else if ((p = getenv("LANG")))
+    languages.push_back(p);
+
+#if defined(OMIM_OS_MAC) || defined(OMIM_OS_IPHONE)
+  else
+  {
+    // Mac and iOS implementation
+    CFArrayRef langs = CFLocaleCopyPreferredLanguages();
+    char buf[30];
+    for (CFIndex i = 0; i < CFArrayGetCount(langs); ++i)
+    {
+      CFStringRef strRef = (CFStringRef)CFArrayGetValueAtIndex(langs, i);
+      CFStringGetCString(strRef, buf, 30, kCFStringEncodingUTF8);
+      languages.push_back(buf);
+    }
+    CFRelease(langs);
+  }
+#endif
 
 #elif defined(OMIM_OS_WINDOWS)
   // if we're on Vista or above, take list of preferred languages
@@ -100,31 +116,8 @@ void GetSystemPreferred(vector<string> & languages)
       }
   }
 
-#elif defined(OMIM_OS_LINUX)
-  // check environment variables
-  char const * p = getenv("LANGUAGE");
-  if (p) // LANGUAGE can contain several values divided by ':'
-  {
-    string const str(p);
-    strings::SimpleTokenizer iter(str, ":");
-    while (iter)
-    {
-      languages.push_back(*iter);
-      ++iter;
-    }
-  }
-  else if ((p = getenv("LC_ALL")))
-    languages.push_back(p);
-  else if ((p = getenv("LC_MESSAGES")))
-    languages.push_back(p);
-  else if ((p = getenv("LANG")))
-    languages.push_back(p);
-
 #elif defined(OMIM_OS_ANDROID)
   languages.push_back(GetAndroidSystemLanguage());
-
-#elif defined(OMIM_OS_TIZEN)
-  languages.push_back(GetTizenLocale());
 #else
   #error "Define language preferences for your platform"
 #endif
@@ -172,4 +165,26 @@ string GetCurrentNorm()
   return Normalize(GetCurrentOrig());
 }
 
+string GetCurrentTwine()
+{
+  string const lang = GetCurrentOrig();
+  // Special cases for different Chinese variations.
+  if (lang.find("zh") == 0)
+  {
+    string lower = lang;
+    strings::AsciiToLower(lower);
+
+    // Traditional Chinese.
+    for (char const * s : {"hant", "tw", "hk", "mo"})
+    {
+      if (lower.find(s) != string::npos)
+        return "zh-Hant";
+    }
+
+    // Simplified Chinese by default for all other cases.
+    return "zh-Hans";
+  }
+  // Use short (2 or 3 chars) versions for all other languages.
+  return Normalize(lang);
 }
+}  // namespace languages

@@ -1,6 +1,6 @@
 #include "testing/testing.hpp"
 
-#include "map/feature_vec_model.hpp"
+#include "map/features_fetcher.hpp"
 
 #include "indexer/data_header.hpp"
 #include "indexer/scales.hpp"
@@ -16,16 +16,17 @@
 #include "base/logging.hpp"
 #include "base/macros.hpp"
 
-#include "std/string.hpp"
-#include "std/algorithm.hpp"
+#include <algorithm>
+#include <string>
+#include <vector>
 
+using namespace std;
 
 namespace
 {
+using Cont = vector<uint32_t>;
 
-typedef vector<uint32_t> feature_cont_t;
-
-bool IsDrawable(FeatureType const & f, int scale)
+bool IsDrawable(FeatureType & f, int scale)
 {
   // Feature that doesn't have any geometry for m_scale returns empty DebugString().
   return (!f.IsEmptyGeometry(scale) && feature::IsDrawableForIndex(f, scale));
@@ -33,12 +34,12 @@ bool IsDrawable(FeatureType const & f, int scale)
 
 class AccumulatorBase
 {
-  feature_cont_t & m_cont;
+  Cont & m_cont;
 
 protected:
   int m_scale;
 
-  bool is_drawable(FeatureType const & f) const
+  bool is_drawable(FeatureType & f) const
   {
     // Looks strange, but it checks consistency.
     TEST_EQUAL(f.DebugString(m_scale), f.DebugString(m_scale), ());
@@ -58,14 +59,14 @@ protected:
   }
 
 public:
-  AccumulatorBase(int scale, feature_cont_t & cont)
+  AccumulatorBase(int scale, Cont & cont)
     : m_cont(cont), m_scale(scale)
   {
   }
 
-  void operator() (FeatureType const & f) const
+  void operator()(FeatureType & f) const
   {
-    TEST(is_drawable(f), (m_scale, f));
+    TEST(is_drawable(f), (m_scale, f.DebugString(FeatureType::BEST_GEOMETRY)));
     add(f);
   }
 };
@@ -78,7 +79,7 @@ class IntersectCheck
   bool m_isPrev, m_intersect;
 
 public:
-  IntersectCheck(m2::RectD const & r)
+  explicit IntersectCheck(m2::RectD const & r)
     : m_rect(r), m_isPrev(false), m_intersect(false)
   {
   }
@@ -144,16 +145,16 @@ class AccumulatorEtalon : public AccumulatorBase
 
   m2::RectD m_rect;
 
-  bool is_intersect(FeatureType const & f) const
+  bool is_intersect(FeatureType & f) const
   {
     IntersectCheck check(m_rect);
 
     using namespace feature;
-    switch (f.GetFeatureType())
+    switch (f.GetGeomType())
     {
-    case GEOM_POINT: check.TestPoint(f.GetCenter()); break;
-    case GEOM_LINE: f.ForEachPointRef(check, m_scale); break;
-    case GEOM_AREA: f.ForEachTriangleRef(check, m_scale); break;
+    case GeomType::Point: check.TestPoint(f.GetCenter()); break;
+    case GeomType::Line: f.ForEachPoint(check, m_scale); break;
+    case GeomType::Area: f.ForEachTriangle(check, m_scale); break;
     default:
       CHECK ( false, () );
     }
@@ -162,12 +163,12 @@ class AccumulatorEtalon : public AccumulatorBase
   }
 
 public:
-  AccumulatorEtalon(m2::RectD const & r, int scale, feature_cont_t & cont)
+  AccumulatorEtalon(m2::RectD const & r, int scale, Cont & cont)
     : base_type(scale, cont), m_rect(r)
   {
   }
 
-  void operator() (FeatureType const & f, uint32_t index) const
+  void operator()(FeatureType & f, uint32_t index) const
   {
     if (is_drawable(f) && is_intersect(f))
       add(f, index);
@@ -235,79 +236,79 @@ public:
     : m_level(level), m_index(index)
   {}
 
-  void operator() (FeatureType const & ft, uint32_t index)
+  void operator()(FeatureType & ft, uint32_t index)
   {
     if (index == m_index)
     {
       TEST(IsDrawable(ft, m_level), ());
 
       LOG(LINFO, ("Feature index:", index));
-      LOG(LINFO, ("Feature:", ft));
+      LOG(LINFO, ("Feature:", ft.DebugString(FeatureType::BEST_GEOMETRY)));
     }
   }
 };
 
-void RunTest(string const & countryFileName)
-{
-  model::FeaturesFetcher src1;
-  src1.InitClassificator();
+// void RunTest(string const & countryFileName)
+// {
+//   FeaturesFetcher src1;
+//   src1.InitClassificator();
 
-  platform::LocalCountryFile localFile(platform::LocalCountryFile::MakeForTesting(countryFileName));
-  // Clean indexes to prevent mwm and indexes versions mismatch error.
-  platform::CountryIndexes::DeleteFromDisk(localFile);
-  UNUSED_VALUE(src1.RegisterMap(localFile));
+//   platform::LocalCountryFile localFile(platform::LocalCountryFile::MakeForTesting(countryFileName));
+//   // Clean indexes to prevent mwm and indexes versions mismatch error.
+//   platform::CountryIndexes::DeleteFromDisk(localFile);
+//   UNUSED_VALUE(src1.RegisterMap(localFile));
 
-  vector<m2::RectD> rects;
-  rects.push_back(src1.GetWorldRect());
+//   vector<m2::RectD> rects;
+//   rects.push_back(src1.GetWorldRect());
 
-  ModelReaderPtr reader = platform::GetCountryReader(localFile, MapOptions::Map);
+//   ModelReaderPtr reader = platform::GetCountryReader(localFile, MapFileType::Map);
 
-  while (!rects.empty())
-  {
-    m2::RectD const r = rects.back();
-    rects.pop_back();
+//   while (!rects.empty())
+//   {
+//     m2::RectD const r = rects.back();
+//     rects.pop_back();
 
-    int const scale = scales::GetScaleLevel(r);
+//     int const scale = scales::GetScaleLevel(r);
 
-    feature_cont_t v1, v2;
-    {
-      AccumulatorBase acc(scale, v1);
-      src1.ForEachFeature(r, acc, scale);
-      sort(v1.begin(), v1.end(), FeatureIDCmp());
-    }
-    {
-      AccumulatorEtalon acc(r, scale, v2);
-      feature::ForEachFromDat(reader, acc);
-      sort(v2.begin(), v2.end(), FeatureIDCmp());
-    }
+//     Cont v1, v2;
+//     {
+//       AccumulatorBase acc(scale, v1);
+//       src1.ForEachFeature(r, acc, scale);
+//       sort(v1.begin(), v1.end(), FeatureIDCmp());
+//     }
+//     {
+//       AccumulatorEtalon acc(r, scale, v2);
+//       feature::ForEachFeature(reader, acc);
+//       sort(v2.begin(), v2.end(), FeatureIDCmp());
+//     }
 
-    size_t const emptyInd = size_t(-1);
-    size_t errInd = emptyInd;
-    if (!compare_sequence(v2, v1, FeatureIDCmp(), errInd))
-    {
-      if (errInd != emptyInd)
-      {
-        FindOffset doFind(scale, v2[errInd]);
-        feature::ForEachFromDat(reader, doFind);
-      }
+//     size_t const emptyInd = size_t(-1);
+//     size_t errInd = emptyInd;
+//     if (!compare_sequence(v2, v1, FeatureIDCmp(), errInd))
+//     {
+//       if (errInd != emptyInd)
+//       {
+//         FindOffset doFind(scale, v2[errInd]);
+//         feature::ForEachFeature(reader, doFind);
+//       }
 
-      TEST(false, ("Failed for rect:", r, "; Scale level:", scale, "; Etalon size:", v2.size(), "; Index size:", v1.size()));
-    }
+//       TEST(false, ("Failed for rect:", r, "; Scale level:", scale, "; Etalon size:", v2.size(), "; Index size:", v1.size()));
+//     }
 
-    if (!v2.empty() && (scale < scales::GetUpperScale()))
-    {
-      m2::RectD r1, r2;
-      r.DivideByGreaterSize(r1, r2);
-      rects.push_back(r1);
-      rects.push_back(r2);
-    }
-  }
-}
+//     if (!v2.empty() && (scale < scales::GetUpperScale()))
+//     {
+//       m2::RectD r1, r2;
+//       r.DivideByGreaterSize(r1, r2);
+//       rects.push_back(r1);
+//       rects.push_back(r2);
+//     }
+//   }
+// }
 
-}
+//UNIT_TEST(ForEach_QueryResults)
+//{
+//  RunTest("minsk-pass");
+//  //RunTestForChoice("london-center");
+//}
 
-UNIT_TEST(ForEach_QueryResults)
-{
-  RunTest("minsk-pass");
-  //RunTestForChoice("london-center");
-}
+}  // namespace

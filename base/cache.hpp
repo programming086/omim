@@ -1,13 +1,14 @@
+#pragma once
+
 #include "base/assert.hpp"
 #include "base/base.hpp"
 #include "base/macros.hpp"
 
-#include "std/type_traits.hpp"
-#include "std/unique_ptr.hpp"
-#include "std/utility.hpp"
+#include <memory>
+#include <type_traits>
+#include <utility>
 
-
-namespace my
+namespace base
 {
   // Simple cache that stores list of values.
   template <typename KeyT, typename ValueT> class Cache
@@ -18,6 +19,7 @@ namespace my
     Cache() = default;
     Cache(Cache && r) = default;
 
+    /// @param[in] logCacheSize is pow of two for number of elements in cache.
     explicit Cache(uint32_t logCacheSize)
     {
       Init(logCacheSize);
@@ -27,7 +29,7 @@ namespace my
     void Init(uint32_t logCacheSize)
     {
       ASSERT(logCacheSize > 0 && logCacheSize < 32, (logCacheSize));
-      static_assert((is_same<KeyT, uint32_t>::value || is_same<KeyT, uint64_t>::value), "");
+      static_assert((std::is_same<KeyT, uint32_t>::value || std::is_same<KeyT, uint64_t>::value), "");
 
       m_cache.reset(new Data[1 << logCacheSize]);
       m_hashMask = (1 << logCacheSize) - 1;
@@ -104,7 +106,7 @@ namespace my
       ValueT m_Value;
     };
 
-    unique_ptr<Data[]> m_cache;
+    std::unique_ptr<Data[]> m_cache;
     uint32_t m_hashMask;
   };
 
@@ -164,4 +166,4 @@ namespace my
     uint64_t m_miss;
     uint64_t m_access;
   };
-}
+}  // namespace base

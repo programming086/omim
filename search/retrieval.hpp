@@ -1,149 +1,120 @@
 #pragma once
 
-#include "search/search_query_params.hpp"
+#include "search/cbv.hpp"
+#include "search/feature_offset_match.hpp"
+#include "search/query_params.hpp"
 
-#include "indexer/mwm_set.hpp"
+#include "platform/mwm_traits.hpp"
+
+#include "coding/reader.hpp"
 
 #include "geometry/rect2d.hpp"
 
 #include "base/cancellable.hpp"
-#include "base/macros.hpp"
+#include "base/checked_cast.hpp"
+#include "base/dfa_helpers.hpp"
+#include "base/levenshtein_dfa.hpp"
 
-#include "std/function.hpp"
-#include "std/unique_ptr.hpp"
-#include "std/vector.hpp"
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <utility>
 
-class Index;
+class MwmValue;
 
 namespace search
 {
-class Retrieval : public my::Cancellable
+class MwmContext;
+class TokenSlice;
+
+class Retrieval
 {
 public:
-  class Callback
-  {
-  public:
-    virtual ~Callback() = default;
+  template<typename Value>
+  using TrieRoot = trie::Iterator<ValueList<Value>>;
+  using Features = search::CBV;
 
-    // Called each time a bunch of features for an mwm is retrieved.
-    // This method may be called several times for the same mwm,
-    // reporting disjoint sets of features.
-    virtual void OnFeaturesRetrieved(MwmSet::MwmId const & id, double scale,
-                                     vector<uint32_t> const & featureIds) = 0;
+  struct ExtendedFeatures
+  {
+    ExtendedFeatures() = default;
+    ExtendedFeatures(ExtendedFeatures const &) = default;
+    ExtendedFeatures(ExtendedFeatures &&) = default;
+
+    explicit ExtendedFeatures(Features const & cbv) : m_features(cbv), m_exactMatchingFeatures(cbv)
+    {
+    }
+
+    ExtendedFeatures(Features && features, Features && exactMatchingFeatures)
+      : m_features(std::move(features)), m_exactMatchingFeatures(std::move(exactMatchingFeatures))
+    {
+    }
+
+    ExtendedFeatures & operator=(ExtendedFeatures const &) = default;
+    ExtendedFeatures & operator=(ExtendedFeatures &&) = default;
+
+    ExtendedFeatures Intersect(ExtendedFeatures const & rhs) const
+    {
+      ExtendedFeatures result;
+      result.m_features = m_features.Intersect(rhs.m_features);
+      result.m_exactMatchingFeatures =
+          m_exactMatchingFeatures.Intersect(rhs.m_exactMatchingFeatures);
+      return result;
+    }
+
+    ExtendedFeatures Intersect(Features const & cbv) const
+    {
+      ExtendedFeatures result;
+      result.m_features = m_features.Intersect(cbv);
+      result.m_exactMatchingFeatures = m_exactMatchingFeatures.Intersect(cbv);
+      return result;
+    }
+
+    void SetFull()
+    {
+      m_features.SetFull();
+      m_exactMatchingFeatures.SetFull();
+    }
+
+    void ForEach(std::function<void(uint32_t, bool)> const & f) const
+    {
+      m_features.ForEach([&](uint64_t id) {
+        f(base::asserted_cast<uint32_t>(id), m_exactMatchingFeatures.HasBit(id));
+      });
+    }
+
+    Features m_features;
+    Features m_exactMatchingFeatures;
   };
 
-  // This class wraps a set of retrieval's limits like number of
-  // features to be retrieved, maximum viewport scale, etc.
-  struct Limits
-  {
-  public:
-    Limits();
+  Retrieval(MwmContext const & context, base::Cancellable const & cancellable);
 
-    // Sets upper bound (inclusive) on a number of features to be
-    // retrieved.
-    void SetMaxNumFeatures(uint64_t minNumFeatures);
-    uint64_t GetMaxNumFeatures() const;
-    inline bool IsMaxNumFeaturesSet() const { return m_maxNumFeaturesSet; }
+  // Following functions retrieve all features matching to |request| from the search index.
+  ExtendedFeatures RetrieveAddressFeatures(
+      SearchTrieRequest<strings::UniStringDFA> const & request) const;
 
-    // Sets upper bound on a maximum viewport's scale.
-    void SetMaxViewportScale(double maxViewportScale);
-    double GetMaxViewportScale() const;
-    inline bool IsMaxViewportScaleSet() const { return m_maxViewportScaleSet; }
+  ExtendedFeatures RetrieveAddressFeatures(
+      SearchTrieRequest<strings::PrefixDFAModifier<strings::UniStringDFA>> const & request) const;
 
-    // Sets whether retrieval should/should not skip World.mwm.
-    inline void SetSearchInWorld(bool searchInWorld) { m_searchInWorld = searchInWorld; }
-    inline bool GetSearchInWorld() const { return m_searchInWorld; }
+  ExtendedFeatures RetrieveAddressFeatures(
+      SearchTrieRequest<strings::LevenshteinDFA> const & request) const;
 
-  private:
-    uint64_t m_maxNumFeatures;
-    double m_maxViewportScale;
+  ExtendedFeatures RetrieveAddressFeatures(
+      SearchTrieRequest<strings::PrefixDFAModifier<strings::LevenshteinDFA>> const & request) const;
 
-    bool m_maxNumFeaturesSet : 1;
-    bool m_maxViewportScaleSet : 1;
-    bool m_searchInWorld : 1;
-  };
+  // Retrieves all postcodes matching to |slice| from the search index.
+  Features RetrievePostcodeFeatures(TokenSlice const & slice) const;
 
-  // This class represents a retrieval's strategy.
-  class Strategy
-  {
-  public:
-    using TCallback = function<void(vector<uint32_t> &)>;
-
-    Strategy(MwmSet::MwmHandle & handle, m2::RectD const & viewport);
-
-    virtual ~Strategy() = default;
-
-    // Retrieves features for m_viewport scaled by |scale|. Returns
-    // false when cancelled.
-    //
-    // *NOTE* This method should be called on a strictly increasing
-    // *sequence of scales.
-    WARN_UNUSED_RESULT bool Retrieve(double scale, my::Cancellable const & cancellable,
-                                     TCallback const & callback);
-
-   protected:
-     WARN_UNUSED_RESULT virtual bool RetrieveImpl(double scale, my::Cancellable const & cancellable,
-                                                  TCallback const & callback) = 0;
-
-    MwmSet::MwmHandle & m_handle;
-    m2::RectD const m_viewport;
-    double m_prevScale;
-  };
-
-  Retrieval();
-
-  void Init(Index & index, vector<shared_ptr<MwmInfo>> const & infos, m2::RectD const & viewport,
-            SearchQueryParams const & params, Limits const & limits);
-
-  // Start retrieval process.
-  //
-  // *NOTE* Retrieval may report features not belonging to viewport
-  // (even scaled by maximum allowed scale). The reason is the current
-  // geomerty index algorithm - when it asked for features in a
-  // rectangle, it reports all features from cells that cover (not
-  // covered by) a rectangle.
-  void Go(Callback & callback);
+  // Retrieves all features belonging to |rect| from the geometry index.
+  Features RetrieveGeometryFeatures(m2::RectD const & rect, int scale) const;
 
 private:
-  // This class is a wrapper around single mwm during retrieval
-  // process.
-  struct Bucket
-  {
-    Bucket(MwmSet::MwmHandle && handle);
+  template <template <typename> class R, typename... Args>
+  ExtendedFeatures Retrieve(Args &&... args) const;
 
-    MwmSet::MwmHandle m_handle;
-    m2::RectD m_bounds;
-    vector<uint32_t> m_addressFeatures;
+  MwmContext const & m_context;
+  base::Cancellable const & m_cancellable;
+  ModelReaderPtr m_reader;
 
-    // The order matters here - strategy may contain references to the
-    // fields above, thus it must be destructed before them.
-    unique_ptr<Strategy> m_strategy;
-
-    size_t m_featuresReported;
-    bool m_intersectsWithViewport : 1;
-    bool m_finished : 1;
-  };
-
-  // Retrieves features for the viewport scaled by |scale| and invokes
-  // callback on retrieved features. Returns false when cancelled.
-  //
-  // *NOTE* |scale| of successive calls of this method should be
-  // non-decreasing.
-  WARN_UNUSED_RESULT bool RetrieveForScale(double scale, Callback & callback);
-
-  // Returns true when all buckets are marked as finished.
-  bool Finished() const;
-
-  // Reports features, updates bucket's stats.
-  void ReportFeatures(Bucket & bucket, vector<uint32_t> & featureIds, double scale,
-                      Callback & callback);
-
-  Index * m_index;
-  m2::RectD m_viewport;
-  SearchQueryParams m_params;
-  Limits m_limits;
-  uint64_t m_featuresReported;
-
-  vector<Bucket> m_buckets;
+  std::unique_ptr<TrieRoot<Uint64IndexValue>> m_root;
 };
 }  // namespace search

@@ -1,15 +1,17 @@
 #pragma once
+
 #include "indexer/search_string_utils.hpp"
+
 #include "base/base.hpp"
 #include "base/buffer_vector.hpp"
-#include "std/queue.hpp"
+
+#include <cstdint>
+#include <queue>
 
 namespace search
 {
-
 namespace impl
 {
-
 struct MatchCostData
 {
   uint32_t m_A, m_B;
@@ -24,14 +26,13 @@ struct MatchCostData
   }
 };
 
-template <typename PriorityQueyeT>
-void PushMatchCost(PriorityQueyeT & q, uint32_t maxCost, uint32_t a, uint32_t b, uint32_t cost)
+template <typename PriorityQueue>
+void PushMatchCost(PriorityQueue & q, uint32_t maxCost, uint32_t a, uint32_t b, uint32_t cost)
 {
   if (cost <= maxCost)
     q.push(MatchCostData(a, b, cost));
 }
-
-}  // namespace search::impl
+}  // namespace impl
 
 class DefaultMatchCost
 {
@@ -45,13 +46,11 @@ public:
   uint32_t SwapCost(strings::UniChar a1, strings::UniChar a2) const;
 };
 
-template <typename CharT, typename CostF>
-uint32_t StringMatchCost(CharT const * sA, uint32_t sizeA,
-                         CharT const * sB, uint32_t sizeB,
-                         CostF const & costF, uint32_t maxCost,
-                         bool bPrefixMatch = false)
+template <typename Char, typename CostFn>
+uint32_t StringMatchCost(Char const * sA, size_t sizeA, Char const * sB, size_t sizeB,
+                         CostFn const & costF, uint32_t maxCost, bool bPrefixMatch = false)
 {
-  priority_queue<impl::MatchCostData, buffer_vector<impl::MatchCostData, 256> > q;
+  std::priority_queue<impl::MatchCostData, buffer_vector<impl::MatchCostData, 256>> q;
   q.push(impl::MatchCostData(0, 0, 0));
   while (!q.empty())
   {
@@ -60,7 +59,10 @@ uint32_t StringMatchCost(CharT const * sA, uint32_t sizeA,
     uint32_t const c = q.top().m_Cost;
     q.pop();
     while (a < sizeA && b < sizeB && sA[a] == sB[b])
-      ++a, ++b;
+    {
+      ++a;
+      ++b;
+    }
 
     if (a == sizeA && (bPrefixMatch || b == sizeB))
       return c;
@@ -84,5 +86,4 @@ uint32_t StringMatchCost(CharT const * sA, uint32_t sizeA,
   }
   return maxCost + 1;
 }
-
 }  // namespace search

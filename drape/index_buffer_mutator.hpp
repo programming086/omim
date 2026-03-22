@@ -1,27 +1,30 @@
 #pragma once
 
+#include "drape/index_storage.hpp"
 #include "drape/pointers.hpp"
+
+#include <cstdint>
 
 namespace dp
 {
-
 class VertexArrayBuffer;
 
 class IndexBufferMutator
 {
 public:
-  IndexBufferMutator(uint16_t baseSize);
+  explicit IndexBufferMutator(uint32_t baseSize);
 
-  void AppendIndexes(uint16_t const * indexes, uint16_t count);
+  void AppendIndexes(void const * indexes, uint32_t count);
+
+  uint32_t GetCapacity() const;
 
 private:
   friend class VertexArrayBuffer;
-  uint16_t const * GetIndexes() const;
-  uint16_t GetIndexCount() const;
+  void const * GetIndexes() const;
+  uint32_t GetIndexCount() const;
 
 private:
-  vector<uint16_t> m_buffer;
-  uint16_t m_activeSize;
+  IndexStorage m_buffer;
+  uint32_t m_activeSize = 0;
 };
-
-} // namespace dp
+}  // namespace dp

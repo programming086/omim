@@ -1,14 +1,18 @@
 package com.mapswithme.maps.bookmarks;
 
 import android.content.Context;
-import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RadioButton;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
 import com.mapswithme.maps.R;
+import com.mapswithme.maps.bookmarks.data.BookmarkCategory;
+
+import java.util.List;
 
 public class ChooseBookmarkCategoryAdapter extends BaseBookmarkCategoryAdapter<ChooseBookmarkCategoryAdapter.SingleChoiceHolder>
 {
@@ -19,16 +23,17 @@ public class ChooseBookmarkCategoryAdapter extends BaseBookmarkCategoryAdapter<C
 
   public interface CategoryListener
   {
-    void onCategorySet(int categoryId);
+    void onCategorySet(int categoryPosition);
 
     void onCategoryCreate();
   }
 
   private CategoryListener mListener;
 
-  public ChooseBookmarkCategoryAdapter(Context context, int pos)
+  public ChooseBookmarkCategoryAdapter(Context context, int pos,
+                                       @NonNull List<BookmarkCategory> categories)
   {
-    super(context);
+    super(context, categories);
     mCheckedPosition = pos;
   }
 
@@ -72,7 +77,8 @@ public class ChooseBookmarkCategoryAdapter extends BaseBookmarkCategoryAdapter<C
   {
     if (holder.getItemViewType() == VIEW_TYPE_CATEGORY)
     {
-      holder.name.setText(getItem(position).getName());
+      BookmarkCategory category = getCategoryByPosition(position);
+      holder.name.setText(category.getName());
       holder.checked.setChecked(mCheckedPosition == position);
     }
   }

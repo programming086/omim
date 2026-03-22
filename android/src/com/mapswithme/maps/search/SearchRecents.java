@@ -1,6 +1,8 @@
 package com.mapswithme.maps.search;
 
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
+
+import android.content.Context;
 import android.text.TextUtils;
 import android.util.Pair;
 import com.mapswithme.util.Language;
@@ -11,11 +13,6 @@ import java.util.List;
 public final class SearchRecents
 {
   private static final List<String> sRecents = new ArrayList<>();
-
-  static
-  {
-    refresh();
-  }
 
   private SearchRecents() {}
 
@@ -39,12 +36,12 @@ public final class SearchRecents
     return sRecents.get(position);
   }
 
-  public static boolean add(@NonNull String query)
+  public static boolean add(@NonNull String query, @NonNull Context context)
   {
     if (TextUtils.isEmpty(query) || sRecents.contains(query))
       return false;
 
-    nativeAdd(Language.getKeyboardLocale(), query);
+    nativeAdd(Language.getKeyboardLocale(context), query);
     refresh();
     return true;
   }

@@ -1,282 +1,371 @@
 #pragma once
 
-#include "generator/osm_id.hpp"
-
-#include "indexer/feature.hpp"
+#include "indexer/feature_data.hpp"
 
 #include "coding/file_reader.hpp"
+#include "coding/file_writer.hpp"
+#include "coding/internal/file_data.hpp"
 #include "coding/read_write_utils.hpp"
 
-#include "std/bind.hpp"
+#include "base/geo_object_id.hpp"
+#include "base/stl_helpers.hpp"
+#include "base/thread_pool_delayed.hpp"
 
+#include <functional>
+#include <list>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
 
-namespace serial { class CodingParams; }
-
-/// Used for serialization\deserialization of features during --generate_features.
-class FeatureBuilder1
+namespace serial
 {
-  /// For debugging
-  friend string DebugPrint(FeatureBuilder1 const & f);
+class GeometryCodingParams;
+}  // namespace serial
 
+namespace feature
+{
+class FeatureBuilder
+{
 public:
-  using TPointSeq = vector<m2::PointD>;
-  using TGeometry = list<TPointSeq>;
+  using PointSeq = std::vector<m2::PointD>;
+  using Geometry = std::list<PointSeq>;
+  using Buffer = std::vector<char>;
+  using Offsets = std::vector<uint32_t>;
 
-  using TBuffer = vector<char>;
-
-  FeatureBuilder1();
-
-  /// @name Geometry manipulating functions.
-  //@{
-  /// Set center (origin) point of feature and set that feature is point.
-  void SetCenter(m2::PointD const & p);
-
-  /// Add point to geometry.
-  void AddPoint(m2::PointD const & p);
-
-  /// Set that feature is linear type.
-  void SetLinear(bool reverseGeometry = false);
-
-  /// Set that feature is area and get ownership of holes.
-  void SetAreaAddHoles(TGeometry const & holes);
-  inline void SetArea() { m_params.SetGeomType(feature::GEOM_AREA); }
-
-  inline bool IsLine() const { return (GetGeomType() == feature::GEOM_LINE); }
-  inline bool IsArea() const { return (GetGeomType() == feature::GEOM_AREA); }
-
-  void AddPolygon(vector<m2::PointD> & poly);
-  //@}
-
-  inline feature::Metadata const & GetMetadata() const { return m_params.GetMetadata(); }
-  inline TGeometry const & GetGeometry() const { return m_polygons; }
-  inline TPointSeq const & GetOuterGeometry() const { return m_polygons.front(); }
-  inline feature::EGeomType GetGeomType() const { return m_params.GetGeomType(); }
-
-  inline void AddType(uint32_t type) { m_params.AddType(type); }
-  inline bool HasType(uint32_t t) const { return m_params.IsTypeExist(t); }
-  inline bool PopExactType(uint32_t type) { return m_params.PopExactType(type); }
-  inline void SetType(uint32_t type) { m_params.SetType(type); }
-  inline uint32_t FindType(uint32_t comp, uint8_t level) const { return m_params.FindType(comp, level); }
-  inline FeatureParams::TTypes const & GetTypes() const  { return m_params.m_Types; }
-
-  /// Check classificator types for their compatibility with feature geometry type.
-  /// Need to call when using any classificator types manipulating.
-  /// @return false If no any valid types.
-  bool RemoveInvalidTypes();
-
-  /// Clear name if it's not visible in scale range [minS, maxS].
-  void RemoveNameIfInvisible(int minS = 0, int maxS = 1000);
-  void RemoveUselessNames();
-
-  template <class FnT> bool RemoveTypesIf(FnT fn)
+  struct SupportingData
   {
-    m_params.m_Types.erase(remove_if(m_params.m_Types.begin(), m_params.m_Types.end(), fn),
-                           m_params.m_Types.end());
-    return m_params.m_Types.empty();
-  }
+    Offsets m_ptsOffset;
+    Offsets m_trgOffset;
+    uint8_t m_ptsMask = 0;
+    uint8_t m_trgMask = 0;
+    uint32_t m_ptsSimpMask = 0;
+    PointSeq m_innerPts;
+    PointSeq m_innerTrg;
+    Buffer m_buffer;
+  };
 
-  /// @name Serialization.
-  //@{
-  void Serialize(TBuffer & data) const;
-  void SerializeBase(TBuffer & data, serial::CodingParams const & params, bool needSearializeAdditionalInfo = true) const;
+  FeatureBuilder();
+  // Checks for equality. The error of coordinates is allowed.
+  bool operator==(FeatureBuilder const & fb) const;
+  // Checks for equality. The error of coordinates isn't allowed. Binary equality check of
+  // coordinates is used.
+  bool IsExactEq(FeatureBuilder const & fb) const;
 
-  void Deserialize(TBuffer & data);
-  //@}
+  bool IsValid() const;
 
-  /// @name Selectors.
-  //@{
-  inline m2::RectD GetLimitRect() const { return m_limitRect; }
-
-  bool FormatFullAddress(string & res) const;
-
-  /// Get common parameters of feature.
-  FeatureBase GetFeatureBase() const;
-
+  // To work with geometry.
+  void AddPoint(m2::PointD const & p);
+  void SetHoles(Geometry const & holes);
+  void AddPolygon(std::vector<m2::PointD> & poly);
+  void ResetGeometry();
+  m2::RectD const & GetLimitRect() const { return m_limitRect; }
+  Geometry const & GetGeometry() const { return m_polygons; }
+  PointSeq const & GetOuterGeometry() const { return m_polygons.front(); }
+  GeomType GetGeomType() const { return m_params.GetGeomType(); }
   bool IsGeometryClosed() const;
   m2::PointD GetGeometryCenter() const;
   m2::PointD GetKeyPoint() const;
-
   size_t GetPointsCount() const;
-  inline size_t GetPolygonsCount() const { return m_polygons.size(); }
-  inline size_t GetTypesCount() const { return m_params.m_Types.size(); }
-  //@}
+  size_t GetPolygonsCount() const { return m_polygons.size(); }
+  size_t GetTypesCount() const { return m_params.m_types.size(); }
 
-  /// @name Iterate through polygons points.
-  /// Stops processing when functor returns false.
-  //@{
-private:
-  template <class ToDo> class ToDoWrapper
-  {
-    ToDo & m_toDo;
-  public:
-    ToDoWrapper(ToDo & toDo) : m_toDo(toDo) {}
-    bool operator() (m2::PointD const & p) { return m_toDo(p); }
-    void EndRegion() {}
-  };
-
-public:
   template <class ToDo>
-  void ForEachGeometryPointEx(ToDo & toDo) const
+  void ForEachPoint(ToDo && toDo) const
   {
-    if (m_params.GetGeomType() == feature::GEOM_POINT)
+    if (IsPoint())
+    {
       toDo(m_center);
+    }
     else
     {
-      for (TPointSeq const & points : m_polygons)
+      for (auto const & points : m_polygons)
       {
         for (auto const & pt : points)
-          if (!toDo(pt))
-            return;
-        toDo.EndRegion();
+          toDo(pt);
       }
     }
   }
 
   template <class ToDo>
-  void ForEachGeometryPoint(ToDo & toDo) const
+  bool ForAnyPoint(ToDo && toDo) const
   {
-    ToDoWrapper<ToDo> wrapper(toDo);
-    ForEachGeometryPointEx(wrapper);
+    if (IsPoint())
+      return toDo(m_center);
+
+    for (auto const & points : m_polygons)
+    {
+      if (base::AnyOf(points, std::forward<ToDo>(toDo)))
+        return true;
+    }
+
+    return false;
   }
-  //@}
 
-  bool PreSerialize();
+  template <class ToDo>
+  void ForEachPolygon(ToDo && toDo) const
+  {
+    for (auto const & points : m_polygons)
+      toDo(points);
+  }
 
-  /// @note This function overrides all previous assigned types.
-  /// Set all the parameters, except geometry type (it's set by other functions).
-  inline void SetParams(FeatureParams const & params) { m_params.SetParams(params); }
+  // To work with geometry type.
+  void SetCenter(m2::PointD const & p);
+  void SetLinear(bool reverseGeometry = false);
+  void SetArea() { m_params.SetGeomType(GeomType::Area); }
+  bool IsPoint() const { return GetGeomType() == GeomType::Point; }
+  bool IsLine() const { return GetGeomType() == GeomType::Line; }
+  bool IsArea() const { return GetGeomType() == GeomType::Area; }
 
-  inline FeatureParams const & GetParams() const { return m_params; }
+  // To work with types.
+  void SetType(uint32_t type) { m_params.SetType(type); }
+  void AddType(uint32_t type) { m_params.AddType(type); }
+  bool PopExactType(uint32_t type) { return m_params.PopExactType(type); }
 
-  /// @name For OSM debugging, store original OSM id
-  //@{
-  void AddOsmId(osm::Id id);
-  void SetOsmId(osm::Id id);
-  osm::Id GetLastOsmId() const;
-  string GetOsmIdsString() const;
-  //@}
+  template <class Fn>
+  bool RemoveTypesIf(Fn && fn)
+  {
+    base::EraseIf(m_params.m_types, std::forward<Fn>(fn));
+    return m_params.m_types.empty();
+  }
 
-  uint64_t GetWayIDForRouting() const;
+  bool HasType(uint32_t t) const { return m_params.IsTypeExist(t); }
+  bool HasType(uint32_t t, uint8_t level) const { return m_params.IsTypeExist(t, level); }
+  uint32_t FindType(uint32_t comp, uint8_t level) const { return m_params.FindType(comp, level); }
+  FeatureParams::Types const & GetTypes() const { return m_params.m_types; }
 
+  // To work with additional information.
+  void SetRank(uint8_t rank);
+  bool AddName(std::string const & lang, std::string const & name);
+  void SetParams(FeatureBuilderParams const & params) { m_params.SetParams(params); }
 
-  bool AddName(string const & lang, string const & name);
+  FeatureBuilderParams const & GetParams() const { return m_params; }
+  FeatureBuilderParams & GetParams() { return m_params; }
+  std::string GetName(int8_t lang = StringUtf8Multilang::kDefaultCode) const;
+  StringUtf8Multilang const & GetMultilangName() const { return m_params.name; }
+  uint8_t GetRank() const { return m_params.rank; }
+  AddressData const & GetAddressData() const { return m_params.GetAddressData(); }
 
+  Metadata const & GetMetadata() const { return m_params.GetMetadata(); }
+  Metadata & GetMetadata() { return m_params.GetMetadata(); }
+
+  // To work with types and names based on drawing.
+  // Check classificator types for their compatibility with feature geometry type.
+  // Need to call when using any classificator types manipulating.
+  // Return false If no any valid types.
+  bool RemoveInvalidTypes();
+  // Clear name if it's not visible in scale range [minS, maxS].
+  void RemoveNameIfInvisible(int minS = 0, int maxS = 1000);
+  void RemoveUselessNames();
   int GetMinFeatureDrawScale() const;
-
   bool IsDrawableInRange(int lowScale, int highScale) const;
 
-  void SetCoastCell(int64_t iCell, string const & strCell);
-  inline bool IsCoastCell() const { return (m_coastCell != -1); }
-  inline bool GetCoastCell(int64_t & cell) const
-  {
-    if (m_coastCell != -1)
-    {
-      cell = m_coastCell;
-      return true;
-    }
-    else return false;
-  }
+  // Serialization.
+  bool PreSerialize();
+  bool PreSerializeAndRemoveUselessNamesForIntermediate();
+  void SerializeForIntermediate(Buffer & data) const;
+  void SerializeBorderForIntermediate(serial::GeometryCodingParams const & params,
+                                      Buffer & data) const;
+  void DeserializeFromIntermediate(Buffer & data);
 
-  string GetName(int8_t lang = StringUtf8Multilang::DEFAULT_CODE) const;
-  uint8_t GetRank() const { return m_params.rank; }
+  // These methods use geometry without loss of accuracy.
+  void SerializeAccuratelyForIntermediate(Buffer & data) const;
+  void DeserializeAccuratelyFromIntermediate(Buffer & data);
 
-  /// @name For diagnostic use only.
-  //@{
-  bool operator== (FeatureBuilder1 const &) const;
+  bool PreSerializeAndRemoveUselessNamesForMwm(SupportingData const & data);
+  void SerializeLocalityObject(serial::GeometryCodingParams const & params,
+                               SupportingData & data) const;
+  void SerializeForMwm(SupportingData & data, serial::GeometryCodingParams const & params) const;
 
-  bool CheckValid() const;
-  //@}
+  // Get common parameters of feature.
+  TypesHolder GetTypesHolder() const;
 
-  bool IsRoad() const;
+  // To work with osm ids.
+  void AddOsmId(base::GeoObjectId id);
+  void SetOsmId(base::GeoObjectId id);
+  base::GeoObjectId GetFirstOsmId() const;
+  base::GeoObjectId GetLastOsmId() const;
+  // Returns an id of the most general element: node's one if there is no area or relation,
+  // area's one if there is no relation, and relation id otherwise.
+  base::GeoObjectId GetMostGenericOsmId() const;
+  bool HasOsmId(base::GeoObjectId const & id) const;
+  bool HasOsmIds() const { return !m_osmIds.empty(); }
+  std::vector<base::GeoObjectId> const & GetOsmIds() const { return m_osmIds; }
+
+  // To work with coasts.
+  void SetCoastCell(int64_t iCell) { m_coastCell = iCell; }
+  bool IsCoastCell() const { return (m_coastCell != -1); }
 
 protected:
-  /// Used for features debugging
-  vector<osm::Id> m_osmIds;
-
-  FeatureParams m_params;
-
+  // Can be one of the following:
+  // - point in point-feature
+  // - origin point of text [future] in line-feature
+  // - origin point of text or symbol in area-feature
+  m2::PointD m_center;  // Check  HEADER_HAS_POINT
+  // List of geometry polygons.
+  Geometry m_polygons;  // Check HEADER_IS_AREA
   m2::RectD m_limitRect;
-
-  /// Can be one of the following:
-  /// - point in point-feature
-  /// - origin point of text [future] in line-feature
-  /// - origin point of text or symbol in area-feature
-  m2::PointD m_center;    // Check  HEADER_HAS_POINT
-
-  /// List of geometry polygons.
-  TGeometry m_polygons; // Check HEADER_IS_AREA
-
+  std::vector<base::GeoObjectId> m_osmIds;
+  FeatureBuilderParams m_params;
   /// Not used in GEOM_POINTs
   int64_t m_coastCell;
 };
 
-/// Used for serialization of features during final pass.
-class FeatureBuilder2 : public FeatureBuilder1
+std::string DebugPrint(FeatureBuilder const & fb);
+
+// SerializationPolicy serialization and deserialization.
+namespace serialization_policy
 {
-  using TBase = FeatureBuilder1;
-  using TOffsets = vector<uint32_t>;
-
-  static void SerializeOffsets(uint32_t mask, TOffsets const & offsets, TBuffer & buffer);
-
-public:
-
-  struct SupportingData
-  {
-    /// @name input
-    //@{
-    TOffsets m_ptsOffset;
-    TOffsets m_trgOffset;
-    uint8_t m_ptsMask;
-    uint8_t m_trgMask;
-
-    uint32_t m_ptsSimpMask;
-
-    TPointSeq m_innerPts;
-    TPointSeq m_innerTrg;
-    //@}
-
-    /// @name output
-    TBase::TBuffer m_buffer;
-
-    SupportingData() : m_ptsMask(0), m_trgMask(0), m_ptsSimpMask(0) {}
-  };
-
-  /// @name Overwrite from base_type.
-  //@{
-  bool PreSerialize(SupportingData const & data);
-  void Serialize(SupportingData & data, serial::CodingParams const & params);
-  //@}
+enum class SerializationVersion : uint32_t
+{
+  Undefined,
+  MinSize,
+  MaxAccuracy
 };
 
-namespace feature
+using TypeSerializationVersion = typename std::underlying_type<SerializationVersion>::type;
+
+struct MinSize
 {
-  /// Read feature from feature source.
-  template <class TSource>
-  void ReadFromSourceRowFormat(TSource & src, FeatureBuilder1 & fb)
+  auto static const kSerializationVersion =
+      static_cast<TypeSerializationVersion>(SerializationVersion::MinSize);
+
+  static void Serialize(FeatureBuilder const & fb, FeatureBuilder::Buffer & data)
   {
-    uint32_t const sz = ReadVarUint<uint32_t>(src);
-    typename FeatureBuilder1::TBuffer buffer(sz);
-    src.Read(&buffer[0], sz);
-    fb.Deserialize(buffer);
+    fb.SerializeForIntermediate(data);
   }
 
-  /// Process features in .dat file.
-  template <class ToDo>
-  void ForEachFromDatRawFormat(string const & fName, ToDo && toDo)
+  static void Deserialize(FeatureBuilder & fb, FeatureBuilder::Buffer & data)
   {
-    FileReader reader(fName);
-    ReaderSource<FileReader> src(reader);
+    fb.DeserializeFromIntermediate(data);
+  }
+};
 
-    uint64_t currPos = 0;
-    uint64_t const fSize = reader.Size();
+struct MaxAccuracy
+{
+  auto static const kSerializationVersion =
+      static_cast<TypeSerializationVersion>(SerializationVersion::MinSize);
 
-    // read features one by one
-    while (currPos < fSize)
-    {
-      FeatureBuilder1 fb;
-      ReadFromSourceRowFormat(src, fb);
-      toDo(fb, currPos);
-      currPos = src.Pos();
-    }
+  static void Serialize(FeatureBuilder const & fb, FeatureBuilder::Buffer & data)
+  {
+    fb.SerializeAccuratelyForIntermediate(data);
+  }
+
+  static void Deserialize(FeatureBuilder & fb, FeatureBuilder::Buffer & data)
+  {
+    fb.DeserializeAccuratelyFromIntermediate(data);
+  }
+};
+}  // namespace serialization_policy
+
+// TODO(maksimandrianov): I would like to support the verification of serialization versions,
+// but this requires reworking of FeatureCollector class and its derived classes. It is in future
+// plans
+
+// template <class SerializationPolicy, class Source>
+// void TryReadAndCheckVersion(Source & src)
+//{
+//  if (src.Size() - src.Pos() >= sizeof(serialization_policy::TypeSerializationVersion))
+//  {
+//    auto const type = ReadVarUint<serialization_policy::TypeSerializationVersion>(src);
+//    CHECK_EQUAL(type, SerializationPolicy::kSerializationVersion, ());
+//  }
+//  else
+//  {
+//    LOG(LWARNING, ("Unable to read file version."))
+//  }
+//}
+
+// Read feature from feature source.
+template <class SerializationPolicy = serialization_policy::MinSize, class Source>
+void ReadFromSourceRawFormat(Source & src, FeatureBuilder & fb)
+{
+  uint32_t const sz = ReadVarUint<uint32_t>(src);
+  typename FeatureBuilder::Buffer buffer(sz);
+  src.Read(&buffer[0], sz);
+  SerializationPolicy::Deserialize(fb, buffer);
+}
+
+// Process features in features file.
+template <class SerializationPolicy = serialization_policy::MinSize, class ToDo>
+void ForEachFeatureRawFormat(std::string const & filename, ToDo && toDo)
+{
+  FileReader reader(filename);
+  ReaderSource<FileReader> src(reader);
+  // TryReadAndCheckVersion<SerializationPolicy>(src);
+  auto const fileSize = reader.Size();
+  auto currPos = src.Pos();
+  // read features one by one
+  while (currPos < fileSize)
+  {
+    FeatureBuilder fb;
+    ReadFromSourceRawFormat<SerializationPolicy>(src, fb);
+    toDo(fb, currPos);
+    currPos = src.Pos();
   }
 }
+
+template <class SerializationPolicy = serialization_policy::MinSize>
+std::vector<FeatureBuilder> ReadAllDatRawFormat(std::string const & fileName)
+{
+  std::vector<FeatureBuilder> fbs;
+  ForEachFeatureRawFormat<SerializationPolicy>(fileName, [&](auto && fb, auto const &) {
+    fbs.emplace_back(std::move(fb));
+  });
+  return fbs;
+}
+
+template <class SerializationPolicy = serialization_policy::MinSize, class Writer = FileWriter>
+class FeatureBuilderWriter
+{
+public:
+  explicit FeatureBuilderWriter(std::string const & filename,
+                                bool mangleName = false,
+                                FileWriter::Op op = FileWriter::Op::OP_WRITE_TRUNCATE)
+    : m_filename(filename)
+    , m_mangleName(mangleName)
+    , m_writer(std::make_unique<Writer>(m_mangleName ? m_filename  + "_" : m_filename, op))
+  {
+    // TODO(maksimandrianov): I would like to support the verification of serialization versions,
+    // but this requires reworking of FeatureCollector class and its derived classes. It is in
+    // future plans WriteVarUint(m_writer,
+    // static_cast<serialization_policy::TypeSerializationVersion>(SerializationPolicy::kSerializationVersion));
+  }
+
+  explicit FeatureBuilderWriter(std::string const & filename,
+                                FileWriter::Op op)
+    : FeatureBuilderWriter(filename, false /* mangleName */, op)
+  {
+  }
+
+  ~FeatureBuilderWriter()
+  {
+    if (m_mangleName)
+    {
+      // Flush and close.
+      auto const currentFilename = m_writer->GetName();
+      m_writer.reset();
+      CHECK(base::RenameFileX(currentFilename, m_filename), (currentFilename, m_filename));
+    }
+  }
+
+  void Write(FeatureBuilder const & fb)
+  {
+    Write(*m_writer, fb);
+  }
+
+  template <typename Sink>
+  static void Write(Sink & writer, FeatureBuilder const & fb)
+  {
+    FeatureBuilder::Buffer buffer;
+    SerializationPolicy::Serialize(fb, buffer);
+    WriteVarUint(writer, static_cast<uint32_t>(buffer.size()));
+    writer.Write(buffer.data(), buffer.size() * sizeof(FeatureBuilder::Buffer::value_type));
+  }
+
+private:
+  std::string m_filename;
+  bool m_mangleName = false;
+  std::unique_ptr<Writer> m_writer;
+};
+}  // namespace feature

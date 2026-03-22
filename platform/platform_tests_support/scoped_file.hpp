@@ -5,7 +5,7 @@
 
 #include "base/macros.hpp"
 
-#include "std/string.hpp"
+#include <string>
 
 namespace platform
 {
@@ -18,26 +18,43 @@ class ScopedDir;
 class ScopedFile
 {
 public:
-  ScopedFile(string const & relativePath, string const & contents);
+  enum class Mode : uint32_t
+  {
+    // Create or overwrite the file and remove it at scope exit.
+    Create,
 
-  ScopedFile(ScopedDir const & dir, CountryFile const & countryFile, MapOptions file,
-             string const & contents);
+    // Remove the file at scope exit. The caller must
+    // ensure that the file has been created by that time.
+    DoNotCreate
+  };
+
+  // Creates a scoped file in the specified mode.
+  ScopedFile(std::string const & relativePath, Mode mode);
+
+  // Creates a scoped file in Mode::Create and writes |contents| to it.
+  ScopedFile(std::string const & relativePath, std::string const & contents);
+
+  // Creates a scoped file in Mode::Create using the path inferred from |countryFile|
+  // and |mapOptions|.
+  ScopedFile(ScopedDir const & dir, CountryFile const & countryFile, MapFileType type);
 
   ~ScopedFile();
 
-  inline string const & GetFullPath() const { return m_fullPath; }
+  std::string const & GetFullPath() const { return m_fullPath; }
 
-  inline void Reset() { m_reset = true; }
+  void Reset() { m_reset = true; }
 
-  inline bool Exists() const { return GetPlatform().IsFileExistsByFullPath(GetFullPath()); }
+  bool Exists() const { return GetPlatform().IsFileExistsByFullPath(GetFullPath()); }
 
 private:
-  string const m_fullPath;
-  bool m_reset;
+  ScopedFile(std::string const & relativePath, std::string const & contents, Mode mode);
+
+  std::string const m_fullPath;
+  bool m_reset = false;
 
   DISALLOW_COPY_AND_MOVE(ScopedFile);
 };
 
-string DebugPrint(ScopedFile const & file);
+std::string DebugPrint(ScopedFile const & file);
 }  // namespace tests_support
 }  // namespace platform

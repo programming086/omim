@@ -1,11 +1,16 @@
 #include "testing/testing.hpp"
 
 #include "generator/osm_o5m_source.hpp"
-#include "std/iterator.hpp"
-#include "std/set.hpp"
+
+#include <iterator>
+#include <set>
+#include <utility>
+#include <vector>
 
 #include "source_data.hpp"
 
+
+using namespace std;
 
 UNIT_TEST(OSM_O5M_Source_Node_read_test)
 {
@@ -25,10 +30,10 @@ UNIT_TEST(OSM_O5M_Source_Node_read_test)
   TEST_EQUAL(em.uid, 395071, ());
   TEST_EQUAL(em.version, 8, ());
   TEST_EQUAL(em.changeset, 12059128, ());
-  TEST(my::AlmostEqualAbs(em.lon, 38.7666704, 1e-7), ());
-  TEST(my::AlmostEqualAbs(em.lat, 55.0927062, 1e-7), ());
+  TEST(base::AlmostEqualAbs(em.lon, 38.7666704, 1e-7), ());
+  TEST(base::AlmostEqualAbs(em.lat, 55.0927062, 1e-7), ());
 
-  auto const & tags = em.Tags();
+  auto const tags = em.Tags();
   auto tagIterator = tags.begin();
   auto const & tag = *tagIterator;
   TEST_EQUAL(tag.key, string("amenity"), ());

@@ -1,26 +1,27 @@
 #pragma once
 
-#include "search/result.hpp"
-#include "search/params.hpp"
+#include "map/everywhere_search_params.hpp"
+#include "map/viewport_search_params.hpp"
 
-#include "std/vector.hpp"
+#include "search/mode.hpp"
+#include "search/result.hpp"
+
+#include "base/thread_checker.hpp"
+
+#include <cstdint>
+#include <vector>
 
 #include <QtGui/QPixmap>
-
-#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
-  #include <QtGui/QWidget>
-#else
-  #include <QtWidgets/QWidget>
-#endif
+#include <QtWidgets/QWidget>
 
 class QTableWidget;
 class QLineEdit;
 class QPushButton;
+class QButtonGroup;
 class QTimer;
 
 namespace qt
 {
-
 class DrawWidget;
 
 class SearchPanel : public QWidget
@@ -30,15 +31,18 @@ class SearchPanel : public QWidget
   QLineEdit * m_pEditor;
   QPushButton * m_pClearButton;
   QTimer * m_pAnimationTimer;
+  QButtonGroup * m_pSearchModeButtons;
 
   QPixmap m_busyIcon;
 
-  /// Stores current search results
-  typedef search::Results ResultsT;
-  typedef search::Result ResultT;
-  vector<ResultT> m_results;
+  std::vector<search::Result> m_results;
 
-  search::SearchParams m_params;
+  search::Mode m_mode;
+  search::EverywhereSearchParams m_everywhereParams;
+  search::ViewportSearchParams m_viewportParams;
+  uint64_t m_timestamp;
+
+  ThreadChecker m_threadChecker;
 
   Q_OBJECT
 
@@ -48,24 +52,22 @@ public:
 private:
   virtual void hideEvent(QHideEvent *);
 
-  void SearchResultThreadFunc(ResultsT const & result);
   void ClearResults();
 
-signals:
-  void SearchResultSignal(ResultsT * result);
+  void StartBusyIndicator();
+  void StopBusyIndicator();
 
 private slots:
+  void OnSearchModeChanged(int mode);
   void OnSearchPanelItemClicked(int row, int column);
   void OnSearchTextChanged(QString const &);
-
-  /// Called via signal to support multithreading
-  void OnSearchResult(ResultsT * result);
+  void OnEverywhereSearchResults(uint64_t timestamp, search::Results const & results);
 
   void OnAnimationTimer();
   void OnClearButton();
 
-  bool TryChangeMapStyleCmd(QString const & str);
-  bool TryChangeRouterCmd(QString const & str);
+  bool Try3dModeCmd(QString const & str);
+  bool TryDisplacementModeCmd(QString const & str);
+  bool TryTrafficSimplifiedColorsCmd(QString const & str);
 };
-
-}
+}  // namespace qt

@@ -2,8 +2,9 @@
 
 #import <Foundation/Foundation.h>
 
-#include "../std/string.hpp"
-#include "../std/target_os.hpp"
+#include "std/target_os.hpp"
+
+#include <string>
 
 namespace downloader { class IHttpThreadCallback; }
 
@@ -11,19 +12,16 @@ namespace downloader { class IHttpThreadCallback; }
 #import "../iphone/Maps/Classes/DownloadIndicatorProtocol.h"
 #endif
 
-@interface HttpThread : NSObject
-{
-  downloader::IHttpThreadCallback * m_callback;
-  NSURLConnection * m_connection;
-  int64_t m_begRange, m_endRange;
-  int64_t m_downloadedBytes;
-  int64_t m_expectedSize;
-}
+@interface HttpThreadImpl : NSObject
 
-- (id) initWith:(string const &)url callback:(downloader::IHttpThreadCallback &)cb begRange:(int64_t)beg
-       endRange:(int64_t)end expectedSize:(int64_t)size postBody:(string const &)pb;
+- (instancetype)initWithURL:(std::string const &)url
+                   callback:(downloader::IHttpThreadCallback &)cb
+                   begRange:(int64_t)beg
+                   endRange:(int64_t)end
+               expectedSize:(int64_t)size
+                   postBody:(std::string const &)pb;
 
-- (void) cancel;
+- (void)cancel;
 
 #ifdef OMIM_OS_IPHONE
 + (void)setDownloadIndicatorProtocol:(id<DownloadIndicatorProtocol>)indicator;

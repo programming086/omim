@@ -3,9 +3,12 @@
 
 #include "base/string_utils.hpp"
 
-#include "std/algorithm.hpp"
-#include "std/string.hpp"
-#include "std/utility.hpp"
+#include <algorithm>
+#include <iterator>
+#include <string>
+#include <utility>
+
+using namespace std;
 
 namespace
 {
@@ -44,11 +47,19 @@ void GetTtsText::ForTestingSetLocaleWithJson(string const & jsonBuffer, string c
   m_getCurLang = platform::ForTestingGetTextByIdFactory(jsonBuffer, locale);
 }
 
-string GetTtsText::operator()(Notification const & notification) const
+string GetTtsText::GetTurnNotification(Notification const & notification) const
 {
   if (notification.m_distanceUnits == 0 && !notification.m_useThenInsteadOfDistance)
     return GetTextById(GetDirectionTextId(notification));
-  if (notification.m_useThenInsteadOfDistance && notification.m_turnDir == TurnDirection::NoTurn)
+
+  if (notification.IsPedestrianNotification())
+  {
+    if (notification.m_useThenInsteadOfDistance &&
+        notification.m_turnDirPedestrian == PedestrianDirection::None)
+      return string();
+  }
+
+  if (notification.m_useThenInsteadOfDistance && notification.m_turnDir == CarDirection::None)
     return string();
 
   string const dirStr = GetTextById(GetDirectionTextId(notification));
@@ -57,6 +68,11 @@ string GetTtsText::operator()(Notification const & notification) const
 
   string const distStr = GetTextById(GetDistanceTextId(notification));
   return distStr + " " + dirStr;
+}
+
+string GetTtsText::GetSpeedCameraNotification() const
+{
+  return GetTextById("unknown_camera");
 }
 
 string GetTtsText::GetLocale() const
@@ -88,12 +104,12 @@ string GetDistanceTextId(Notification const & notification)
 
   switch (notification.m_lengthUnits)
   {
-    case ::Settings::Metric:
-      return DistToTextId(GetAllSoundedDistMeters().cbegin(), GetAllSoundedDistMeters().cend(),
-                          notification.m_distanceUnits);
-    case ::Settings::Foot:
-      return DistToTextId(GetAllSoundedDistFeet().cbegin(), GetAllSoundedDistFeet().cend(),
-                          notification.m_distanceUnits);
+  case measurement_utils::Units::Metric:
+    return DistToTextId(GetAllSoundedDistMeters().cbegin(), GetAllSoundedDistMeters().cend(),
+                        notification.m_distanceUnits);
+  case measurement_utils::Units::Imperial:
+    return DistToTextId(GetAllSoundedDistFeet().cbegin(), GetAllSoundedDistFeet().cend(),
+                        notification.m_distanceUnits);
   }
   ASSERT(false, ());
   return string();
@@ -101,7 +117,7 @@ string GetDistanceTextId(Notification const & notification)
 
 string GetRoundaboutTextId(Notification const & notification)
 {
-  if (notification.m_turnDir != TurnDirection::LeaveRoundAbout)
+  if (notification.m_turnDir != CarDirection::LeaveRoundAbout)
   {
     ASSERT(false, ());
     return string();
@@ -118,7 +134,15 @@ string GetRoundaboutTextId(Notification const & notification)
 
 string GetYouArriveTextId(Notification const & notification)
 {
-  if (notification.m_turnDir != TurnDirection::ReachedYourDestination)
+  if (!notification.IsPedestrianNotification() &&
+      notification.m_turnDir != CarDirection::ReachedYourDestination)
+  {
+    ASSERT(false, ());
+    return string();
+  }
+
+  if (notification.IsPedestrianNotification() &&
+      notification.m_turnDirPedestrian != PedestrianDirection::ReachedYourDestination)
   {
     ASSERT(false, ());
     return string();
@@ -131,36 +155,51 @@ string GetYouArriveTextId(Notification const & notification)
 
 string GetDirectionTextId(Notification const & notification)
 {
+  if (notification.IsPedestrianNotification())
+  {
+    switch (notification.m_turnDirPedestrian)
+    {
+    case PedestrianDirection::GoStraight: return "go_straight";
+    case PedestrianDirection::TurnRight: return "make_a_right_turn";
+    case PedestrianDirection::TurnLeft: return "make_a_left_turn";
+    case PedestrianDirection::ReachedYourDestination: return GetYouArriveTextId(notification);
+    case PedestrianDirection::None:
+    case PedestrianDirection::Count: ASSERT(false, (notification)); return string();
+    }
+  }
+
   switch (notification.m_turnDir)
   {
-    case TurnDirection::GoStraight:
+    case CarDirection::GoStraight:
       return "go_straight";
-    case TurnDirection::TurnRight:
+    case CarDirection::TurnRight:
       return "make_a_right_turn";
-    case TurnDirection::TurnSharpRight:
+    case CarDirection::TurnSharpRight:
       return "make_a_sharp_right_turn";
-    case TurnDirection::TurnSlightRight:
+    case CarDirection::TurnSlightRight:
       return "make_a_slight_right_turn";
-    case TurnDirection::TurnLeft:
+    case CarDirection::TurnLeft:
       return "make_a_left_turn";
-    case TurnDirection::TurnSharpLeft:
+    case CarDirection::TurnSharpLeft:
       return "make_a_sharp_left_turn";
-    case TurnDirection::TurnSlightLeft:
+    case CarDirection::TurnSlightLeft:
       return "make_a_slight_left_turn";
-    case TurnDirection::UTurnLeft:
-    case TurnDirection::UTurnRight:
+    case CarDirection::UTurnLeft:
+    case CarDirection::UTurnRight:
       return "make_a_u_turn";
-    case TurnDirection::EnterRoundAbout:
+    case CarDirection::EnterRoundAbout:
       return "enter_the_roundabout";
-    case TurnDirection::LeaveRoundAbout:
+    case CarDirection::LeaveRoundAbout:
       return GetRoundaboutTextId(notification);
-    case TurnDirection::ReachedYourDestination:
+    case CarDirection::ReachedYourDestination:
       return GetYouArriveTextId(notification);
-    case TurnDirection::StayOnRoundAbout:
-    case TurnDirection::StartAtEndOfStreet:
-    case TurnDirection::TakeTheExit:
-    case TurnDirection::NoTurn:
-    case TurnDirection::Count:
+    case CarDirection::ExitHighwayToLeft:
+    case CarDirection::ExitHighwayToRight:
+      return "exit";
+    case CarDirection::StayOnRoundAbout:
+    case CarDirection::StartAtEndOfStreet:
+    case CarDirection::None:
+    case CarDirection::Count:
       ASSERT(false, ());
       return string();
   }

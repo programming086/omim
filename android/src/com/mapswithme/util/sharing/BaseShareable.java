@@ -3,18 +3,18 @@ package com.mapswithme.util.sharing;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.support.annotation.Nullable;
-import android.support.annotation.StringRes;
+import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import android.text.TextUtils;
 
 import com.mapswithme.util.statistics.AlohaHelper;
 
-public abstract class BaseShareable
+abstract class BaseShareable
 {
   private final Activity mActivity;
-  private Intent mBaseIntent;
-  private String mText;
-  private String mSubject;
+  protected Intent mBaseIntent;
+  protected String mText;
+  protected String mSubject;
 
   public BaseShareable(Activity activity)
   {

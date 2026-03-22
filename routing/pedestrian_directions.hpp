@@ -1,36 +1,30 @@
 #pragma once
 
 #include "routing/directions_engine.hpp"
+#include "routing/directions_engine_helpers.hpp"
+#include "routing/loaded_path_segment.hpp"
+#include "routing/routing_result_graph.hpp"
+#include "routing/turn_candidate.hpp"
+
+#include "routing_common/num_mwm_id.hpp"
+
+#include "geometry/point_with_altitude.hpp"
+
+#include <memory>
+#include <vector>
 
 namespace routing
 {
-
-class PedestrianDirectionsEngine : public IDirectionsEngine
+class PedestrianDirectionsEngine : public DirectionsEngine
 {
 public:
-  PedestrianDirectionsEngine();
+  PedestrianDirectionsEngine(DataSource const & dataSource, std::shared_ptr<NumMwmIds> numMwmIds);
 
-  // IDirectionsEngine override:
-  void Generate(IRoadGraph const & graph, vector<Junction> const & path,
-                Route::TTimes & times,
-                Route::TTurns & turnsDir,
-                my::Cancellable const & cancellable) override;
-
-private:
-  bool ReconstructPath(IRoadGraph const & graph, vector<Junction> const & path,
-                       vector<Edge> & routeEdges,
-                       my::Cancellable const & cancellable) const;
-
-  void CalculateTimes(IRoadGraph const & graph, vector<Junction> const & path,
-                      Route::TTimes & times) const;
-
-  void CalculateTurns(IRoadGraph const & graph, vector<Edge> const & routeEdges,
-                      Route::TTurns & turnsDir,
-                      my::Cancellable const & cancellable) const;
-
-  uint32_t const m_typeSteps;
-  uint32_t const m_typeLiftGate;
-  uint32_t const m_typeGate;
+  // DirectionsEngine override:
+  bool Generate(IndexRoadGraph const & graph, std::vector<geometry::PointWithAltitude> const & path,
+                base::Cancellable const & cancellable, Route::TTurns & turns,
+                Route::TStreets & streetNames,
+                std::vector<geometry::PointWithAltitude> & routeGeometry,
+                std::vector<Segment> & segments) override;
 };
-
 }  // namespace routing

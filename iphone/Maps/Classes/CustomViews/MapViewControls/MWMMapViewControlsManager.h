@@ -1,49 +1,67 @@
-#import "MWMBottomMenuViewController.h"
+#import "MWMBottomMenuState.h"
+#import "MWMMapDownloaderMode.h"
 #import "MWMNavigationDashboardManager.h"
-#import "MWMRoutingProtocol.h"
-
-#include "map/user_mark.hpp"
-#include "platform/location.hpp"
+#import "MWMSearchManager.h"
 
 @class MapViewController;
+@class BottomTabBarViewController;
+@class GuidesNavigationBarViewController;
+@protocol MWMFeatureHolder;
 
-@interface MWMMapViewControlsManager : NSObject <MWMRoutingProtocol>
+@interface MWMMapViewControlsManager : NSObject
 
-@property (nonatomic) BOOL hidden;
-@property (nonatomic) BOOL zoomHidden;
-@property (nonatomic) MWMBottomMenuState menuState;
-@property (nonatomic, readonly) MWMNavigationDashboardState navigationState;
-@property (nonatomic) BOOL searchHidden;
++ (MWMMapViewControlsManager *)manager NS_SWIFT_NAME(manager());
+
+@property(nonatomic) BOOL hidden;
+@property(nonatomic) BOOL zoomHidden;
+@property(nonatomic) BOOL sideButtonsHidden;
+@property(nonatomic) BOOL trafficButtonHidden;
+@property(nonatomic, readonly) BOOL guidesNavigationBarHidden;
+@property(nonatomic) MWMBottomMenuState menuState;
+@property(nonatomic) MWMBottomMenuState menuRestoreState;
+@property(nonatomic) BOOL isDirectionViewHidden;
+@property(nonatomic) BottomTabBarViewController *tabBarController;
+@property(nonatomic) GuidesNavigationBarViewController *guidesNavigationBar;
 
 - (instancetype)init __attribute__((unavailable("init is not available")));
 - (instancetype)initWithParentController:(MapViewController *)controller;
 
-- (void)onEnterForeground;
+- (UIStatusBarStyle)preferredStatusBarStyle;
+
+#pragma mark GuidesNavigationBar
+- (void)showGuidesNavigationBar:(MWMMarkGroupID)categoryId;
+- (void)hideGuidesNavigationBar;
 
 #pragma mark - Layout
 
-- (void)refreshLayout;
+- (UIView *)anchorView;
 
-- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation
-                                duration:(NSTimeInterval)duration;
 - (void)viewWillTransitionToSize:(CGSize)size
        withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator;
 
 #pragma mark - MWMPlacePageViewManager
 
-@property (nonatomic, readonly) BOOL isDirectionViewShown;
-
-- (void)dismissPlacePage;
-- (void)showPlacePageWithUserMark:(unique_ptr<UserMarkCopy>)userMark;
+- (void)showPlacePageReview;
 
 #pragma mark - MWMNavigationDashboardManager
 
-- (void)setupRoutingDashboard:(location::FollowingInfo const &)info;
-- (void)routingHidden;
-- (void)routingReady;
-- (void)routingPrepare;
-- (void)routingNavigation;
-- (void)handleRoutingError;
-- (void)setRouteBuildingProgress:(CGFloat)progress;
+- (void)onRoutePrepare;
+- (void)onRouteRebuild;
+- (void)onRouteReady:(BOOL)hasWarnings;
+- (void)onRouteStart;
+- (void)onRouteStop;
+
+#pragma mark - MWMSearchManager
+
+- (void)actionDownloadMaps:(MWMMapDownloaderMode)mode;
+- (BOOL)searchText:(NSString *)text forInputLocale:(NSString *)locale;
+- (void)searchTextOnMap:(NSString *)text forInputLocale:(NSString *)locale;
+- (void)hideSearch;
+
+#pragma mark - MWMFeatureHolder
+
+- (id<MWMFeatureHolder>)featureHolder;
+
+- (void)showAdditionalViewsIfNeeded;
 
 @end

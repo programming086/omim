@@ -10,22 +10,21 @@
 #include "base/logging.hpp"
 #include "base/string_utils.hpp"
 
-#include "std/iomanip.hpp"
-#include "std/iostream.hpp"
-
+#include <iterator>
 
 using namespace feature;
+using namespace std;
 
 namespace stats
 {
-  void FileContainerStatistic(string const & fPath)
+  void FileContainerStatistic(std::ostream & os, string const & fPath)
   {
     try
     {
       FilesContainerR cont(fPath);
-      cont.ForEachTag([&cont] (FilesContainerR::Tag const & tag)
+      cont.ForEachTag([&] (FilesContainerR::Tag const & tag)
       {
-        cout << setw(10) << tag << " : " << cont.GetReader(tag).Size() << endl;
+        os << std::setw(10) << tag << " : " << cont.GetReader(tag).Size() << '\n';
       });
     }
     catch (Reader::Exception const & ex)
@@ -40,8 +39,8 @@ namespace stats
   size_t GetAreaIndex(double s)
   {
     double const sInKm2 = s / 1000000;
-    auto i = lower_bound(begin(arrAreas), end(arrAreas), sInKm2);
-    ASSERT(i != end(arrAreas), ());
+    auto i = lower_bound(std::begin(arrAreas), std::end(arrAreas), sInKm2);
+    ASSERT(i != std::end(arrAreas), ());
     return distance(arrAreas, i);
   }
 
@@ -50,21 +49,21 @@ namespace stats
     MapInfo & m_info;
 
   public:
-    AccumulateStatistic(MapInfo & info) : m_info(info) {}
+    explicit AccumulateStatistic(MapInfo & info) : m_info(info) {}
 
-    void operator() (FeatureType const & f, uint32_t)
+    void operator() (FeatureType & f, uint32_t)
     {
       f.ParseBeforeStatistic();
 
-      FeatureType::inner_geom_stat_t const innerStats = f.GetInnerStatistic();
+      FeatureType::InnerGeomStat const innerStats = f.GetInnerStatistic();
 
       m_info.m_inner[0].Add(innerStats.m_points);
       m_info.m_inner[1].Add(innerStats.m_strips);
       m_info.m_inner[2].Add(innerStats.m_size);
 
       // get geometry size for the best geometry
-      FeatureType::geom_stat_t const geom = f.GetGeometrySize(FeatureType::BEST_GEOMETRY);
-      FeatureType::geom_stat_t const trg = f.GetTrianglesSize(FeatureType::BEST_GEOMETRY);
+      FeatureType::GeomStat const geom = f.GetGeometrySize(FeatureType::BEST_GEOMETRY);
+      FeatureType::GeomStat const trg = f.GetTrianglesSize(FeatureType::BEST_GEOMETRY);
 
       m_info.m_byPointsCount[CountType(geom.m_count)].Add(geom.m_size);
       m_info.m_byTrgCount[CountType(trg.m_count / 3)].Add(trg.m_size);
@@ -74,7 +73,7 @@ namespace stats
       double len = 0.0;
       double area = 0.0;
 
-      if (f.GetFeatureType() == feature::GEOM_LINE)
+      if (f.GetGeomType() == feature::GeomType::Line)
       {
         m2::PointD lastPoint;
         bool firstPoint = true;
@@ -83,74 +82,79 @@ namespace stats
           if (firstPoint)
             firstPoint = false;
           else
-            len += MercatorBounds::DistanceOnEarth(lastPoint, pt);
+            len += mercator::DistanceOnEarth(lastPoint, pt);
           lastPoint = pt;
         }, FeatureType::BEST_GEOMETRY);
       }
-      else if (f.GetFeatureType() == feature::GEOM_AREA)
+      else if (f.GetGeomType() == feature::GeomType::Area)
       {
         f.ForEachTriangle([&area](m2::PointD const & p1, m2::PointD const & p2, m2::PointD const & p3)
         {
-          area += MercatorBounds::AreaOnEarth(p1, p2, p3);
+          area += mercator::AreaOnEarth(p1, p2, p3);
         }, FeatureType::BEST_GEOMETRY);
       }
 
-      m_info.m_byGeomType[f.GetFeatureType()].Add(allSize, len, area);
+      auto const hasName = f.GetNames().CountLangs() != 0;
 
-      f.ForEachType([this, allSize, len, area](uint32_t type)
+      m_info.m_byGeomType[f.GetGeomType()].Add(allSize, len, area, hasName);
+
+      f.ForEachType([this, allSize, len, area, hasName](uint32_t type)
       {
-        m_info.m_byClassifType[ClassifType(type)].Add(allSize, len, area);
+        m_info.m_byClassifType[ClassifType(type)].Add(allSize, len, area, hasName);
       });
 
-      m_info.m_byAreaSize[AreaType(GetAreaIndex(area))].Add(trg.m_size, len, area);
+      m_info.m_byAreaSize[AreaType(GetAreaIndex(area))].Add(trg.m_size, len, area, hasName);
     }
   };
 
-  void CalcStatistic(string const & fPath, MapInfo & info)
+  void CalcStatistic(std::string const & fPath, MapInfo & info)
   {
     AccumulateStatistic doProcess(info);
-    feature::ForEachFromDat(fPath, doProcess);
+    feature::ForEachFeature(fPath, doProcess);
   }
 
-  void PrintInfo(string const & prefix, GeneralInfo const & info, bool measurements)
+  void PrintInfo(std::ostream & os, std::string const & prefix, GeneralInfo const & info, bool measurements)
   {
-    cout << prefix << ": size = " << info.m_size << "; count = " << info.m_count;
+    os << prefix << ": size = " << info.m_size << "; count = " << info.m_count;
+
     if (measurements)
     {
-      cout << "; length = " << uint64_t(info.m_length) << " m; area = " << uint64_t(info.m_area) << " m²";
+      os << "; length = " << static_cast<uint64_t>(info.m_length)
+         << " m; area = " << static_cast<uint64_t>(info.m_area) << " m²";
     }
-    cout << endl;
+
+    os << "; names = " << info.m_names << '\n';
   }
 
-  string GetKey(EGeomType type)
+  std::string GetKey(GeomType type)
   {
     switch (type)
     {
-    case GEOM_LINE: return "Line";
-    case GEOM_AREA: return "Area";
+    case GeomType::Line: return "Line";
+    case GeomType::Area: return "Area";
     default: return "Point";
     }
   }
 
-  string GetKey(CountType t)
+  std::string GetKey(CountType t)
   {
     return strings::to_string(t.m_val);
   }
 
-  string GetKey(ClassifType t)
+  std::string GetKey(ClassifType t)
   {
     return classif().GetFullObjectName(t.m_val);
   }
 
-  string GetKey(AreaType t)
+  std::string GetKey(AreaType t)
   {
     return strings::to_string(arrAreas[t.m_val]);
   }
 
   template <class TSortCr, class TSet>
-  void PrintTop(char const * prefix, TSet const & theSet)
+  void PrintTop(std::ostream & os, char const * prefix, TSet const & theSet)
   {
-    cout << prefix << endl;
+    os << prefix << endl;
 
     vector<pair<typename TSet::key_type, typename TSet::mapped_type>> vec(theSet.begin(), theSet.end());
 
@@ -159,8 +163,8 @@ namespace stats
     size_t const count = min(static_cast<size_t>(10), vec.size());
     for (size_t i = 0; i < count; ++i)
     {
-      cout << i << ". ";
-      PrintInfo(GetKey(vec[i].first), vec[i].second, false);
+      os << i << ". ";
+      PrintInfo(os, GetKey(vec[i].first), vec[i].second, false);
     }
   }
 
@@ -182,24 +186,24 @@ namespace stats
     }
   };
 
-  void PrintStatistic(MapInfo & info)
+  void PrintStatistic(std::ostream & os, MapInfo & info)
   {
-    PrintInfo("DAT header", info.m_inner[2], false);
-    PrintInfo("Points header", info.m_inner[0], false);
-    PrintInfo("Strips header", info.m_inner[1], false);
+    PrintInfo(os, "DAT header", info.m_inner[2], false);
+    PrintInfo(os, "Points header", info.m_inner[0], false);
+    PrintInfo(os, "Strips header", info.m_inner[1], false);
 
-    PrintTop<greater_size>("Top SIZE by Geometry Type", info.m_byGeomType);
-    PrintTop<greater_size>("Top SIZE by Classificator Type", info.m_byClassifType);
-    PrintTop<greater_size>("Top SIZE by Points Count", info.m_byPointsCount);
-    PrintTop<greater_size>("Top SIZE by Triangles Count", info.m_byTrgCount);
-    PrintTop<greater_size>("Top SIZE by Area", info.m_byAreaSize);
+    PrintTop<greater_size>(os, "Top SIZE by Geometry Type", info.m_byGeomType);
+    PrintTop<greater_size>(os, "Top SIZE by Classificator Type", info.m_byClassifType);
+    PrintTop<greater_size>(os, "Top SIZE by Points Count", info.m_byPointsCount);
+    PrintTop<greater_size>(os, "Top SIZE by Triangles Count", info.m_byTrgCount);
+    PrintTop<greater_size>(os, "Top SIZE by Area", info.m_byAreaSize);
   }
 
-  void PrintTypeStatistic(MapInfo & info)
+  void PrintTypeStatistic(std::ostream & os, MapInfo & info)
   {
     for (auto it = info.m_byClassifType.begin(); it != info.m_byClassifType.end(); ++it)
     {
-      PrintInfo(GetKey(it->first).c_str(), it->second, true);
+      PrintInfo(os, GetKey(it->first).c_str(), it->second, true);
     }
   }
 }

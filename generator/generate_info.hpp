@@ -1,17 +1,18 @@
 #pragma once
 
-#include "defines.hpp"
+#include "generator/cities_boundaries_builder.hpp"
 
+#include "base/file_name_utils.hpp"
 #include "base/logging.hpp"
 
-#include "coding/file_name_utils.hpp"
+#include "defines.hpp"
 
-#include "std/string.hpp"
-#include "std/vector.hpp"
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace feature
 {
-
 struct GenerateInfo
 {
   enum class NodeStorageType
@@ -27,37 +28,57 @@ struct GenerateInfo
     O5M
   };
 
-
   // Directory for .mwm.tmp files.
-  string m_tmpDir;
+  std::string m_tmpDir;
+
   // Directory for result .mwm files.
-  string m_targetDir;
+  std::string m_targetDir;
+
   // Directory for all intermediate files.
-  string m_intermediateDir;
+  std::string m_intermediateDir;
+
+  std::string m_cacheDir;
+
+  // Directory with isolines files.
+  std::string m_isolinesDir;
 
   // Current generated file name if --output option is defined.
-  string m_fileName;
+  std::string m_fileName;
 
-  NodeStorageType m_nodeStorageType;
-  OsmSourceType m_osmFileType;
-  string m_osmFileName;
+  NodeStorageType m_nodeStorageType = NodeStorageType::Memory;
+  OsmSourceType m_osmFileType = OsmSourceType::XML;
+  std::string m_osmFileName;
+
+  std::string m_bookingDataFilename;
+  std::string m_opentableDataFilename;
+  std::string m_promoCatalogCitiesFilename;
+
+  std::string m_brandsFilename;
+  std::string m_brandsTranslationsFilename;
+
+  std::string m_popularPlacesFilename;
+
+  std::string m_idToWikidataFilename;
+
+  std::string m_citiesBoundariesFilename;
+
+  std::string m_complexHierarchyFilename;
 
   uint32_t m_versionDate = 0;
 
-  vector<string> m_bucketNames;
+  std::vector<std::string> m_bucketNames;
 
   bool m_createWorld = false;
-  bool m_splitByPolygons = false;
+  bool m_haveBordersForWholeWorld = false;
   bool m_makeCoasts = false;
   bool m_emitCoasts = false;
-  bool m_genAddresses = false;
   bool m_failOnCoasts = false;
   bool m_preloadCache = false;
-
+  bool m_verbose = false;
 
   GenerateInfo() = default;
 
-  void SetOsmFileType(string const & type)
+  void SetOsmFileType(std::string const & type)
   {
     if (type == "xml")
       m_osmFileType = OsmSourceType::XML;
@@ -67,7 +88,7 @@ struct GenerateInfo
       LOG(LCRITICAL, ("Unknown source type:", type));
   }
 
-  void SetNodeStorageType(string const & type)
+  void SetNodeStorageType(std::string const & type)
   {
     if (type == "raw")
       m_nodeStorageType = NodeStorageType::File;
@@ -79,22 +100,27 @@ struct GenerateInfo
       LOG(LCRITICAL, ("Incorrect node_storage type:", type));
   }
 
-  string GetTmpFileName(string const & fileName, char const * ext = DATA_FILE_EXTENSION_TMP) const
+  std::string GetTmpFileName(std::string const & fileName,
+                             std::string const & ext = DATA_FILE_EXTENSION_TMP) const
   {
-    return my::JoinFoldersToPath(m_tmpDir, fileName + ext);
+    return base::JoinPath(m_tmpDir, fileName + ext);
   }
-  string GetTargetFileName(string const & fileName, char const * ext = DATA_FILE_EXTENSION) const
+
+  std::string GetTargetFileName(std::string const & fileName,
+                                std::string const & ext = DATA_FILE_EXTENSION) const
   {
-    return my::JoinFoldersToPath(m_targetDir, fileName + ext);
+    return base::JoinPath(m_targetDir, fileName + ext);
   }
-  string GetIntermediateFileName(string const & fileName, char const * ext = DATA_FILE_EXTENSION) const
+
+  std::string GetIntermediateFileName(std::string const & fileName,
+                                      std::string const & ext = "") const
   {
-    return my::JoinFoldersToPath(m_intermediateDir, fileName + ext);
+    return base::JoinPath(m_intermediateDir, fileName + ext);
   }
-  string GetAddressesFileName() const
+
+  std::string GetCacheFileName(std::string const & fileName, std::string const & ext = "") const
   {
-    return ((m_genAddresses && !m_fileName.empty()) ? GetTargetFileName(m_fileName, ADDR_FILE_EXTENSION) : string());
+    return base::JoinPath(m_cacheDir, fileName + ext);
   }
 };
-
-} // namespace feature
+}  // namespace feature

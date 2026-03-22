@@ -1,16 +1,45 @@
 #include "indexer/data_header.hpp"
-#include "indexer/point_to_int64.hpp"
 #include "indexer/scales.hpp"
 
 #include "platform/platform.hpp"
 
-#include "coding/file_container.hpp"
+#include "coding/files_container.hpp"
 #include "coding/file_writer.hpp"
-#include "coding/write_to_sink.hpp"
+#include "coding/point_coding.hpp"
 #include "coding/varint.hpp"
+#include "coding/write_to_sink.hpp"
 
 #include "defines.hpp"
 
+using namespace std;
+
+namespace
+{
+  template <class Sink, class Cont>
+  void SaveBytes(Sink & sink, Cont const & cont)
+  {
+    static_assert(sizeof(typename Cont::value_type) == 1, "");
+
+    uint32_t const count = static_cast<uint32_t>(cont.size());
+    WriteVarUint(sink, count);
+    if (count > 0)
+      sink.Write(&cont[0], count);
+  }
+
+  template <class Source, class Cont>
+  void LoadBytes(Source & src, Cont & cont)
+  {
+    static_assert(sizeof(typename Cont::value_type) == 1, "");
+    ASSERT(cont.empty(), ());
+
+    uint32_t const count = ReadVarUint<uint32_t>(src);
+    if (count > 0)
+    {
+      cont.resize(count);
+      src.Read(&cont[0], count);
+    }
+  }
+}  // namespace
 
 namespace feature
 {
@@ -24,21 +53,21 @@ namespace feature
     Load(cont);
   }
 
-  serial::CodingParams DataHeader::GetCodingParams(int scaleIndex) const
+  serial::GeometryCodingParams DataHeader::GetGeometryCodingParams(int scaleIndex) const
   {
-    return serial::CodingParams(m_codingParams.GetCoordBits() -
-                                (m_scales.back() - m_scales[scaleIndex]) / 2,
-                                m_codingParams.GetBasePointUint64());
+    return serial::GeometryCodingParams(
+        m_codingParams.GetCoordBits() - (m_scales.back() - m_scales[scaleIndex]) / 2,
+        m_codingParams.GetBasePointUint64());
   }
 
   m2::RectD const DataHeader::GetBounds() const
   {
-    return Int64ToRect(m_bounds, m_codingParams.GetCoordBits());
+    return Int64ToRectObsolete(m_bounds, m_codingParams.GetCoordBits());
   }
 
   void DataHeader::SetBounds(m2::RectD const & r)
   {
-    m_bounds = RectToInt64(r, m_codingParams.GetCoordBits());
+    m_bounds = RectToInt64Obsolete(r, m_codingParams.GetCoordBits());
   }
 
   pair<int, int> DataHeader::GetScaleRange() const
@@ -52,42 +81,14 @@ namespace feature
 
     switch (type)
     {
-    case world: return make_pair(low, worldH);
-    case worldcoasts: return make_pair(low, high);
+    case MapType::World: return make_pair(low, worldH);
+    case MapType::WorldCoasts: return make_pair(low, high);
     default:
-      ASSERT_EQUAL(type, country, ());
+      ASSERT_EQUAL(type, MapType::Country, ());
       return make_pair(worldH + 1, high);
 
       // Uncomment this to test countries drawing in all scales.
       //return make_pair(1, high);
-    }
-  }
-
-  namespace
-  {
-    template <class TSink, class TCont>
-    void SaveBytes(TSink & sink, TCont const & cont)
-    {
-      static_assert(sizeof(typename TCont::value_type) == 1, "");
-
-      uint32_t const count = static_cast<uint32_t>(cont.size());
-      WriteVarUint(sink, count);
-      if (count > 0)
-        sink.Write(&cont[0], count);
-    }
-
-    template <class TSource, class TCont>
-    void LoadBytes(TSource & src, TCont & cont)
-    {
-      static_assert(sizeof(typename TCont::value_type) == 1, "");
-      ASSERT ( cont.empty(), () );
-
-      uint32_t const count = ReadVarUint<uint32_t>(src);
-      if (count > 0)
-      {
-        cont.resize(count);
-        src.Read(&cont[0], count);
-      }
     }
   }
 
@@ -109,10 +110,8 @@ namespace feature
     ModelReaderPtr headerReader = cont.GetReader(HEADER_FILE_TAG);
     version::MwmVersion version;
 
-    if (version::ReadVersion(cont, version))
-      Load(headerReader, version.format);
-    else
-      LoadV1(headerReader);
+    CHECK(version::ReadVersion(cont, version), ());
+    Load(headerReader, version.GetFormat());
   }
 
   void DataHeader::Load(ModelReaderPtr const & r, version::Format format)
@@ -139,21 +138,15 @@ namespace feature
     // Place all new serializable staff here.
   }
 
-  void DataHeader::LoadV1(ModelReaderPtr const & r)
+  string DebugPrint(DataHeader::MapType type)
   {
-    ReaderSource<ModelReaderPtr> src(r);
-    int64_t const base = ReadPrimitiveFromSource<int64_t>(src);
-    m_codingParams = serial::CodingParams(POINT_COORD_BITS, base);
+    switch (type)
+    {
+    case DataHeader::MapType::World: return "World";
+    case DataHeader::MapType::WorldCoasts: return "WorldCoasts";
+    case DataHeader::MapType::Country: return "Country";
+    }
 
-    m_bounds.first = ReadVarInt<int64_t>(src) + base;
-    m_bounds.second = ReadVarInt<int64_t>(src) + base;
-
-    uint32_t const count = 4;
-    m_scales.resize(count);
-    src.Read(m_scales.data(), count);
-
-    m_type = country;
-
-    m_format = version::v1;
+    UNREACHABLE();
   }
-}
+}  // namespace feature

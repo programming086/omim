@@ -1,24 +1,30 @@
 #include "platform/get_text_by_id.hpp"
+
 #include "platform/platform.hpp"
 
-#include "coding/file_name_utils.hpp"
-
+#include "base/file_name_utils.hpp"
 #include "base/logging.hpp"
 
 #include "3party/jansson/myjansson.hpp"
 
 #include "std/target_os.hpp"
 
+#include <algorithm>
+
+using namespace std;
+
 namespace
 {
-string const kDefaultLanguage = "en";
+static constexpr char const * kDefaultLanguage = "en";
 
 string GetTextSourceString(platform::TextSource textSource)
 {
   switch (textSource)
   {
-    case platform::TextSource::TtsSound:
-      return string("sound-strings");
+  case platform::TextSource::TtsSound:
+    return string("sound-strings");
+  case platform::TextSource::Countries:
+    return string("countries-strings");
   }
   ASSERT(false, ());
   return string();
@@ -29,8 +35,8 @@ namespace platform
 {
 bool GetJsonBuffer(platform::TextSource textSource, string const & localeName, string & jsonBuffer)
 {
-  string const pathToJson = my::JoinFoldersToPath(
-      {GetTextSourceString(textSource), localeName + ".json"}, "localize.json");
+  string const pathToJson =
+      base::JoinPath(GetTextSourceString(textSource), localeName + ".json", "localize.json");
 
   try
   {
@@ -39,7 +45,7 @@ bool GetJsonBuffer(platform::TextSource textSource, string const & localeName, s
   }
   catch (RootException const & ex)
   {
-    LOG(LWARNING, ("Can't open", localeName, "sound instructions file. pathToJson is", pathToJson,
+    LOG(LWARNING, ("Can't open", localeName, "localization file. pathToJson is", pathToJson,
                    ex.what()));
     return false;  // No json file for localeName
   }
@@ -66,7 +72,7 @@ TGetTextByIdPtr GetTextByIdFactory(TextSource textSource, string const & localeN
   if (GetJsonBuffer(textSource, kDefaultLanguage, jsonBuffer))
     return MakeGetTextById(jsonBuffer, kDefaultLanguage);
 
-  ASSERT(false, ("sound.txt does not contain default language."));
+  ASSERT(false, ("Can't find translate for default language. (Lang:", localeName, ")"));
   return nullptr;
 }
 
@@ -89,7 +95,7 @@ void GetTextById::InitFromJson(string const & jsonBuffer)
     return;
   }
 
-  my::Json root(jsonBuffer.c_str());
+  base::Json root(jsonBuffer.c_str());
   if (root.get() == nullptr)
   {
     ASSERT(false, ("Cannot parse the json file."));
@@ -115,5 +121,16 @@ string GetTextById::operator()(string const & textId) const
   if (textIt == m_localeTexts.end())
     return string();
   return textIt->second;
+}
+
+TTranslations GetTextById::GetAllSortedTranslations() const
+{
+  TTranslations all;
+  all.reserve(m_localeTexts.size());
+  for (auto const & tr : m_localeTexts)
+    all.emplace_back(tr.first, tr.second);
+  using TValue = TTranslations::value_type;
+  sort(all.begin(), all.end(), [](TValue const & v1, TValue const & v2) { return v1.second < v2.second; });
+  return all;
 }
 }  // namespace platform

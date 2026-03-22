@@ -1,14 +1,15 @@
 {
-"make_a_slight_right_turn":"Enda kulia kidogo.",
+"make_a_slight_right_turn":"Kaa kuria.",
 "make_a_right_turn":"Zunguka upande wa kulia.",
 "make_a_sharp_right_turn":"Fanya kulia mkali.",
 "enter_the_roundabout":"Ingia kwenye mzunguko.",
 "leave_the_roundabout":"Toka kwenye mzunguko wa barabara.",
-"make_a_slight_left_turn":"Enda kushoto kidogo.",
+"make_a_slight_left_turn":"Kaa kushoto.",
 "make_a_left_turn":"Zunguka upande wa kushoto.",
 "make_a_sharp_left_turn":"Fanya kushoto mkali.",
 "make_a_u_turn":"Geuka urudi ulikotoka.",
 "go_straight":"Pita kabisa.",
+"exit":"Kuondoka.",
 "destination":"Utawasili.",
 "you_have_reached_the_destination":"Umewasili mwisho wa safari.",
 "in_50_meters":"Kabla ya mita hamsini",
@@ -61,5 +62,6 @@
 "in_5000_feet":"Kabla ya futi elfu tano",
 "in_1_mile":"Kabla ya maili moja",
 "in_1_5_miles":"Kabla ya maili moja na nusu",
-"in_2_miles":"Kabla ya maili mbili"
+"in_2_miles":"Kabla ya maili mbili",
+"unknown_camera":"Kamera Mbele"
 }

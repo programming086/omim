@@ -1,56 +1,113 @@
+#include "platform/platform_ios.h"
 #include "platform/constants.hpp"
-#include "platform/platform_ios.hpp"
+#include "platform/gui_thread.hpp"
+#include "platform/measurement_utils.hpp"
 #include "platform/platform_unix_impl.hpp"
 #include "platform/settings.hpp"
 
 #include "coding/file_reader.hpp"
 
+#include <utility>
+
 #include <ifaddrs.h>
 
 #include <mach/mach.h>
 
-#include <net/if_dl.h>
 #include <net/if.h>
+#include <net/if_dl.h>
 
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
+#include <sys/xattr.h>
 
-#if !defined(IFT_ETHER)
-  #define IFT_ETHER 0x6 /* Ethernet CSMACD */
-#endif
+#import "3party/Alohalytics/src/alohalytics_objc.h"
 
-#import "../iphone/Maps/Classes/Common.h"
-
-#import <Foundation/NSAutoreleasePool.h>
-#import <Foundation/NSBundle.h>
-#import <Foundation/NSPathUtilities.h>
-#import <Foundation/NSProcessInfo.h>
-
-#import <UIKit/UIDevice.h>
-#import <UIKit/UIScreen.h>
-#import <UIKit/UIScreenMode.h>
-
+#import <AdSupport/AdSupport.h>
+#import <CoreFoundation/CFURL.h>
 #import <SystemConfiguration/SystemConfiguration.h>
+#import <UIKit/UIKit.h>
 #import <netinet/in.h>
+
+#include <memory>
+#include <sstream>
+#include <string>
+#include <utility>
 
 Platform::Platform()
 {
+  m_isTablet = (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad);
+
+  NSBundle * bundle = NSBundle.mainBundle;
+  NSString * path = [bundle resourcePath];
+  m_resourcesDir = path.UTF8String;
+  m_resourcesDir += "/";
+
+  NSArray * dirPaths =
+      NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+  NSString * docsDir = dirPaths.firstObject;
+  m_writableDir = docsDir.UTF8String;
+  m_writableDir += "/";
+  m_settingsDir = m_writableDir;
+
+  auto privatePaths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,
+                                                          NSUserDomainMask, YES);
+  m_privateDir = privatePaths.firstObject.UTF8String;
+  m_privateDir +=  "/";
+
+  NSString * tmpDir = NSTemporaryDirectory();
+  if (tmpDir)
+    m_tmpDir = tmpDir.UTF8String;
+  else
+  {
+    m_tmpDir = NSHomeDirectory().UTF8String;
+    m_tmpDir += "/tmp/";
+  }
+
+  m_guiThread = std::make_unique<platform::GuiThread>();
+
+  UIDevice * device = UIDevice.currentDevice;
+  device.batteryMonitoringEnabled = YES;
+
+  NSLog(@"Device: %@, SystemName: %@, SystemVersion: %@", device.model, device.systemName,
+        device.systemVersion);
 }
 
-Platform::EError Platform::MkDir(string const & dirName) const
+//static
+void Platform::DisableBackupForFile(std::string const & filePath)
+{
+  // We need to disable iCloud backup for downloaded files.
+  // This is the reason for rejecting from the AppStore
+  // https://developer.apple.com/library/iOS/qa/qa1719/_index.html
+  CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault,
+                                                         reinterpret_cast<unsigned char const *>(filePath.c_str()),
+                                                         filePath.size(),
+                                                         0);
+  CFErrorRef err;
+  BOOL valueRaw = YES;
+  CFNumberRef value = CFNumberCreate(kCFAllocatorDefault, kCFNumberCharType, &valueRaw);
+  if (!CFURLSetResourcePropertyForKey(url, kCFURLIsExcludedFromBackupKey, value, &err))
+    NSLog(@"Error while disabling iCloud backup for file: %s", filePath.c_str());
+
+  CFRelease(value);
+  CFRelease(url);
+}
+
+// static
+Platform::EError Platform::MkDir(std::string const & dirName)
 {
   if (::mkdir(dirName.c_str(), 0755))
     return ErrnoToError();
   return Platform::ERR_OK;
 }
 
-void Platform::GetFilesByRegExp(string const & directory, string const & regexp, FilesList & res)
+void Platform::GetFilesByRegExp(std::string const & directory, std::string const & regexp, FilesList & res)
 {
   pl::EnumerateFilesByRegExp(directory, regexp, res);
 }
 
-bool Platform::GetFileSizeByName(string const & fileName, uint64_t & size) const
+bool Platform::GetFileSizeByName(std::string const & fileName, uint64_t & size) const
 {
   try
   {
@@ -62,83 +119,42 @@ bool Platform::GetFileSizeByName(string const & fileName, uint64_t & size) const
   }
 }
 
-ModelReader * Platform::GetReader(string const & file, string const & searchScope) const
+std::unique_ptr<ModelReader> Platform::GetReader(std::string const & file, std::string const & searchScope) const
 {
-  return new FileReader(ReadPathForFile(file, searchScope),
-                        READER_CHUNK_LOG_SIZE, READER_CHUNK_LOG_COUNT);
+  return std::make_unique<FileReader>(ReadPathForFile(file, searchScope), READER_CHUNK_LOG_SIZE,
+                                      READER_CHUNK_LOG_COUNT);
 }
 
-int Platform::VideoMemoryLimit() const
+int Platform::VideoMemoryLimit() const { return 8 * 1024 * 1024; }
+int Platform::PreCachingDepth() const { return 2; }
+
+std::string Platform::UniqueClientId() const { return [Alohalytics installationId].UTF8String; }
+
+std::string Platform::AdvertisingId() const
 {
-  return 8 * 1024 * 1024;
+  NSUUID *adId = [ASIdentifierManager sharedManager].advertisingIdentifier;
+  return adId.UUIDString.UTF8String;
 }
 
-int Platform::PreCachingDepth() const
+std::string Platform::MacAddress(bool md5Decoded) const
 {
-  return 2;
+  // Not implemented.
+  UNUSED_VALUE(md5Decoded);
+  return {};
 }
 
-static string GetDeviceUid()
-{
-  NSString * uid = @"";
-  UIDevice * device = [UIDevice currentDevice];
-  if (device.systemVersion.floatValue >= 6.0 && device.identifierForVendor)
-    uid = [device.identifierForVendor UUIDString];
-  return [uid UTF8String];
-}
-
-static string GetMacAddress()
-{
-  string result;
-  // get wifi mac addr
-  ifaddrs * addresses = NULL;
-  if (getifaddrs(&addresses) == 0 && addresses != NULL)
-  {
-    ifaddrs * currentAddr = addresses;
-    do
-    {
-      if (currentAddr->ifa_addr->sa_family == AF_LINK
-          && ((const struct sockaddr_dl *) currentAddr->ifa_addr)->sdl_type == IFT_ETHER)
-      {
-        const struct sockaddr_dl * dlAddr = (const struct sockaddr_dl *) currentAddr->ifa_addr;
-        const char * base = &dlAddr->sdl_data[dlAddr->sdl_nlen];
-        result.assign(base, dlAddr->sdl_alen);
-        break;
-      }
-      currentAddr = currentAddr->ifa_next;
-    }
-    while (currentAddr->ifa_next);
-    freeifaddrs(addresses);
-  }
-  return result;
-}
-
-string Platform::UniqueClientId() const
-{
-  return HashUniqueID(GetMacAddress() + GetDeviceUid());
-}
-
-static void PerformImpl(void * obj)
-{
-  Platform::TFunctor * f = reinterpret_cast<Platform::TFunctor *>(obj);
-  (*f)();
-  delete f;
-}
-
-string Platform::GetMemoryInfo() const
+std::string Platform::GetMemoryInfo() const
 {
   struct task_basic_info info;
   mach_msg_type_number_t size = sizeof(info);
-  kern_return_t const kerr = task_info(mach_task_self(),
-                                 TASK_BASIC_INFO,
-                                 (task_info_t)&info,
-                                 &size);
-  stringstream ss;
+  kern_return_t const kerr =
+      task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&info, &size);
+  std::stringstream ss;
   if (kerr == KERN_SUCCESS)
   {
     ss << "Memory info: Resident_size = " << info.resident_size / 1024
-      << "KB; virtual_size = " << info.resident_size / 1024 << "KB; suspend_count = " << info.suspend_count
-      << " policy = " << info.policy;
+       << "KB; virtual_size = " << info.resident_size / 1024
+       << "KB; suspend_count = " << info.suspend_count << " policy = " << info.policy;
   }
   else
   {
@@ -147,22 +163,20 @@ string Platform::GetMemoryInfo() const
   return ss.str();
 }
 
-void Platform::RunOnGuiThread(TFunctor const & fn)
-{
-  dispatch_async_f(dispatch_get_main_queue(), new TFunctor(fn), &PerformImpl);
-}
+std::string Platform::DeviceName() const { return UIDevice.currentDevice.name.UTF8String; }
 
-void Platform::RunAsync(TFunctor const & fn, Priority p)
+std::string Platform::DeviceModel() const
 {
-  int priority = DISPATCH_QUEUE_PRIORITY_DEFAULT;
-  switch (p)
-  {
-    case EPriorityBackground: priority = DISPATCH_QUEUE_PRIORITY_BACKGROUND; break;
-    case EPriorityDefault: priority = DISPATCH_QUEUE_PRIORITY_DEFAULT; break;
-    case EPriorityHigh: priority = DISPATCH_QUEUE_PRIORITY_HIGH; break;
-    case EPriorityLow: priority = DISPATCH_QUEUE_PRIORITY_LOW; break;
-  }
-  dispatch_async_f(dispatch_get_global_queue(priority, 0), new TFunctor(fn), &PerformImpl);
+  utsname systemInfo;
+  uname(&systemInfo);
+  NSString * deviceModel = @(systemInfo.machine);
+  if (auto m = platform::kDeviceModelsBeforeMetalDriver[deviceModel])
+    deviceModel = m;
+  else if (auto m = platform::kDeviceModelsWithiOS10MetalDriver[deviceModel])
+    deviceModel = m;
+  else if (auto m = platform::kDeviceModelsWithMetalDriver[deviceModel])
+    deviceModel = m;
+  return deviceModel.UTF8String;
 }
 
 Platform::EConnectionType Platform::ConnectionStatus()
@@ -171,7 +185,8 @@ Platform::EConnectionType Platform::ConnectionStatus()
   bzero(&zero, sizeof(zero));
   zero.sin_len = sizeof(zero);
   zero.sin_family = AF_INET;
-  SCNetworkReachabilityRef reachability = SCNetworkReachabilityCreateWithAddress(kCFAllocatorDefault, (const struct sockaddr*)&zero);
+  SCNetworkReachabilityRef reachability =
+      SCNetworkReachabilityCreateWithAddress(kCFAllocatorDefault, (const struct sockaddr *)&zero);
   if (!reachability)
     return EConnectionType::CONNECTION_NONE;
   SCNetworkReachabilityFlags flags;
@@ -179,7 +194,8 @@ Platform::EConnectionType Platform::ConnectionStatus()
   CFRelease(reachability);
   if (!gotFlags || ((flags & kSCNetworkReachabilityFlagsReachable) == 0))
     return EConnectionType::CONNECTION_NONE;
-  SCNetworkReachabilityFlags userActionRequired = kSCNetworkReachabilityFlagsConnectionRequired | kSCNetworkReachabilityFlagsInterventionRequired;
+  SCNetworkReachabilityFlags userActionRequired = kSCNetworkReachabilityFlagsConnectionRequired |
+                                                  kSCNetworkReachabilityFlagsInterventionRequired;
   if ((flags & userActionRequired) == userActionRequired)
     return EConnectionType::CONNECTION_NONE;
   if ((flags & kSCNetworkReachabilityFlagsIsWWAN) == kSCNetworkReachabilityFlagsIsWWAN)
@@ -188,108 +204,48 @@ Platform::EConnectionType Platform::ConnectionStatus()
     return EConnectionType::CONNECTION_WIFI;
 }
 
+Platform::ChargingStatus Platform::GetChargingStatus()
+{
+  switch (UIDevice.currentDevice.batteryState)
+  {
+  case UIDeviceBatteryStateUnknown: return Platform::ChargingStatus::Unknown;
+  case UIDeviceBatteryStateUnplugged: return Platform::ChargingStatus::Unplugged;
+  case UIDeviceBatteryStateCharging:
+  case UIDeviceBatteryStateFull: return Platform::ChargingStatus::Plugged;
+  }
+}
+
+uint8_t Platform::GetBatteryLevel()
+{
+  auto const level = UIDevice.currentDevice.batteryLevel;
+
+  ASSERT_GREATER_OR_EQUAL(level, -1.0, ());
+  ASSERT_LESS_OR_EQUAL(level, 1.0, ());
+
+  if (level == -1.0)
+    return 100;
+
+  auto const result = static_cast<uint8_t>(level * 100);
+
+  CHECK_LESS_OR_EQUAL(result, 100, ());
+
+  return result;
+}
+
 void Platform::SetupMeasurementSystem() const
 {
-  Settings::Units u;
-  if (Settings::Get("Units", u))
+  auto units = measurement_utils::Units::Metric;
+  if (settings::Get(settings::kMeasurementUnits, units))
     return;
-  BOOL const isMetric = [[[NSLocale autoupdatingCurrentLocale] objectForKey:NSLocaleUsesMetricSystem] boolValue];
-  u = isMetric ? Settings::Metric : Settings::Foot;
-  Settings::Set("Units", u);
-}
-
-CustomIOSPlatform::CustomIOSPlatform()
-{
-  NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
-
-  m_isTablet = (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad);
-
-  NSBundle * bundle = [NSBundle mainBundle];
-  NSString * path = [bundle resourcePath];
-  m_resourcesDir = [path UTF8String];
-  m_resourcesDir += "/";
-
-  NSArray * dirPaths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-  NSString * docsDir = [dirPaths firstObject];
-  m_writableDir = [docsDir UTF8String];
-
-  // This check is needed for Apple Watch support only on 8.2+ devices.
-  if ([UIDevice currentDevice].systemVersion.floatValue >= 8.0 && [[[NSUserDefaults alloc] initWithSuiteName:kApplicationGroupIdentifier()] boolForKey:kHaveAppleWatch])
-  {
-    NSURL * sharedURL = [[NSFileManager defaultManager] containerURLForSecurityApplicationGroupIdentifier:kApplicationGroupIdentifier()];
-    if (sharedURL)
-      m_writableDir = [sharedURL.path UTF8String];
-  }
-  m_writableDir += "/";
-  m_settingsDir = m_writableDir;
-
-  NSString * tmpDir = NSTemporaryDirectory();
-  if (tmpDir)
-    m_tmpDir = [tmpDir UTF8String];
-  else
-  {
-    m_tmpDir = [NSHomeDirectory() UTF8String];
-    m_tmpDir += "/tmp/";
-  }
-
-  UIDevice * device = [UIDevice currentDevice];
-  NSLog(@"Device: %@, SystemName: %@, SystemVersion: %@", device.model, device.systemName, device.systemVersion);
-
-  [pool release];
-}
-
-void migrate()
-{
-  NSArray * excludeFiles = @[@"com-facebook-sdk-AppEventsPersistedEvents.json",
-                             @"Inbox",
-                             @"MRGService"];
-
-  NSFileManager * fileManager = [NSFileManager defaultManager];
-  NSURL * privateURL = [fileManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
-  NSURL * sharedURL = [fileManager containerURLForSecurityApplicationGroupIdentifier:kApplicationGroupIdentifier()];
-
-  NSDirectoryEnumerator * dirEnum = [fileManager enumeratorAtURL:privateURL includingPropertiesForKeys:nil options:NSDirectoryEnumerationSkipsSubdirectoryDescendants | NSDirectoryEnumerationSkipsPackageDescendants | NSDirectoryEnumerationSkipsHiddenFiles errorHandler:nil];
-
-  NSURL * sourceURL = nil;
-  while ((sourceURL = [dirEnum nextObject]))
-  {
-    NSString * fileName = [sourceURL lastPathComponent];
-    if (![excludeFiles containsObject:fileName])
-    {
-      NSURL * destinationURL = [sharedURL URLByAppendingPathComponent:fileName];
-      NSError * error = nil;
-      [fileManager moveItemAtURL:sourceURL toURL:destinationURL error:&error];
-      if (error && [error.domain isEqualToString:NSCocoaErrorDomain] && error.code == NSFileWriteFileExistsError)
-      {
-        [fileManager removeItemAtURL:destinationURL error:nil];
-        [fileManager moveItemAtURL:sourceURL toURL:destinationURL error:nil];
-      }
-    }
-  }
-}
-
-// This method should be called ONLY from the Watch code (iOS 8.2+).
-void CustomIOSPlatform::MigrateWritableDirForAppleWatch()
-{
-  NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
-
-  NSURL * sharedURL = [[NSFileManager defaultManager] containerURLForSecurityApplicationGroupIdentifier:kApplicationGroupIdentifier()];
-  if (sharedURL)
-  {
-    migrate();
-
-    NSString * path = sharedURL.path;
-    m_writableDir = [path UTF8String];
-    m_writableDir += "/";
-    m_settingsDir = m_writableDir;
-  }
-
-  [pool release];
+  BOOL const isMetric =
+      [[[NSLocale autoupdatingCurrentLocale] objectForKey:NSLocaleUsesMetricSystem] boolValue];
+  units = isMetric ? measurement_utils::Units::Metric : measurement_utils::Units::Imperial;
+  settings::Set(settings::kMeasurementUnits, units);
 }
 
 ////////////////////////////////////////////////////////////////////////
 extern Platform & GetPlatform()
 {
-  static CustomIOSPlatform platform;
+  static Platform platform;
   return platform;
 }

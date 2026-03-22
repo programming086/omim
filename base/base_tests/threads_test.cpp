@@ -2,10 +2,10 @@
 
 #include "base/thread.hpp"
 
-#include "std/vector.hpp"
+#include <vector>
+#include <memory>
 
-
-typedef std::vector<int> Vector;
+using Vector = std::vector<int>;
 
 static size_t summ = 0;
 static size_t checkSumm = 0;
@@ -13,13 +13,13 @@ static size_t const MAX_COUNT = 1000000;
 
 struct GeneratorThread : public threads::IRoutine
 {
-  GeneratorThread(Vector & vec) : m_vec(vec) {}
+  explicit GeneratorThread(Vector & vec) : m_vec(vec) {}
 
   virtual void Do()
   {
     for (size_t i = 0; i < MAX_COUNT; ++i)
     {
-      m_vec.push_back(i);
+      m_vec.push_back(static_cast<int>(i));
       summ += i;
     }
   }
@@ -28,7 +28,7 @@ struct GeneratorThread : public threads::IRoutine
 
 struct ReaderThread : public threads::IRoutine
 {
-  ReaderThread(Vector & vec) : m_vec(vec) {}
+  explicit ReaderThread(Vector & vec) : m_vec(vec) {}
 
   virtual void Do()
   {
@@ -44,13 +44,13 @@ UNIT_TEST(Simple_Threads)
   Vector vec;
 
   threads::Thread reader;
-  bool ok = reader.Create(make_unique<GeneratorThread>(vec));
+  bool ok = reader.Create(std::make_unique<GeneratorThread>(vec));
   TEST( ok, ("Create Generator thread") );
 
   reader.Join();
 
   threads::Thread writer;
-  ok = writer.Create(make_unique<ReaderThread>(vec));
+  ok = writer.Create(std::make_unique<ReaderThread>(vec));
   TEST( ok, ("Create Reader thread") );
 
   writer.Join();

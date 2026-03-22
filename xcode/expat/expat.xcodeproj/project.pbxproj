@@ -7,21 +7,50 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		670D050B1B0BAF540013A7AC /* xmlparse.c in Sources */ = {isa = PBXBuildFile; fileRef = 670D05061B0BAF540013A7AC /* xmlparse.c */; };
-		670D050C1B0BAF540013A7AC /* xmlrole.c in Sources */ = {isa = PBXBuildFile; fileRef = 670D05071B0BAF540013A7AC /* xmlrole.c */; };
-		670D050D1B0BAF540013A7AC /* xmltok_impl.c in Sources */ = {isa = PBXBuildFile; fileRef = 670D05081B0BAF540013A7AC /* xmltok_impl.c */; };
-		670D050E1B0BAF540013A7AC /* xmltok_ns.c in Sources */ = {isa = PBXBuildFile; fileRef = 670D05091B0BAF540013A7AC /* xmltok_ns.c */; };
-		670D050F1B0BAF540013A7AC /* xmltok.c in Sources */ = {isa = PBXBuildFile; fileRef = 670D050A1B0BAF540013A7AC /* xmltok.c */; };
+		56D1865B24FF80E5009747D2 /* siphash.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1864824FF80E4009747D2 /* siphash.h */; };
+		56D1865C24FF80E5009747D2 /* asciitab.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1864924FF80E4009747D2 /* asciitab.h */; };
+		56D1865D24FF80E5009747D2 /* expat.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1864A24FF80E4009747D2 /* expat.h */; };
+		56D1865E24FF80E5009747D2 /* xmltok_ns.c in Sources */ = {isa = PBXBuildFile; fileRef = 56D1864B24FF80E4009747D2 /* xmltok_ns.c */; };
+		56D1865F24FF80E5009747D2 /* iasciitab.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1864C24FF80E4009747D2 /* iasciitab.h */; };
+		56D1866024FF80E5009747D2 /* xmlrole.c in Sources */ = {isa = PBXBuildFile; fileRef = 56D1864D24FF80E4009747D2 /* xmlrole.c */; };
+		56D1866124FF80E5009747D2 /* internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1864E24FF80E4009747D2 /* internal.h */; };
+		56D1866224FF80E5009747D2 /* xmlrole.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1864F24FF80E4009747D2 /* xmlrole.h */; };
+		56D1866324FF80E5009747D2 /* utf8tab.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1865024FF80E4009747D2 /* utf8tab.h */; };
+		56D1866424FF80E5009747D2 /* xmltok_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1865124FF80E4009747D2 /* xmltok_impl.h */; };
+		56D1866524FF80E5009747D2 /* latin1tab.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1865224FF80E4009747D2 /* latin1tab.h */; };
+		56D1866624FF80E5009747D2 /* expat_external.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1865324FF80E4009747D2 /* expat_external.h */; };
+		56D1866724FF80E5009747D2 /* xmltok_impl.c in Sources */ = {isa = PBXBuildFile; fileRef = 56D1865424FF80E4009747D2 /* xmltok_impl.c */; };
+		56D1866824FF80E5009747D2 /* nametab.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1865524FF80E4009747D2 /* nametab.h */; };
+		56D1866924FF80E5009747D2 /* ascii.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1865624FF80E4009747D2 /* ascii.h */; };
+		56D1866A24FF80E5009747D2 /* xmlparse.c in Sources */ = {isa = PBXBuildFile; fileRef = 56D1865724FF80E4009747D2 /* xmlparse.c */; };
+		56D1866B24FF80E5009747D2 /* xmltok.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1865824FF80E4009747D2 /* xmltok.h */; };
+		56D1866C24FF80E5009747D2 /* winconfig.h in Headers */ = {isa = PBXBuildFile; fileRef = 56D1865924FF80E4009747D2 /* winconfig.h */; };
+		56D1866D24FF80E5009747D2 /* xmltok.c in Sources */ = {isa = PBXBuildFile; fileRef = 56D1865A24FF80E5009747D2 /* xmltok.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		34EBB47A1DBF51D4005BE9B8 /* common-debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "common-debug.xcconfig"; path = "../common-debug.xcconfig"; sourceTree = "<group>"; };
+		34EBB47B1DBF51D4005BE9B8 /* common-release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "common-release.xcconfig"; path = "../common-release.xcconfig"; sourceTree = "<group>"; };
+		56D1864824FF80E4009747D2 /* siphash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = siphash.h; path = expat/lib/siphash.h; sourceTree = "<group>"; };
+		56D1864924FF80E4009747D2 /* asciitab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = asciitab.h; path = expat/lib/asciitab.h; sourceTree = "<group>"; };
+		56D1864A24FF80E4009747D2 /* expat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = expat.h; path = expat/lib/expat.h; sourceTree = "<group>"; };
+		56D1864B24FF80E4009747D2 /* xmltok_ns.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmltok_ns.c; path = expat/lib/xmltok_ns.c; sourceTree = "<group>"; };
+		56D1864C24FF80E4009747D2 /* iasciitab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = iasciitab.h; path = expat/lib/iasciitab.h; sourceTree = "<group>"; };
+		56D1864D24FF80E4009747D2 /* xmlrole.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmlrole.c; path = expat/lib/xmlrole.c; sourceTree = "<group>"; };
+		56D1864E24FF80E4009747D2 /* internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = internal.h; path = expat/lib/internal.h; sourceTree = "<group>"; };
+		56D1864F24FF80E4009747D2 /* xmlrole.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlrole.h; path = expat/lib/xmlrole.h; sourceTree = "<group>"; };
+		56D1865024FF80E4009747D2 /* utf8tab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utf8tab.h; path = expat/lib/utf8tab.h; sourceTree = "<group>"; };
+		56D1865124FF80E4009747D2 /* xmltok_impl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmltok_impl.h; path = expat/lib/xmltok_impl.h; sourceTree = "<group>"; };
+		56D1865224FF80E4009747D2 /* latin1tab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = latin1tab.h; path = expat/lib/latin1tab.h; sourceTree = "<group>"; };
+		56D1865324FF80E4009747D2 /* expat_external.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = expat_external.h; path = expat/lib/expat_external.h; sourceTree = "<group>"; };
+		56D1865424FF80E4009747D2 /* xmltok_impl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmltok_impl.c; path = expat/lib/xmltok_impl.c; sourceTree = "<group>"; };
+		56D1865524FF80E4009747D2 /* nametab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = nametab.h; path = expat/lib/nametab.h; sourceTree = "<group>"; };
+		56D1865624FF80E4009747D2 /* ascii.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ascii.h; path = expat/lib/ascii.h; sourceTree = "<group>"; };
+		56D1865724FF80E4009747D2 /* xmlparse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmlparse.c; path = expat/lib/xmlparse.c; sourceTree = "<group>"; };
+		56D1865824FF80E4009747D2 /* xmltok.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmltok.h; path = expat/lib/xmltok.h; sourceTree = "<group>"; };
+		56D1865924FF80E4009747D2 /* winconfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = winconfig.h; path = expat/lib/winconfig.h; sourceTree = "<group>"; };
+		56D1865A24FF80E5009747D2 /* xmltok.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmltok.c; path = expat/lib/xmltok.c; sourceTree = "<group>"; };
 		670D04F81B0BAEE50013A7AC /* libexpat.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libexpat.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		670D05061B0BAF540013A7AC /* xmlparse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmlparse.c; path = lib/xmlparse.c; sourceTree = "<group>"; };
-		670D05071B0BAF540013A7AC /* xmlrole.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmlrole.c; path = lib/xmlrole.c; sourceTree = "<group>"; };
-		670D05081B0BAF540013A7AC /* xmltok_impl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmltok_impl.c; path = lib/xmltok_impl.c; sourceTree = "<group>"; };
-		670D05091B0BAF540013A7AC /* xmltok_ns.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmltok_ns.c; path = lib/xmltok_ns.c; sourceTree = "<group>"; };
-		670D050A1B0BAF540013A7AC /* xmltok.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmltok.c; path = lib/xmltok.c; sourceTree = "<group>"; };
-		670D05BB1B0E0D1A0013A7AC /* defaults.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = defaults.xcconfig; path = ../defaults.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -38,7 +67,8 @@
 		670D04EF1B0BAEE50013A7AC = {
 			isa = PBXGroup;
 			children = (
-				670D05BB1B0E0D1A0013A7AC /* defaults.xcconfig */,
+				34EBB47A1DBF51D4005BE9B8 /* common-debug.xcconfig */,
+				34EBB47B1DBF51D4005BE9B8 /* common-release.xcconfig */,
 				670D04FA1B0BAEE50013A7AC /* expat */,
 				670D04F91B0BAEE50013A7AC /* Products */,
 			);
@@ -55,11 +85,25 @@
 		670D04FA1B0BAEE50013A7AC /* expat */ = {
 			isa = PBXGroup;
 			children = (
-				670D05061B0BAF540013A7AC /* xmlparse.c */,
-				670D05071B0BAF540013A7AC /* xmlrole.c */,
-				670D05081B0BAF540013A7AC /* xmltok_impl.c */,
-				670D05091B0BAF540013A7AC /* xmltok_ns.c */,
-				670D050A1B0BAF540013A7AC /* xmltok.c */,
+				56D1865624FF80E4009747D2 /* ascii.h */,
+				56D1864924FF80E4009747D2 /* asciitab.h */,
+				56D1865324FF80E4009747D2 /* expat_external.h */,
+				56D1864A24FF80E4009747D2 /* expat.h */,
+				56D1864C24FF80E4009747D2 /* iasciitab.h */,
+				56D1864E24FF80E4009747D2 /* internal.h */,
+				56D1865224FF80E4009747D2 /* latin1tab.h */,
+				56D1865524FF80E4009747D2 /* nametab.h */,
+				56D1864824FF80E4009747D2 /* siphash.h */,
+				56D1865024FF80E4009747D2 /* utf8tab.h */,
+				56D1865924FF80E4009747D2 /* winconfig.h */,
+				56D1865724FF80E4009747D2 /* xmlparse.c */,
+				56D1864D24FF80E4009747D2 /* xmlrole.c */,
+				56D1864F24FF80E4009747D2 /* xmlrole.h */,
+				56D1865424FF80E4009747D2 /* xmltok_impl.c */,
+				56D1865124FF80E4009747D2 /* xmltok_impl.h */,
+				56D1864B24FF80E4009747D2 /* xmltok_ns.c */,
+				56D1865A24FF80E5009747D2 /* xmltok.c */,
+				56D1865824FF80E4009747D2 /* xmltok.h */,
 			);
 			name = expat;
 			path = ../../3party/expat;
@@ -72,6 +116,20 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				56D1865D24FF80E5009747D2 /* expat.h in Headers */,
+				56D1866C24FF80E5009747D2 /* winconfig.h in Headers */,
+				56D1865C24FF80E5009747D2 /* asciitab.h in Headers */,
+				56D1866224FF80E5009747D2 /* xmlrole.h in Headers */,
+				56D1866424FF80E5009747D2 /* xmltok_impl.h in Headers */,
+				56D1866624FF80E5009747D2 /* expat_external.h in Headers */,
+				56D1866824FF80E5009747D2 /* nametab.h in Headers */,
+				56D1866B24FF80E5009747D2 /* xmltok.h in Headers */,
+				56D1866924FF80E5009747D2 /* ascii.h in Headers */,
+				56D1865F24FF80E5009747D2 /* iasciitab.h in Headers */,
+				56D1866324FF80E5009747D2 /* utf8tab.h in Headers */,
+				56D1865B24FF80E5009747D2 /* siphash.h in Headers */,
+				56D1866524FF80E5009747D2 /* latin1tab.h in Headers */,
+				56D1866124FF80E5009747D2 /* internal.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -114,6 +172,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 670D04EF1B0BAEE50013A7AC;
@@ -131,11 +190,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				670D050B1B0BAF540013A7AC /* xmlparse.c in Sources */,
-				670D050D1B0BAF540013A7AC /* xmltok_impl.c in Sources */,
-				670D050F1B0BAF540013A7AC /* xmltok.c in Sources */,
-				670D050C1B0BAF540013A7AC /* xmlrole.c in Sources */,
-				670D050E1B0BAF540013A7AC /* xmltok_ns.c in Sources */,
+				56D1865E24FF80E5009747D2 /* xmltok_ns.c in Sources */,
+				56D1866724FF80E5009747D2 /* xmltok_impl.c in Sources */,
+				56D1866D24FF80E5009747D2 /* xmltok.c in Sources */,
+				56D1866024FF80E5009747D2 /* xmlrole.c in Sources */,
+				56D1866A24FF80E5009747D2 /* xmlparse.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -144,106 +203,34 @@
 /* Begin XCBuildConfiguration section */
 		670D05011B0BAEE50013A7AC /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 670D05BB1B0E0D1A0013A7AC /* defaults.xcconfig */;
+			baseConfigurationReference = 34EBB47A1DBF51D4005BE9B8 /* common-debug.xcconfig */;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					HAVE_MEMMOVE,
-					"DEBUG=1",
 					"$(inherited)",
+					XML_POOR_ENTROPY,
+					HAVE_MEMMOVE,
 				);
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(inherited)";
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
-				MTL_ENABLE_DEBUG_INFO = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = macosx;
-				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos";
+				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
 			};
 			name = Debug;
 		};
 		670D05021B0BAEE50013A7AC /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 670D05BB1B0E0D1A0013A7AC /* defaults.xcconfig */;
+			baseConfigurationReference = 34EBB47B1DBF51D4005BE9B8 /* common-release.xcconfig */;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = HAVE_MEMMOVE;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(inherited)";
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				SDKROOT = macosx;
-				SUPPORTED_PLATFORMS = "macosx iphonesimulator iphoneos";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					XML_POOR_ENTROPY,
+					HAVE_MEMMOVE,
+				);
+				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
 			};
 			name = Release;
 		};
 		670D05041B0BAEE50013A7AC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COMBINE_HIDPI_IMAGES = YES;
 				EXECUTABLE_PREFIX = lib;
-				GCC_ENABLE_CPP_EXCEPTIONS = YES;
-				GCC_ENABLE_CPP_RTTI = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					HAVE_MEMMOVE,
-				);
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
-				HEADER_SEARCH_PATHS = "$(inherited)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -251,17 +238,31 @@
 		670D05051B0BAEE50013A7AC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COMBINE_HIDPI_IMAGES = YES;
 				EXECUTABLE_PREFIX = lib;
-				GCC_ENABLE_CPP_EXCEPTIONS = YES;
-				GCC_ENABLE_CPP_RTTI = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = HAVE_MEMMOVE;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
-				HEADER_SEARCH_PATHS = "$(inherited)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
+		};
+		A8E541191F9FBCD200A1B8FA /* Production Full */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 34EBB47B1DBF51D4005BE9B8 /* common-release.xcconfig */;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					HAVE_MEMMOVE,
+					XML_POOR_ENTROPY,
+				);
+				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
+			};
+			name = "Production Full";
+		};
+		A8E5411A1F9FBCD200A1B8FA /* Production Full */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				EXECUTABLE_PREFIX = lib;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Production Full";
 		};
 /* End XCBuildConfiguration section */
 
@@ -271,6 +272,7 @@
 			buildConfigurations = (
 				670D05011B0BAEE50013A7AC /* Debug */,
 				670D05021B0BAEE50013A7AC /* Release */,
+				A8E541191F9FBCD200A1B8FA /* Production Full */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -280,6 +282,7 @@
 			buildConfigurations = (
 				670D05041B0BAEE50013A7AC /* Debug */,
 				670D05051B0BAEE50013A7AC /* Release */,
+				A8E5411A1F9FBCD200A1B8FA /* Production Full */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

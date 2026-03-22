@@ -1,14 +1,16 @@
 package com.mapswithme.maps.search;
 
-import android.support.v7.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
 import com.mapswithme.maps.R;
 import com.mapswithme.maps.location.LocationHelper;
 import com.mapswithme.maps.routing.RoutingController;
 import com.mapswithme.maps.widget.SearchToolbarController;
+import com.mapswithme.util.Graphics;
 
 class SearchHistoryAdapter extends RecyclerView.Adapter<SearchHistoryAdapter.ViewHolder>
 {
@@ -27,11 +29,13 @@ class SearchHistoryAdapter extends RecyclerView.Adapter<SearchHistoryAdapter.Vie
     {
       super(itemView);
       mText = (TextView) itemView;
+      Graphics.tint(mText);
     }
   }
 
   public SearchHistoryAdapter(SearchToolbarController searchToolbarController)
   {
+    SearchRecents.refresh();
     mSearchToolbarController = searchToolbarController;
     mShowMyPosition = (RoutingController.get().isWaitingPoiPick() &&
                        LocationHelper.INSTANCE.getMyPosition() != null);
@@ -86,6 +90,7 @@ class SearchHistoryAdapter extends RecyclerView.Adapter<SearchHistoryAdapter.Vie
         throw new IllegalArgumentException("Unsupported ViewHolder type given");
     }
 
+    Graphics.tint(res.mText);
     return res;
   }
 

@@ -3,10 +3,12 @@
 #include "coding/dd_vector.hpp"
 #include "coding/reader.hpp"
 
+#include <cstdint>
+#include <vector>
 
 UNIT_TEST(DDVector_Smoke)
 {
-  vector<uint16_t> data;
+  std::vector<uint16_t> data;
   // Push size. Big endian is used.
   data.push_back(1);
   data.push_back(2);
@@ -19,8 +21,8 @@ UNIT_TEST(DDVector_Smoke)
   TEST_EQUAL(2, v[1], ());
   TEST_EQUAL(3, v[2], ());
   Vector::const_iterator it = v.begin();
-  for (size_t i = 0; i < v.size(); ++i, ++it)
-    TEST_EQUAL(v[i], *it, ());
+  for (auto const value : v)
+    TEST_EQUAL(value, *it++, ());
 }
 
 UNIT_TEST(DDVector_IncorrectSize)

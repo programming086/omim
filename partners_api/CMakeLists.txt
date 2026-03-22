@@ -1,0 +1,92 @@
+project(partners_api)
+
+include_directories(${OMIM_ROOT}/3party/jansson/src)
+
+set(
+  SRC
+  ads/ads_base.cpp
+  ads/ads_base.hpp
+  ads/ads_engine.cpp
+  ads/ads_engine.hpp
+  ads/ads_utils.cpp
+  ads/ads_utils.hpp
+  ads/arsenal_ads.cpp
+  ads/arsenal_ads.hpp
+  ads/banner.hpp
+  ads/bookmark_catalog_ads.cpp
+  ads/bookmark_catalog_ads.hpp
+  ads/citymobil_ads.cpp
+  ads/citymobil_ads.hpp
+  ads/facebook_ads.cpp
+  ads/facebook_ads.hpp
+  ads/google_ads.cpp
+  ads/google_ads.hpp
+  ads/mopub_ads.cpp
+  ads/mopub_ads.hpp
+  ads/mts_ads.cpp
+  ads/mts_ads.hpp
+  ads/rb_ads.cpp
+  ads/rb_ads.hpp
+  ads/mastercard_sber_ads.cpp
+  ads/mastercard_sber_ads.hpp
+  ads/skyeng_ads.cpp
+  ads/skyeng_ads.hpp
+  ads/tinkoff_allairlines_ads.cpp
+  ads/tinkoff_allairlines_ads.hpp
+  ads/tinkoff_insurance_ads.cpp
+  ads/tinkoff_insurance_ads.hpp
+  booking_api.cpp
+  booking_api.hpp
+  booking_availability_params.cpp
+  booking_availability_params.hpp
+  booking_block_params.cpp
+  booking_block_params.hpp
+  booking_ordering_params.cpp
+  booking_ordering_params.hpp
+  booking_params_base.hpp
+  citymobil_api.cpp
+  citymobil_api.hpp
+  freenow_api.cpp
+  freenow_api.hpp
+  guides_on_map_api.cpp
+  guides_on_map_api.hpp
+  locals_api.cpp
+  locals_api.hpp
+  maxim_api.cpp
+  maxim_api.hpp
+  megafon_countries.cpp
+  megafon_countries.hpp
+  opentable_api.cpp
+  opentable_api.hpp
+  partners.cpp
+  partners.hpp
+  promo_api.cpp
+  promo_api.hpp
+  promo_catalog_types.cpp
+  promo_catalog_types.hpp
+  rutaxi_api.cpp
+  rutaxi_api.hpp
+  taxi_base.cpp
+  taxi_base.hpp
+  taxi_delegate.hpp
+  taxi_engine.cpp
+  taxi_engine.hpp
+  taxi_places.cpp
+  taxi_places.hpp
+  taxi_places_loader.cpp
+  taxi_places_loader.hpp
+  taxi_provider.hpp
+  uber_api.cpp
+  uber_api.hpp
+  utils.cpp
+  utils.hpp
+  utm.hpp
+  yandex_api.cpp
+  yandex_api.hpp
+  yango_api.cpp
+  yango_api.hpp
+)
+
+omim_add_library(${PROJECT_NAME} ${SRC})
+
+omim_add_test_subdirectory(partners_api_tests)

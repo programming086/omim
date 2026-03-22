@@ -1,9 +1,9 @@
 package com.mapswithme.maps.widget.placepage;
 
 import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.support.v4.app.DialogFragment;
-import android.support.v7.widget.Toolbar;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.widget.Toolbar;
 import android.text.Html;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,13 +11,14 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.TextView;
+
+import java.lang.ref.WeakReference;
+
 import com.mapswithme.maps.R;
 import com.mapswithme.maps.base.BaseMwmDialogFragment;
 import com.mapswithme.maps.bookmarks.data.Bookmark;
 import com.mapswithme.util.StringUtils;
 import com.mapswithme.util.UiUtils;
-
-import java.lang.ref.WeakReference;
 
 public class EditDescriptionFragment extends BaseMwmDialogFragment
 {
@@ -36,10 +37,9 @@ public class EditDescriptionFragment extends BaseMwmDialogFragment
   public EditDescriptionFragment() {}
 
   @Override
-  public void onCreate(@Nullable Bundle savedInstanceState)
+  protected int getCustomTheme()
   {
-    super.onCreate(savedInstanceState);
-    setStyle(DialogFragment.STYLE_NORMAL, R.style.MwmMain_DialogFragment_Fullscreen);
+    return getFullscreenTheme();
   }
 
   @Nullable
@@ -50,17 +50,17 @@ public class EditDescriptionFragment extends BaseMwmDialogFragment
   }
 
   @Override
-  public void onViewCreated(View view, Bundle savedInstanceState)
+  public void onViewCreated(@NonNull View view, Bundle savedInstanceState)
   {
-    super.onViewCreated(view, savedInstanceState);
-
     mBookmark = getArguments().getParcelable(EXTRA_BOOKMARK);
-    String description = mBookmark.getBookmarkDescription();
+    String description = null;
+    if (mBookmark != null)
+      description = mBookmark.getBookmarkDescription();
 
-    if (StringUtils.isHtml(description))
+    if (description != null && StringUtils.nativeIsHtml(description))
     {
       final String descriptionNoSimpleTags = StringUtils.removeEditTextHtmlTags(description);
-      if (!StringUtils.isHtml(descriptionNoSimpleTags))
+      if (!StringUtils.nativeIsHtml(descriptionNoSimpleTags))
         description = Html.fromHtml(description).toString();
     }
 
@@ -80,6 +80,7 @@ public class EditDescriptionFragment extends BaseMwmDialogFragment
   private void initToolbar(View view)
   {
     Toolbar toolbar = (Toolbar) view.findViewById(R.id.toolbar);
+    UiUtils.extendViewWithStatusBar(toolbar);
     final TextView textView = (TextView) toolbar.findViewById(R.id.tv__save);
     textView.setOnClickListener(new View.OnClickListener()
     {
@@ -103,7 +104,7 @@ public class EditDescriptionFragment extends BaseMwmDialogFragment
 
   private void saveDescription()
   {
-    mBookmark.setParams(mBookmark.getName(), null, mEtDescription.getText().toString());
+    mBookmark.setParams(mBookmark.getTitle(), null, mEtDescription.getText().toString());
 
     if (mListener != null)
     {

@@ -1,4 +1,3 @@
-#import "Common.h"
 #import "MWMDownloaderDialogHeader.h"
 #import "MWMDownloadTransitMapAlert.h"
 #import "Statistics.h"
@@ -18,11 +17,11 @@ static NSString * const kDownloaderDialogHeaderNibName = @"MWMDownloaderDialogHe
 
 @implementation MWMDownloaderDialogHeader
 
-+ (instancetype)headerForOwnerAlert:(MWMDownloadTransitMapAlert *)alert title:(NSString *)title size:(NSString *)size;
++ (instancetype)headerForOwnerAlert:(MWMDownloadTransitMapAlert *)alert
 {
-  MWMDownloaderDialogHeader * header = [[[NSBundle mainBundle] loadNibNamed:kDownloaderDialogHeaderNibName owner:nil options:nil] firstObject];
-  header.title.text = title;
-  header.size.text = size;
+  MWMDownloaderDialogHeader * header =
+      [NSBundle.mainBundle loadNibNamed:kDownloaderDialogHeaderNibName owner:nil options:nil]
+          .firstObject;
   header.ownerAlert = alert;
   return header;
 }
@@ -30,7 +29,7 @@ static NSString * const kDownloaderDialogHeaderNibName = @"MWMDownloaderDialogHe
 - (IBAction)headerButtonTap:(UIButton *)sender
 {
   BOOL const currentState = sender.selected;
-  [[Statistics instance] logEvent:kStatEventName(kStatDownloaderDialog, kStatExpand)
+  [Statistics logEvent:kStatEventName(kStatDownloaderDialog, kStatExpand)
                    withParameters:@{kStatValue : currentState ? kStatOff : kStatOn}];
   sender.selected = !currentState;
   self.dividerView.hidden = currentState;
@@ -46,6 +45,12 @@ static NSString * const kDownloaderDialogHeaderNibName = @"MWMDownloaderDialogHe
   if (self.expandImage.hidden)
     self.sizeTrailing.constant = self.titleLeading.constant;
   [self layoutIfNeeded];
+}
+
+- (void)setTitle:(NSString *)title size:(NSString *)size
+{
+  self.title.text = title;
+  self.size.text = size;
 }
 
 @end

@@ -1,12 +1,7 @@
-#import "LocationManager.h"
-#import "MWMNavigationViewProtocol.h"
-#import "MWMRoutePreview.h"
+#import "MWMNavigationDashboardObserver.h"
+#import "MWMTaxiPreviewDataSource.h"
 
-#include "Framework.h"
-#include "platform/location.hpp"
-
-typedef NS_ENUM(NSUInteger, MWMNavigationDashboardState)
-{
+typedef NS_ENUM(NSUInteger, MWMNavigationDashboardState) {
   MWMNavigationDashboardStateHidden,
   MWMNavigationDashboardStatePrepare,
   MWMNavigationDashboardStatePlanning,
@@ -15,40 +10,27 @@ typedef NS_ENUM(NSUInteger, MWMNavigationDashboardState)
   MWMNavigationDashboardStateNavigation
 };
 
-@protocol MWMNavigationDashboardManagerProtocol <MWMNavigationViewProtocol>
+@interface MWMNavigationDashboardManager : NSObject
 
-- (void)buildRoute;
-- (BOOL)isPossibleToBuildRoute;
-- (BOOL)didStartFollowing;
-- (void)didCancelRouting;
-- (void)updateStatusBarStyle;
-- (void)didStartEditingRoutePoint:(BOOL)isSource;
-- (void)swapPointsAndRebuildRouteIfPossible;
++ (nonnull MWMNavigationDashboardManager *)sharedManager;
++ (void)addObserver:(id<MWMNavigationDashboardObserver>)observer;
++ (void)removeObserver:(id<MWMNavigationDashboardObserver>)observer;
 
-@end
-
-@class MWMNavigationDashboardEntity;
-
-@interface MWMNavigationDashboardManager : NSObject <LocationObserver>
-
-@property (nonatomic, readonly) MWMNavigationDashboardEntity * entity;
-@property (weak, nonatomic, readonly) MWMRoutePreview * routePreview;
-@property (nonatomic) MWMNavigationDashboardState state;
-@property (weak, nonatomic, readonly) id<MWMNavigationDashboardManagerProtocol> delegate;
-@property (nonatomic) CGFloat topBound;
-@property (nonatomic) CGFloat leftBound;
-@property (nonatomic, readonly) CGFloat height;
+@property(nonatomic, readonly) MWMNavigationDashboardState state;
+@property(nonatomic, readonly) MWMTaxiPreviewDataSource *taxiDataSource;
 
 - (instancetype)init __attribute__((unavailable("init is not available")));
-- (instancetype)initWithParentView:(UIView *)view delegate:(id<MWMNavigationDashboardManagerProtocol, MWMRoutePreviewDataSource>)delegate;
-- (void)setupDashboard:(location::FollowingInfo const &)info;
-- (void)updateDashboard;
-- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)orientation;
-- (void)viewWillTransitionToSize:(CGSize)size
-       withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator;
-- (void)setRouteBuildingProgress:(CGFloat)progress;
-- (void)showHelperPanels;
-- (void)hideHelperPanels;
-- (void)setupActualRoute;
+- (instancetype)initWithParentView:(UIView *)view;
+- (void)setRouteBuilderProgress:(CGFloat)progress;
+
+- (void)onRoutePrepare;
+- (void)onRoutePlanning;
+- (void)onRouteError:(NSString *)error;
+- (void)onRouteReady:(BOOL)hasWarnings;
+- (void)onRouteStart;
+- (void)onRouteStop;
+- (void)onRoutePointsUpdated;
+
++ (void)updateNavigationInfoAvailableArea:(CGRect)frame;
 
 @end

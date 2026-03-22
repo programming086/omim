@@ -2,23 +2,21 @@
 
 #include "testing/testing.hpp"
 
-#include "coding/file_name_utils.hpp"
-
+#include "base/file_name_utils.hpp"
 #include "base/logging.hpp"
 
-#include "std/sstream.hpp"
+#include <sstream>
 
 namespace platform
 {
 namespace tests_support
 {
-ScopedDir::ScopedDir(string const & relativePath)
-    : m_fullPath(my::JoinFoldersToPath(GetPlatform().WritableDir(), relativePath)),
-      m_relativePath(relativePath),
-      m_reset(false)
+ScopedDir::ScopedDir(std::string const & relativePath)
+  : m_fullPath(base::JoinPath(GetPlatform().WritableDir(), relativePath))
+  , m_relativePath(relativePath)
+  , m_reset(false)
 {
-  Platform & platform = GetPlatform();
-  Platform::EError ret = platform.MkDir(GetFullPath());
+  Platform::EError ret = Platform::MkDir(GetFullPath());
   switch (ret)
   {
     case Platform::ERR_OK:
@@ -34,8 +32,8 @@ ScopedDir::ScopedDir(string const & relativePath)
   }
 }
 
-ScopedDir::ScopedDir(ScopedDir const & parent, string const & name)
-  : ScopedDir(my::JoinFoldersToPath(parent.GetRelativePath(), name))
+ScopedDir::ScopedDir(ScopedDir const & parent, std::string const & name)
+  : ScopedDir(base::JoinPath(parent.GetRelativePath(), name))
 {
 }
 
@@ -44,27 +42,27 @@ ScopedDir::~ScopedDir()
   if (m_reset)
     return;
 
-  string const fullPath = GetFullPath();
+  std::string const fullPath = GetFullPath();
   Platform::EError ret = Platform::RmDir(fullPath);
   switch (ret)
   {
     case Platform::ERR_OK:
       break;
     case Platform::ERR_FILE_DOES_NOT_EXIST:
-      LOG(LWARNING, (fullPath, "was deleted before destruction of ScopedDir."));
+      LOG(LERROR, (fullPath, "was deleted before destruction of ScopedDir."));
       break;
     case Platform::ERR_DIRECTORY_NOT_EMPTY:
-      LOG(LWARNING, ("There are files in", fullPath));
+      LOG(LERROR, ("There are files in", fullPath));
       break;
     default:
-      LOG(LWARNING, ("Platform::RmDir() error for", fullPath, ":", ret));
+      LOG(LERROR, ("Platform::RmDir() error for", fullPath, ":", ret));
       break;
   }
 }
 
-string DebugPrint(ScopedDir const & dir)
+std::string DebugPrint(ScopedDir const & dir)
 {
-  ostringstream os;
+  std::ostringstream os;
   os << "ScopedDir [" << dir.GetFullPath() << "]";
   return os.str();
 }

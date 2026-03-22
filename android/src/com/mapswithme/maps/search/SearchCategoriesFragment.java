@@ -1,39 +1,77 @@
 package com.mapswithme.maps.search;
 
 import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.support.v7.widget.RecyclerView;
-import com.mapswithme.maps.base.BaseMwmRecyclerFragment;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import android.view.View;
 
-public class SearchCategoriesFragment extends BaseMwmRecyclerFragment
-                                   implements CategoriesAdapter.OnCategorySelectedListener
+import com.mapswithme.maps.R;
+import com.mapswithme.maps.base.BaseMwmRecyclerFragment;
+import com.mapswithme.maps.purchase.AdsRemovalActivationCallback;
+import com.mapswithme.maps.purchase.AdsRemovalPurchaseDialog;
+
+public class SearchCategoriesFragment extends BaseMwmRecyclerFragment<CategoriesAdapter>
+    implements CategoriesAdapter.CategoriesUiListener, AdsRemovalActivationCallback
 {
   @Override
-  protected RecyclerView.Adapter createAdapter()
+  public void onViewCreated(View view, Bundle savedInstanceState)
+  {
+    super.onViewCreated(view, savedInstanceState);
+    getAdapter().updateCategories(this);
+  }
+
+  @NonNull
+  @Override
+  protected CategoriesAdapter createAdapter()
   {
     return new CategoriesAdapter(this);
   }
 
   @Override
-  public void onActivityCreated(@Nullable Bundle savedInstanceState)
+  protected int getLayoutRes()
   {
-    super.onActivityCreated(savedInstanceState);
+    return R.layout.fragment_search_categories;
+  }
+
+
+  protected void safeOnActivityCreated(@Nullable Bundle savedInstanceState)
+  {
     ((SearchFragment) getParentFragment()).setRecyclerScrollListener(getRecyclerView());
   }
 
   @Override
-  public void onCategorySelected(String category)
+  public void onSearchCategorySelected(String category)
   {
     if (!passCategory(getParentFragment(), category))
       passCategory(getActivity(), category);
   }
 
+  @Override
+  public void onPromoCategorySelected(@NonNull PromoCategory promo)
+  {
+    PromoCategoryProcessor processor = promo.createProcessor(getActivity());
+    processor.process();
+  }
+
+  @Override
+  public void onAdsRemovalSelected()
+  {
+    AdsRemovalPurchaseDialog.show(this);
+  }
+
   private static boolean passCategory(Object listener, String category)
   {
-    if (!(listener instanceof CategoriesAdapter.OnCategorySelectedListener))
+    if (!(listener instanceof CategoriesAdapter.CategoriesUiListener))
       return false;
 
-    ((CategoriesAdapter.OnCategorySelectedListener)listener).onCategorySelected(category);
+    ((CategoriesAdapter.CategoriesUiListener)listener).onSearchCategorySelected(category);
     return true;
+  }
+
+  @Override
+  public void onAdsRemovalActivation()
+  {
+    getAdapter().updateCategories(this);
+    getAdapter().notifyDataSetChanged();
   }
 }

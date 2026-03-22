@@ -1,84 +1,102 @@
 #include "routing/features_road_graph.hpp"
+
+#include "routing/routing_helpers.hpp"
 #include "routing/nearest_edge_finder.hpp"
 #include "routing/route.hpp"
-#include "routing/vehicle_model.hpp"
+
+#include "routing_common/vehicle_model.hpp"
 
 #include "indexer/classificator.hpp"
+#include "indexer/data_source.hpp"
 #include "indexer/ftypes_matcher.hpp"
-#include "indexer/index.hpp"
 #include "indexer/scales.hpp"
+
+#include "coding/point_coding.hpp"
 
 #include "geometry/distance_on_sphere.hpp"
 
 #include "base/logging.hpp"
 #include "base/macros.hpp"
 
+#include <limits>
+
+using namespace std;
+
 namespace routing
 {
-
 namespace
 {
 uint32_t constexpr kPowOfTwoForFeatureCacheSize = 10; // cache contains 2 ^ kPowOfTwoForFeatureCacheSize elements
 
 double constexpr kMwmRoadCrossingRadiusMeters = 2.0;
 
-double constexpr kMwmCrossingNodeEqualityRadiusMeters = 100.0;
-
-string GetFeatureCountryName(FeatureID const featureId)
-{
-  /// @todo Rework this function when storage will provide information about mwm's country
-  // MwmInfo.GetCountryName returns country name as 'Country' or 'Country_Region', but only 'Country' is needed
-  ASSERT(featureId.IsValid(), ());
-
-  string const & countryName = featureId.m_mwmId.GetInfo()->GetCountryName();
-  size_t const pos = countryName.find('_');
-  if (string::npos == pos)
-    return countryName;
-  return countryName.substr(0, pos);
-}
-
-inline bool PointsAlmostEqualAbs(const m2::PointD & pt1, const m2::PointD & pt2)
-{
-  double constexpr kEpsilon = 1e-6;
-  return my::AlmostEqualAbs(pt1.x, pt2.x, kEpsilon) && my::AlmostEqualAbs(pt1.y, pt2.y, kEpsilon);
-}
+auto constexpr kInvalidSpeedKMPH = numeric_limits<double>::max();
 }  // namespace
 
+double GetRoadCrossingRadiusMeters() { return kMwmRoadCrossingRadiusMeters; }
 
-FeaturesRoadGraph::CrossCountryVehicleModel::CrossCountryVehicleModel(unique_ptr<IVehicleModelFactory> && vehicleModelFactory)
-  : m_vehicleModelFactory(move(vehicleModelFactory))
-  , m_maxSpeedKMPH(m_vehicleModelFactory->GetVehicleModel()->GetMaxSpeed())
+FeaturesRoadGraph::Value::Value(DataSource const & dataSource, MwmSet::MwmHandle handle)
+  : m_mwmHandle(move(handle))
+{
+  if (!m_mwmHandle.IsAlive())
+    return;
+
+  m_altitudeLoader = make_unique<feature::AltitudeLoader>(dataSource, m_mwmHandle.GetId());
+}
+
+FeaturesRoadGraph::CrossCountryVehicleModel::CrossCountryVehicleModel(
+    shared_ptr<VehicleModelFactoryInterface> vehicleModelFactory)
+  : m_vehicleModelFactory(vehicleModelFactory)
+  , m_maxSpeed(m_vehicleModelFactory->GetVehicleModel()->GetMaxWeightSpeed())
+  , m_offroadSpeedKMpH(m_vehicleModelFactory->GetVehicleModel()->GetOffroadSpeed())
 {
 }
 
-double FeaturesRoadGraph::CrossCountryVehicleModel::GetSpeed(FeatureType const & f) const
+SpeedKMpH FeaturesRoadGraph::CrossCountryVehicleModel::GetSpeed(
+    FeatureType & f, SpeedParams const & speedParams) const
 {
-  return GetVehicleModel(f.GetID())->GetSpeed(f);
+  return GetVehicleModel(f.GetID())->GetSpeed(f, speedParams);
 }
 
-double FeaturesRoadGraph::CrossCountryVehicleModel::GetMaxSpeed() const
+HighwayType FeaturesRoadGraph::CrossCountryVehicleModel::GetHighwayType(FeatureType & f) const
 {
-  return m_maxSpeedKMPH;
+  return GetVehicleModel(f.GetID())->GetHighwayType(f);
 }
 
-bool FeaturesRoadGraph::CrossCountryVehicleModel::IsOneWay(FeatureType const & f) const
+SpeedKMpH const & FeaturesRoadGraph::CrossCountryVehicleModel::GetOffroadSpeed() const
+{
+  return m_offroadSpeedKMpH;
+}
+
+bool FeaturesRoadGraph::CrossCountryVehicleModel::IsOneWay(FeatureType & f) const
 {
   return GetVehicleModel(f.GetID())->IsOneWay(f);
 }
 
-IVehicleModel * FeaturesRoadGraph::CrossCountryVehicleModel::GetVehicleModel(FeatureID const & featureId) const
+bool FeaturesRoadGraph::CrossCountryVehicleModel::IsRoad(FeatureType & f) const
+{
+  return GetVehicleModel(f.GetID())->IsRoad(f);
+}
+
+bool FeaturesRoadGraph::CrossCountryVehicleModel::IsPassThroughAllowed(FeatureType & f) const
+{
+  return GetVehicleModel(f.GetID())->IsPassThroughAllowed(f);
+}
+
+VehicleModelInterface * FeaturesRoadGraph::CrossCountryVehicleModel::GetVehicleModel(
+    FeatureID const & featureId) const
 {
   auto itr = m_cache.find(featureId.m_mwmId);
   if (itr != m_cache.end())
     return itr->second.get();
 
-  string const country = GetFeatureCountryName(featureId);
-  auto const vehicleModel = m_vehicleModelFactory->GetVehicleModelForCountry(country);
+  auto const vehicleModel = m_vehicleModelFactory->GetVehicleModelForCountry(
+      featureId.m_mwmId.GetInfo()->GetCountryName());
 
-  ASSERT(nullptr != vehicleModel, ());
-  ASSERT_EQUAL(m_maxSpeedKMPH, vehicleModel->GetMaxSpeed(), ());
+  ASSERT(vehicleModel, ());
+  ASSERT_EQUAL(m_maxSpeed, vehicleModel->GetMaxWeightSpeed(), ());
 
-  itr = m_cache.insert(make_pair(featureId.m_mwmId, move(vehicleModel))).first;
+  itr = m_cache.emplace(featureId.m_mwmId, move(vehicleModel)).first;
   return itr->second.get();
 }
 
@@ -87,10 +105,10 @@ void FeaturesRoadGraph::CrossCountryVehicleModel::Clear()
   m_cache.clear();
 }
 
-
 IRoadGraph::RoadInfo & FeaturesRoadGraph::RoadInfoCache::Find(FeatureID const & featureId, bool & found)
 {
-  auto res = m_cache.insert(make_pair(featureId.m_mwmId, TMwmFeatureCache()));
+  std::lock_guard lock(m_mutexCache);
+  auto res = m_cache.emplace(featureId.m_mwmId, TMwmFeatureCache());
   if (res.second)
     res.first->second.Init(kPowOfTwoForFeatureCacheSize);
   return res.first->second.Find(featureId.m_index, found);
@@ -98,127 +116,143 @@ IRoadGraph::RoadInfo & FeaturesRoadGraph::RoadInfoCache::Find(FeatureID const & 
 
 void FeaturesRoadGraph::RoadInfoCache::Clear()
 {
+  std::lock_guard lock(m_mutexCache);
   m_cache.clear();
 }
 
-
-FeaturesRoadGraph::FeaturesRoadGraph(Index & index, unique_ptr<IVehicleModelFactory> && vehicleModelFactory)
-    : m_index(index),
-      m_vehicleModel(move(vehicleModelFactory))
+FeaturesRoadGraph::FeaturesRoadGraph(DataSource const & dataSource, IRoadGraph::Mode mode,
+                                     shared_ptr<VehicleModelFactoryInterface> vehicleModelFactory)
+  : m_dataSource(dataSource), m_mode(mode), m_vehicleModel(vehicleModelFactory)
 {
 }
 
-uint32_t FeaturesRoadGraph::GetStreetReadScale() { return scales::GetUpperScale(); }
+int FeaturesRoadGraph::GetStreetReadScale() { return scales::GetUpperScale(); }
 
 class CrossFeaturesLoader
 {
 public:
-  CrossFeaturesLoader(FeaturesRoadGraph const & graph,
-                      IRoadGraph::CrossEdgesLoader & edgesLoader)
-      : m_graph(graph), m_edgesLoader(edgesLoader)
+  CrossFeaturesLoader(FeaturesRoadGraph const & graph, IRoadGraph::ICrossEdgesLoader & edgesLoader)
+    : m_graph(graph), m_edgesLoader(edgesLoader)
   {}
 
   void operator()(FeatureType & ft)
   {
-    if (ft.GetFeatureType() != feature::GEOM_LINE)
+    if (!m_graph.IsRoad(ft))
       return;
 
-    double const speedKMPH = m_graph.GetSpeedKMPHFromFt(ft);
-    if (speedKMPH <= 0.0)
-      return;
+    FeatureID const & featureId = ft.GetID();
 
-    FeatureID const featureId = ft.GetID();
+    IRoadGraph::RoadInfo const & roadInfo =
+        m_graph.GetCachedRoadInfo(featureId, ft, kInvalidSpeedKMPH);
+    CHECK_EQUAL(roadInfo.m_speedKMPH, kInvalidSpeedKMPH, ());
 
-    IRoadGraph::RoadInfo const & roadInfo = m_graph.GetCachedRoadInfo(featureId, ft, speedKMPH);
-
-    m_edgesLoader(featureId, roadInfo);
+    m_edgesLoader(featureId, roadInfo.m_junctions, roadInfo.m_bidirectional);
   }
 
 private:
   FeaturesRoadGraph const & m_graph;
-  IRoadGraph::CrossEdgesLoader & m_edgesLoader;
+  IRoadGraph::ICrossEdgesLoader & m_edgesLoader;
 };
 
-IRoadGraph::RoadInfo FeaturesRoadGraph::GetRoadInfo(FeatureID const & featureId) const
+IRoadGraph::RoadInfo FeaturesRoadGraph::GetRoadInfo(FeatureID const & featureId,
+                                                    SpeedParams const & speedParams) const
 {
-  RoadInfo const & ri = GetCachedRoadInfo(featureId);
+  RoadInfo const & ri = GetCachedRoadInfo(featureId, speedParams);
   ASSERT_GREATER(ri.m_speedKMPH, 0.0, ());
   return ri;
 }
 
-double FeaturesRoadGraph::GetSpeedKMPH(FeatureID const & featureId) const
+double FeaturesRoadGraph::GetSpeedKMpH(FeatureID const & featureId, SpeedParams const & speedParams) const
 {
-  double const speedKMPH = GetCachedRoadInfo(featureId).m_speedKMPH;
+  double const speedKMPH = GetCachedRoadInfo(featureId, speedParams).m_speedKMPH;
   ASSERT_GREATER(speedKMPH, 0.0, ());
   return speedKMPH;
 }
 
-double FeaturesRoadGraph::GetMaxSpeedKMPH() const
-{
-  return m_vehicleModel.GetMaxSpeed();
-}
+double FeaturesRoadGraph::GetMaxSpeedKMpH() const { return m_vehicleModel.GetMaxWeightSpeed(); }
 
 void FeaturesRoadGraph::ForEachFeatureClosestToCross(m2::PointD const & cross,
-                                                     CrossEdgesLoader & edgesLoader) const
+                                                     ICrossEdgesLoader & edgesLoader) const
 {
   CrossFeaturesLoader featuresLoader(*this, edgesLoader);
-  m2::RectD const rect = MercatorBounds::RectByCenterXYAndSizeInMeters(cross, kMwmRoadCrossingRadiusMeters);
-  m_index.ForEachInRect(featuresLoader, rect, GetStreetReadScale());
+  m2::RectD const rect =
+      mercator::RectByCenterXYAndSizeInMeters(cross, kMwmRoadCrossingRadiusMeters);
+  m_dataSource.ForEachInRect(featuresLoader, rect, GetStreetReadScale());
 }
 
-void FeaturesRoadGraph::FindClosestEdges(m2::PointD const & point, uint32_t count,
-                                         vector<pair<Edge, m2::PointD>> & vicinities) const
+void FeaturesRoadGraph::FindClosestEdges(
+    m2::RectD const & rect, uint32_t count,
+    vector<pair<Edge, geometry::PointWithAltitude>> & vicinities) const
 {
-  NearestEdgeFinder finder(point);
+  NearestEdgeFinder finder(rect.Center(), nullptr /* IsEdgeProjGood */);
 
   auto const f = [&finder, this](FeatureType & ft)
   {
-    if (ft.GetFeatureType() != feature::GEOM_LINE)
+    if (!m_vehicleModel.IsRoad(ft))
       return;
 
-    double const speedKMPH = m_vehicleModel.GetSpeed(ft);
-    if (speedKMPH <= 0.0)
-      return;
+    FeatureID const & featureId = ft.GetID();
 
-    FeatureID const featureId = ft.GetID();
-
-    IRoadGraph::RoadInfo const & roadInfo = GetCachedRoadInfo(featureId, ft, speedKMPH);
-
-    finder.AddInformationSource(featureId, roadInfo);
+    IRoadGraph::RoadInfo const & roadInfo = GetCachedRoadInfo(featureId, ft, kInvalidSpeedKMPH);
+    finder.AddInformationSource(IRoadGraph::FullRoadInfo(featureId, roadInfo));
   };
 
-  m_index.ForEachInRect(
-      f, MercatorBounds::RectByCenterXYAndSizeInMeters(point, kMwmCrossingNodeEqualityRadiusMeters),
-      GetStreetReadScale());
+  m_dataSource.ForEachInRect(f, rect, GetStreetReadScale());
 
   finder.MakeResult(vicinities, count);
 }
 
-void FeaturesRoadGraph::GetFeatureTypes(FeatureID const & featureId, feature::TypesHolder & types) const
+vector<IRoadGraph::FullRoadInfo>
+FeaturesRoadGraph::FindRoads(m2::RectD const & rect, IsGoodFeatureFn const & isGoodFeature) const
 {
-  FeatureType ft;
-  Index::FeaturesLoaderGuard loader(m_index, featureId.m_mwmId);
-  loader.GetFeatureByIndex(featureId.m_index, ft);
-  ASSERT_EQUAL(ft.GetFeatureType(), feature::GEOM_LINE, ());
+  vector<IRoadGraph::FullRoadInfo> roads;
+  auto const f = [&roads, &isGoodFeature, &rect, this](FeatureType & ft) {
+    if (!m_vehicleModel.IsRoad(ft))
+      return;
 
-  types = feature::TypesHolder(ft);
+    FeatureID const & featureId = ft.GetID();
+    if (isGoodFeature && !isGoodFeature(featureId))
+      return;
+
+    // DataSource::ForEachInRect() gives not only features inside |rect| but some other features
+    // which lie close to the rect. Removes all the features which don't cross |rect|.
+    auto const & roadInfo = GetCachedRoadInfo(featureId, ft, kInvalidSpeedKMPH);
+    if (!RectCoversPolyline(roadInfo.m_junctions, rect))
+      return;
+
+    roads.emplace_back(featureId, roadInfo);
+  };
+
+  m_dataSource.ForEachInRect(f, rect, GetStreetReadScale());
+  return roads;
 }
 
-void FeaturesRoadGraph::GetJunctionTypes(Junction const & junction, feature::TypesHolder & types) const
+void FeaturesRoadGraph::GetFeatureTypes(FeatureID const & featureId, feature::TypesHolder & types) const
+{
+  FeaturesLoaderGuard loader(m_dataSource, featureId.m_mwmId);
+  auto ft = loader.GetFeatureByIndex(featureId.m_index);
+  if (!ft)
+    return;
+
+  ASSERT_EQUAL(ft->GetGeomType(), feature::GeomType::Line, ());
+  types = feature::TypesHolder(*ft);
+}
+
+void FeaturesRoadGraph::GetJunctionTypes(geometry::PointWithAltitude const & junction,
+                                         feature::TypesHolder & types) const
 {
   types = feature::TypesHolder();
 
   m2::PointD const & cross = junction.GetPoint();
 
-  auto const f = [&types, &cross](FeatureType const & ft)
-  {
+  auto const f = [&types, &cross](FeatureType & ft) {
     if (!types.Empty())
       return;
 
-    if (ft.GetFeatureType() != feature::GEOM_POINT)
+    if (ft.GetGeomType() != feature::GeomType::Point)
       return;
 
-    if (!PointsAlmostEqualAbs(ft.GetCenter(), cross))
+    if (!base::AlmostEqualAbs(ft.GetCenter(), cross, kMwmPointAccuracy))
       return;
 
     feature::TypesHolder typesHolder(ft);
@@ -226,9 +260,15 @@ void FeaturesRoadGraph::GetJunctionTypes(Junction const & junction, feature::Typ
       types = typesHolder;
   };
 
-  m2::RectD const rect = MercatorBounds::RectByCenterXYAndSizeInMeters(cross, kMwmRoadCrossingRadiusMeters);
-  m_index.ForEachInRect(f, rect, GetStreetReadScale());
+  m2::RectD const rect =
+      mercator::RectByCenterXYAndSizeInMeters(cross, kMwmRoadCrossingRadiusMeters);
+  m_dataSource.ForEachInRect(f, rect, GetStreetReadScale());
 }
+
+IRoadGraph::Mode FeaturesRoadGraph::GetMode() const
+{
+  return m_mode;
+};
 
 void FeaturesRoadGraph::ClearState()
 {
@@ -237,17 +277,59 @@ void FeaturesRoadGraph::ClearState()
   m_mwmLocks.clear();
 }
 
-bool FeaturesRoadGraph::IsOneWay(FeatureType const & ft) const
+bool FeaturesRoadGraph::IsRoad(FeatureType & ft) const { return m_vehicleModel.IsRoad(ft); }
+
+IRoadGraph::PointWithAltitudeVec FeaturesRoadGraph::GetRoadGeom(FeatureType & ft) const
 {
-  return m_vehicleModel.IsOneWay(ft);
+  FeatureID const & featureId = ft.GetID();
+  IRoadGraph::RoadInfo const & roadInfo = GetCachedRoadInfo(featureId, ft, kInvalidSpeedKMPH);
+  CHECK_EQUAL(roadInfo.m_speedKMPH, kInvalidSpeedKMPH, ());
+  return roadInfo.m_junctions;
 }
 
-double FeaturesRoadGraph::GetSpeedKMPHFromFt(FeatureType const & ft) const
+bool FeaturesRoadGraph::IsOneWay(FeatureType & ft) const { return m_vehicleModel.IsOneWay(ft); }
+
+double FeaturesRoadGraph::GetSpeedKMpHFromFt(FeatureType & ft, SpeedParams const & speedParams) const
 {
-  return m_vehicleModel.GetSpeed(ft);
+  return m_vehicleModel.GetSpeed(ft, speedParams).m_weight;
 }
 
-IRoadGraph::RoadInfo const & FeaturesRoadGraph::GetCachedRoadInfo(FeatureID const & featureId) const
+void FeaturesRoadGraph::ExtractRoadInfo(FeatureID const & featureId, FeatureType & ft,
+                                        double speedKMpH, RoadInfo & ri) const
+{
+  ri.m_speedKMPH = speedKMpH;
+
+  Value const & value = LockMwm(featureId.m_mwmId);
+  if (!value.IsAlive())
+    return;
+
+  ri.m_bidirectional = !IsOneWay(ft);
+
+  ft.ParseGeometry(FeatureType::BEST_GEOMETRY);
+  size_t const pointsCount = ft.GetPointsCount();
+
+  geometry::Altitudes altitudes;
+  if (value.m_altitudeLoader)
+  {
+    altitudes = value.m_altitudeLoader->GetAltitudes(featureId.m_index, ft.GetPointsCount());
+  }
+  else
+  {
+    ASSERT(false, ());
+    altitudes = geometry::Altitudes(ft.GetPointsCount(), geometry::kDefaultAltitudeMeters);
+  }
+
+  CHECK_EQUAL(altitudes.size(), pointsCount,
+              ("altitudeLoader->GetAltitudes(", featureId.m_index, "...) returns wrong altitudes:",
+               altitudes));
+
+  ri.m_junctions.resize(pointsCount);
+  for (size_t i = 0; i < pointsCount; ++i)
+    ri.m_junctions[i] = geometry::PointWithAltitude(ft.GetPoint(i), altitudes[i]);
+}
+
+IRoadGraph::RoadInfo const & FeaturesRoadGraph::GetCachedRoadInfo(FeatureID const & featureId,
+                                                                  SpeedParams const & speedParams) const
 {
   bool found = false;
   RoadInfo & ri = m_cache.Find(featureId, found);
@@ -255,19 +337,15 @@ IRoadGraph::RoadInfo const & FeaturesRoadGraph::GetCachedRoadInfo(FeatureID cons
   if (found)
     return ri;
 
-  FeatureType ft;
-  Index::FeaturesLoaderGuard loader(m_index, featureId.m_mwmId);
-  loader.GetFeatureByIndex(featureId.m_index, ft);
-  ASSERT_EQUAL(ft.GetFeatureType(), feature::GEOM_LINE, ());
+  FeaturesLoaderGuard loader(m_dataSource, featureId.m_mwmId);
 
-  ft.ParseGeometry(FeatureType::BEST_GEOMETRY);
+  auto ft = loader.GetFeatureByIndex(featureId.m_index);
+  if (!ft)
+    return ri;
 
-  ri.m_bidirectional = !IsOneWay(ft);
-  ri.m_speedKMPH = GetSpeedKMPHFromFt(ft);
-  ft.SwapPoints(ri.m_points);
+  ASSERT_EQUAL(ft->GetGeomType(), feature::GeomType::Line, ());
 
-  LockFeatureMwm(featureId);
-
+  ExtractRoadInfo(featureId, *ft, GetSpeedKMpHFromFt(*ft, speedParams), ri);
   return ri;
 }
 
@@ -283,31 +361,19 @@ IRoadGraph::RoadInfo const & FeaturesRoadGraph::GetCachedRoadInfo(FeatureID cons
 
   // ft must be set
   ASSERT_EQUAL(featureId, ft.GetID(), ());
-
-  ft.ParseGeometry(FeatureType::BEST_GEOMETRY);
-
-  ri.m_bidirectional = !IsOneWay(ft);
-  ri.m_speedKMPH = speedKMPH;
-  ft.SwapPoints(ri.m_points);
-
-  LockFeatureMwm(featureId);
-
+  ExtractRoadInfo(featureId, ft, speedKMPH, ri);
   return ri;
 }
 
-void FeaturesRoadGraph::LockFeatureMwm(FeatureID const & featureId) const
+FeaturesRoadGraph::Value const & FeaturesRoadGraph::LockMwm(MwmSet::MwmId const & mwmId) const
 {
-  MwmSet::MwmId mwmId = featureId.m_mwmId;
   ASSERT(mwmId.IsAlive(), ());
 
   auto const itr = m_mwmLocks.find(mwmId);
   if (itr != m_mwmLocks.end())
-    return;
+    return itr->second;
 
-  MwmSet::MwmHandle mwmHandle = m_index.GetMwmHandleById(mwmId);
-  ASSERT(mwmHandle.IsAlive(), ());
-
-  m_mwmLocks.insert(make_pair(move(mwmId), move(mwmHandle)));
+  return m_mwmLocks.emplace(move(mwmId), Value(m_dataSource, m_dataSource.GetMwmHandleById(mwmId)))
+      .first->second;
 }
-
 }  // namespace routing

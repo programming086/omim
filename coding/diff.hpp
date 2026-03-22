@@ -1,13 +1,23 @@
 #pragma once
-#include "coding/diff_patch_common.hpp"
+
 #include "base/assert.hpp"
 #include "base/base.hpp"
-#include "std/algorithm.hpp"
-#include "std/unordered_map.hpp"
-#include "std/vector.hpp"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace diff
 {
+enum Operation
+{
+  OPERATION_COPY = 0,
+  OPERATION_DELETE = 1,
+  OPERATION_INSERT = 2,
+};
 
 template <class PatchWriterT, typename SizeT = uint64_t> class PatchCoder
 {
@@ -15,27 +25,27 @@ public:
   typedef SizeT size_type;
 
   explicit PatchCoder(PatchWriterT & patchWriter)
-    : m_LastOperation(COPY), m_LastOpCode(0), m_PatchWriter(patchWriter)
+    : m_LastOperation(OPERATION_COPY), m_LastOpCode(0), m_PatchWriter(patchWriter)
   {
   }
 
   void Delete(size_type n)
   {
     if (n != 0)
-      Op(DELETE, n);
+      Op(OPERATION_DELETE, n);
   }
 
   void Copy(size_type n)
   {
     if (n != 0)
-      Op(COPY, n);
+      Op(OPERATION_COPY, n);
   }
 
   template <typename TIter> void Insert(TIter it, size_type n)
   {
     if (n != 0)
     {
-      Op(INSERT, n);
+      Op(OPERATION_INSERT, n);
       m_PatchWriter.WriteData(it, n);
     }
   }
@@ -63,7 +73,7 @@ private:
     if (m_LastOpCode != 0)
       m_PatchWriter.WriteOperation(m_LastOpCode);
     else
-      CHECK_EQUAL(m_LastOperation, COPY, ());  // "We were just initialized."
+      CHECK_EQUAL(m_LastOperation, OPERATION_COPY, ());  // "We were just initialized."
   }
 
   Operation m_LastOperation;
@@ -87,7 +97,7 @@ TSignedWord DiffMyersSimple(TSrcVector const & A,
                             TTmpFileSink & tmpSink)
 {
   ASSERT_GREATER(maxPatchSize, 0, ());
-  vector<TSignedWord> V(2 * maxPatchSize + 1);
+  std::vector<TSignedWord> V(2 * maxPatchSize + 1);
   for (TSignedWord d = 0; d <= maxPatchSize; ++d)
   {
     for (TSignedWord k = -d; k <= d; k += 2)
@@ -137,9 +147,8 @@ public:
 // into chunks of size m_BlockSize, finds equal chunks in the destination sequence, using rolling
 // hash to find good candidates, writes info about equal chunks into patchCoder and for everything
 // between equal chunks, calls FineGrainedDiff::Diff().
-template <class FineGrainedDiffT,
-          class HasherT,
-          class HashPosMultiMapT = unordered_multimap<typename HasherT::hash_type, uint64_t> >
+template <class FineGrainedDiffT, class HasherT,
+          class HashPosMultiMapT = std::unordered_multimap<typename HasherT::hash_type, uint64_t>>
 class RollingHashDiffer
 {
 public:
@@ -152,21 +161,23 @@ public:
             DstIterT const dstBeg, DstIterT const dstEnd,
             PatchCoderT & patchCoder)
   {
-    if (srcEnd - srcBeg < m_BlockSize || dstEnd - dstBeg < m_BlockSize)
+    if (srcEnd - srcBeg < static_cast<decltype(srcEnd - srcBeg)>(m_BlockSize) ||
+        dstEnd - dstBeg < static_cast<decltype(dstEnd - dstBeg)>(m_BlockSize))
     {
       m_FineGrainedDiff.Diff(srcBeg, srcEnd, dstBeg, dstEnd, patchCoder);
       return;
     }
     HasherT hasher;
     HashPosMultiMapT srcHashes;
-    for (SrcIterT src = srcBeg; srcEnd - src >= m_BlockSize; src += m_BlockSize)
+    for (SrcIterT src = srcBeg; srcEnd - src >= static_cast<decltype(srcEnd - src)>(m_BlockSize);
+         src += m_BlockSize)
       srcHashes.insert(HashPosMultiMapValue(hasher.Init(src, m_BlockSize), src - srcBeg));
     SrcIterT srcLastDiff = srcBeg;
     DstIterT dst = dstBeg, dstNext = dstBeg + m_BlockSize, dstLastDiff = dstBeg;
     hash_type h = hasher.Init(dst, m_BlockSize);
     while (dstNext != dstEnd)
     {
-      pair<HashPosMultiMapIterator, HashPosMultiMapIterator> iters = srcHashes.equal_range(h);
+      std::pair<HashPosMultiMapIterator, HashPosMultiMapIterator> iters = srcHashes.equal_range(h);
       if (iters.first != iters.second)
       {
         pos_type const srcLastDiffPos = srcLastDiff - srcBeg;
@@ -176,7 +187,7 @@ public:
               (it == srcHashes.end() || i->second < it->second))
             it = i;
         if (it != srcHashes.end() &&
-            equal(srcBeg + it->second, srcBeg + it->second + m_BlockSize, dst))
+            std::equal(srcBeg + it->second, srcBeg + it->second + m_BlockSize, dst))
         {
           pos_type srcBlockEqualPos = it->second;
           m_FineGrainedDiff.Diff(srcLastDiff, srcBeg + srcBlockEqualPos,
@@ -184,7 +195,7 @@ public:
           patchCoder.Copy(m_BlockSize);
           srcLastDiff = srcBeg + srcBlockEqualPos + m_BlockSize;
           dst = dstLastDiff = dstNext;
-          if (dstEnd - dstNext < m_BlockSize)
+          if (dstEnd - dstNext < static_cast<decltype(dstEnd - dstNext)>(m_BlockSize))
             break;
           dstNext = dst + m_BlockSize;
           h = hasher.Init(dst, m_BlockSize);
@@ -206,5 +217,4 @@ private:
   HasherT m_Hasher;
   size_t m_BlockSize;
 };
-
-}
+}  // namespace diff

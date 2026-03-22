@@ -1,31 +1,35 @@
 #include "generator/feature_merger.hpp"
 
-#include "indexer/feature.hpp"
-#include "indexer/feature_visibility.hpp"
-#include "indexer/point_to_int64.hpp"
 #include "indexer/classificator.hpp"
+#include "indexer/feature_algo.hpp"
+#include "indexer/feature_visibility.hpp"
 
+#include "indexer/ftypes_sponsored.hpp"
 
-MergedFeatureBuilder1::MergedFeatureBuilder1(FeatureBuilder1 const & fb)
-  : FeatureBuilder1(fb), m_isRound(false)
+#include "coding/point_coding.hpp"
+
+using namespace feature;
+
+MergedFeatureBuilder::MergedFeatureBuilder(FeatureBuilder const & fb)
+  : FeatureBuilder(fb), m_isRound(false)
 {
   m_params.FinishAddingTypes();
 }
 
-void MergedFeatureBuilder1::SetRound()
+void MergedFeatureBuilder::SetRound()
 {
   m_isRound = true;
 
   m_roundBounds[0] = m_roundBounds[1] = GetOuterGeometry();
 }
 
-void MergedFeatureBuilder1::AppendFeature(MergedFeatureBuilder1 const & fb, bool fromBegin, bool toBack)
+void MergedFeatureBuilder::AppendFeature(MergedFeatureBuilder const & fb, bool fromBegin, bool toBack)
 {
   // Also merge Osm IDs for debugging
   m_osmIds.insert(m_osmIds.end(), fb.m_osmIds.begin(), fb.m_osmIds.end());
 
-  TPointSeq & thisG = m_polygons.front();
-  TPointSeq const & fbG = fb.GetOuterGeometry();
+  PointSeq & thisG = m_polygons.front();
+  PointSeq const & fbG = fb.GetOuterGeometry();
 
   if (fb.m_isRound)
   {
@@ -73,51 +77,54 @@ void MergedFeatureBuilder1::AppendFeature(MergedFeatureBuilder1 const & fb, bool
   }
 }
 
-bool MergedFeatureBuilder1::EqualGeometry(MergedFeatureBuilder1 const & fb) const
+bool MergedFeatureBuilder::EqualGeometry(MergedFeatureBuilder const & fb) const
 {
   return (GetOuterGeometry() == fb.GetOuterGeometry());
 }
 
-pair<m2::PointD, bool> MergedFeatureBuilder1::GetKeyPoint(size_t i) const
+std::pair<m2::PointD, bool> MergedFeatureBuilder::GetKeyPoint(size_t i) const
 {
   // 1. check first rounds
   size_t sz = m_roundBounds[0].size();
-  if (i < sz) return make_pair(m_roundBounds[0][i], false);
+  if (i < sz)
+    return std::make_pair(m_roundBounds[0][i], false);
   i -= sz;
 
   // 2. check first point
-  if (i == 0) return make_pair(FirstPoint(), false);
+  if (i == 0)
+    return std::make_pair(FirstPoint(), false);
 
   // 3. check last rounds
   --i;
   sz = m_roundBounds[1].size();
-  if (i < sz) return make_pair(m_roundBounds[1][i], true);
+  if (i < sz)
+    return std::make_pair(m_roundBounds[1][i], true);
   i -= sz;
 
   // 4. return last point
   ASSERT_EQUAL ( i, 0, () );
-  return make_pair(LastPoint(), true);
+  return std::make_pair(LastPoint(), true);
 }
 
-size_t MergedFeatureBuilder1::GetKeyPointsCount() const
+size_t MergedFeatureBuilder::GetKeyPointsCount() const
 {
   return m_roundBounds[0].size() + m_roundBounds[1].size() + 2;
 }
 
-double MergedFeatureBuilder1::GetPriority() const
+double MergedFeatureBuilder::GetPriority() const
 {
-  TPointSeq const & poly = GetOuterGeometry();
+  PointSeq const & poly = GetOuterGeometry();
 
   double pr = 0.0;
   for (size_t i = 1; i < poly.size(); ++i)
-    pr += poly[i-1].SquareLength(poly[i]);
+    pr += poly[i-1].SquaredLength(poly[i]);
   return pr;
 }
 
 
-FeatureMergeProcessor::key_t FeatureMergeProcessor::get_key(m2::PointD const & p)
+FeatureMergeProcessor::Key FeatureMergeProcessor::GetKey(m2::PointD const & p)
 {
-  return PointToInt64(p, m_coordBits);
+  return PointToInt64Obsolete(p, m_coordBits);
 }
 
 FeatureMergeProcessor::FeatureMergeProcessor(uint32_t coordBits)
@@ -125,15 +132,15 @@ FeatureMergeProcessor::FeatureMergeProcessor(uint32_t coordBits)
 {
 }
 
-void FeatureMergeProcessor::operator() (FeatureBuilder1 const & fb)
+void FeatureMergeProcessor::operator() (FeatureBuilder const & fb)
 {
-  this->operator() (new MergedFeatureBuilder1(fb));
+  this->operator() (new MergedFeatureBuilder(fb));
 }
 
-void FeatureMergeProcessor::operator() (MergedFeatureBuilder1 * p)
+void FeatureMergeProcessor::operator() (MergedFeatureBuilder * p)
 {
-  key_t const k1 = get_key(p->FirstPoint());
-  key_t const k2 = get_key(p->LastPoint());
+  Key const k1 = GetKey(p->FirstPoint());
+  Key const k2 = GetKey(p->LastPoint());
 
   m_map[k1].push_back(p);
   if (k1 != k2)
@@ -143,30 +150,30 @@ void FeatureMergeProcessor::operator() (MergedFeatureBuilder1 * p)
     ///@ todo Do it only for small round features!
     p->SetRound();
 
-    p->ForEachMiddlePoints(bind(&FeatureMergeProcessor::Insert, this, _1, p));
+    p->ForEachMiddlePoints(std::bind(&FeatureMergeProcessor::Insert, this, std::placeholders::_1, p));
   }
 }
 
-void FeatureMergeProcessor::Insert(m2::PointD const & pt, MergedFeatureBuilder1 * p)
+void FeatureMergeProcessor::Insert(m2::PointD const & pt, MergedFeatureBuilder * p)
 {
-  m_map[get_key(pt)].push_back(p);
+  m_map[GetKey(pt)].push_back(p);
 }
 
-void FeatureMergeProcessor::Remove(key_t key, MergedFeatureBuilder1 const * p)
+void FeatureMergeProcessor::Remove(Key key, MergedFeatureBuilder const * p)
 {
-  map_t::iterator i = m_map.find(key);
+  auto i = m_map.find(key);
   if (i != m_map.end())
   {
-    vector_t & v = i->second;
+    MergedFeatureBuilders & v = i->second;
     v.erase(remove(v.begin(), v.end(), p), v.end());
     if (v.empty()) m_map.erase(i);
   }
 }
 
-void FeatureMergeProcessor::Remove(MergedFeatureBuilder1 const * p)
+void FeatureMergeProcessor::Remove(MergedFeatureBuilder const * p)
 {
-  key_t const k1 = get_key(p->FirstPoint());
-  key_t const k2 = get_key(p->LastPoint());
+  Key const k1 = GetKey(p->FirstPoint());
+  Key const k2 = GetKey(p->LastPoint());
 
   Remove(k1, p);
   if (k1 != k2)
@@ -175,7 +182,7 @@ void FeatureMergeProcessor::Remove(MergedFeatureBuilder1 const * p)
   {
     ASSERT ( p->IsRound(), () );
 
-    p->ForEachMiddlePoints(bind(&FeatureMergeProcessor::Remove1, this, _1, p));
+    p->ForEachMiddlePoints(std::bind(&FeatureMergeProcessor::Remove1, this, std::placeholders::_1, p));
   }
 }
 
@@ -184,9 +191,9 @@ void FeatureMergeProcessor::DoMerge(FeatureEmitterIFace & emitter)
   while (!m_map.empty())
   {
     // Get any starting feature.
-    vector_t & vS = m_map.begin()->second;
+    MergedFeatureBuilders & vS = m_map.begin()->second;
     CHECK(!vS.empty(), ());
-    MergedFeatureBuilder1 * p = vS.front();  // may be 'back' is better
+    MergedFeatureBuilder * p = vS.front();  // may be 'back' is better
 
     // Remove next processing type. If it's a last type - remove from map.
     uint32_t type;
@@ -198,24 +205,24 @@ void FeatureMergeProcessor::DoMerge(FeatureEmitterIFace & emitter)
     }
 
     // We will merge to the copy of p.
-    MergedFeatureBuilder1 curr(*p);
+    MergedFeatureBuilder curr(*p);
     curr.SetType(type);
 
     // Iterate through key points while merging.
     size_t ind = 0;
     while (ind < curr.GetKeyPointsCount())  // GetKeyPointsCount() can be different on each iteration
     {
-      pair<m2::PointD, bool> const pt = curr.GetKeyPoint(ind++);
-      map_t::const_iterator it = m_map.find(get_key(pt.first));
+      std::pair<m2::PointD, bool> const pt = curr.GetKeyPoint(ind++);
+      auto it = m_map.find(GetKey(pt.first));
 
-      MergedFeatureBuilder1 * pp = 0;
+      MergedFeatureBuilder * pp = 0;
       if (it != m_map.end())
       {
         // Find best feature to continue.
         double bestPr = -1.0;
         for (size_t i = 0; i < it->second.size(); ++i)
         {
-          MergedFeatureBuilder1 * pTest = it->second[i];
+          MergedFeatureBuilder * pTest = it->second[i];
           if (pTest->HasType(type))
           {
             double const pr = pTest->GetPriority();
@@ -234,7 +241,7 @@ void FeatureMergeProcessor::DoMerge(FeatureEmitterIFace & emitter)
         {
           bool const toBack = pt.second;
           bool fromBegin = true;
-          if ((pt.first.SquareLength(pp->FirstPoint()) > pt.first.SquareLength(pp->LastPoint())) == toBack)
+          if ((pt.first.SquaredLength(pp->FirstPoint()) > pt.first.SquaredLength(pp->LastPoint())) == toBack)
             fromBegin = false;
 
           curr.AppendFeature(*pp, fromBegin, toBack);
@@ -275,7 +282,7 @@ void FeatureMergeProcessor::DoMerge(FeatureEmitterIFace & emitter)
 
 uint32_t FeatureTypesProcessor::GetType(char const * arr[], size_t n)
 {
-  uint32_t const type = classif().GetTypeByPath(vector<string>(arr, arr + n));
+  uint32_t const type = classif().GetTypeByPath(std::vector<std::string>(arr, arr + n));
   CHECK_NOT_EQUAL(type, ftype::GetEmptyValue(), ());
   return type;
 }
@@ -299,9 +306,9 @@ void FeatureTypesProcessor::SetMappingTypes(char const * arr1[2], char const * a
   m_mapping[GetType(arr1, 2)] = GetType(arr2, 2);
 }
 
-MergedFeatureBuilder1 * FeatureTypesProcessor::operator() (FeatureBuilder1 const & fb)
+MergedFeatureBuilder * FeatureTypesProcessor::operator() (FeatureBuilder const & fb)
 {
-  MergedFeatureBuilder1 * p = new MergedFeatureBuilder1(fb);
+  MergedFeatureBuilder * p = new MergedFeatureBuilder(fb);
 
   p->ForEachChangeTypes(do_change_types(*this));
 
@@ -322,58 +329,69 @@ MergedFeatureBuilder1 * FeatureTypesProcessor::operator() (FeatureBuilder1 const
 namespace feature
 {
 
-class IsInvisibleFn
+class RemoveSolver
 {
   int m_lowScale, m_upScale;
-  bool m_leaveSpecialTypes;
+  bool m_doNotRemoveSpecialTypes;
+  bool m_doNotRemoveSponsoredTypes;
 
 public:
-  IsInvisibleFn(int lowScale, int upScale, bool leaveSpecialTypes)
-    : m_lowScale(lowScale), m_upScale(upScale), m_leaveSpecialTypes(leaveSpecialTypes)
+  RemoveSolver(int lowScale, int upScale, bool doNotRemoveSpecialTypes, bool doNotRemoveSponsoredTypes)
+    : m_lowScale(lowScale)
+    , m_upScale(upScale)
+    , m_doNotRemoveSpecialTypes(doNotRemoveSpecialTypes)
+    , m_doNotRemoveSponsoredTypes(doNotRemoveSponsoredTypes)
   {
   }
 
   bool operator() (uint32_t type) const
   {
-    pair<int, int> const range = feature::GetDrawableScaleRange(type);
+    if (m_doNotRemoveSponsoredTypes && ftypes::IsSponsoredChecker::Instance()(type))
+      return false;
 
+    std::pair<int, int> const range = feature::GetDrawableScaleRange(type);
     // We have feature types without any drawing rules.
     // This case was processed before:
     // - feature::TypeAlwaysExists;
     // - FeatureBuilder::RemoveInvalidTypes;
     // Don't delete them here.
-    if (m_leaveSpecialTypes && range.first == -1)
+    if (m_doNotRemoveSpecialTypes && range.first == -1)
     {
       ASSERT(range.second == -1, ());
       return false;
     }
 
+    // Remove when |type| is invisible.
     return (range.first == -1 || (range.first > m_upScale || range.second < m_lowScale));
   }
 };
 
-bool PreprocessForWorldMap(FeatureBuilder1 & fb)
+bool PreprocessForWorldMap(FeatureBuilder & fb)
 {
   int const upperScale = scales::GetUpperWorldScale();
 
-  if (fb.RemoveTypesIf(IsInvisibleFn(0, upperScale, false)))
+  if (fb.RemoveTypesIf(RemoveSolver(0, upperScale, false /* doNotRemoveSpecialTypes */,
+                                    true /* doNotRemoveSponsoredTypes */)))
+  {
     return false;
+  }
 
   fb.RemoveNameIfInvisible(0, upperScale);
 
   return true;
 }
 
-bool PreprocessForCountryMap(FeatureBuilder1 & fb)
+bool PreprocessForCountryMap(FeatureBuilder & fb)
 {
-  if (fb.RemoveTypesIf(IsInvisibleFn(scales::GetUpperWorldScale() + 1,
-                                     scales::GetUpperStyleScale(),
-                                     true)))
+  using namespace scales;
+
+  if (fb.RemoveTypesIf(RemoveSolver(GetUpperWorldScale() + 1, GetUpperStyleScale(),
+                                    true /* doNotRemoveSpecialTypes */,
+                                    true /* doNotRemoveSponsoredTypes */)))
   {
     return false;
   }
 
   return true;
 }
-
 }

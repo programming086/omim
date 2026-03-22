@@ -2,34 +2,43 @@
 
 #include "base/math.hpp"
 
-#include "std/string.hpp"
+#include <string>
 
 namespace ms
 {
-
 /// \brief Class for representing WGS point.
 class LatLon
 {
 public:
-  double lat, lon;
+  static double const kMinLat;
+  static double const kMaxLat;
+  static double const kMinLon;
+  static double const kMaxLon;
+  static LatLon const kInvalidValue;
 
-  LatLon(double lat, double lon) : lat(lat), lon(lon) {}
+  double m_lat = kInvalidValue.m_lat;
+  double m_lon = kInvalidValue.m_lon;
 
-  static LatLon Zero() { return LatLon(0., 0.); }
+  LatLon() = default;
+  LatLon(double lat, double lon) : m_lat(lat), m_lon(lon) {}
 
-  bool operator == (ms::LatLon const & p) const;
+  static LatLon Zero() { return LatLon(0.0, 0.0); }
+
+  bool operator==(ms::LatLon const & rhs) const;
+  bool operator<(ms::LatLon const & rhs) const;
 
   bool EqualDxDy(LatLon const & p, double eps) const;
 
   struct Hash
   {
-    size_t operator()(ms::LatLon const & p) const
-    {
-      return my::Hash(p.lat, p.lon);
-    }
+    size_t operator()(ms::LatLon const & p) const { return base::Hash(p.m_lat, p.m_lon); }
   };
 };
 
-string DebugPrint(LatLon const & t);
-
+std::string DebugPrint(LatLon const & t);
 }  // namespace ms
+
+namespace base
+{
+bool AlmostEqualAbs(ms::LatLon const & ll1, ms::LatLon const & ll2, double const & eps);
+}  // namespace base

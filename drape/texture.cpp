@@ -1,159 +1,110 @@
 #include "drape/texture.hpp"
 
-#include "drape/glfunctions.hpp"
-#include "drape/glextensions_list.hpp"
+#include "drape/gl_functions.hpp"
+#include "drape/glsl_func.hpp"
+#include "drape/utils/gpu_mem_tracker.hpp"
 
 #include "base/math.hpp"
 
-#define ASSERT_ID ASSERT(GetID() != -1, ())
+#include "3party/glm/glm/gtx/bit.hpp"
 
 namespace dp
 {
+Texture::ResourceInfo::ResourceInfo(m2::RectF const & texRect) : m_texRect(texRect) {}
 
-Texture::ResourceInfo::ResourceInfo(m2::RectF const & texRect)
-  : m_texRect(texRect) {}
+m2::RectF const & Texture::ResourceInfo::GetTexRect() const { return m_texRect; }
 
-m2::RectF const & Texture::ResourceInfo::GetTexRect() const
+Texture::~Texture() { Destroy(); }
+
+void Texture::Create(ref_ptr<dp::GraphicsContext> context, Params const & params)
 {
-  return m_texRect;
+  if (AllocateTexture(context, params.m_allocator))
+    m_hwTexture->Create(context, params);
 }
 
-//////////////////////////////////////////////////////////////////
-
-Texture::Texture()
-  : m_textureID(-1)
-  , m_width(0)
-  , m_height(0)
-  , m_format(dp::UNSPECIFIED)
+void Texture::Create(ref_ptr<dp::GraphicsContext> context, Params const & params,
+                     ref_ptr<void> data)
 {
+  if (AllocateTexture(context, params.m_allocator))
+    m_hwTexture->Create(context, params, data);
 }
 
-Texture::~Texture()
+void Texture::UploadData(ref_ptr<dp::GraphicsContext> context, uint32_t x, uint32_t y,
+                         uint32_t width, uint32_t height, ref_ptr<void> data)
 {
-  if (m_textureID != -1)
-    GLFunctions::glDeleteTexture(m_textureID);
-}
-
-void Texture::Create(uint32_t width, uint32_t height, TextureFormat format)
-{
-  Create(width, height, format, MakeStackRefPointer<void>(NULL));
-}
-
-void Texture::Create(uint32_t width, uint32_t height, TextureFormat format, RefPointer<void> data)
-{
-  m_format = format;
-  m_width = width;
-  m_height = height;
-  if (!GLExtensionsList::Instance().IsSupported(GLExtensionsList::TextureNPOT))
-  {
-    m_width = my::NextPowOf2(width);
-    m_height = my::NextPowOf2(height);
-  }
-
-  m_textureID = GLFunctions::glGenTexture();
-  GLFunctions::glBindTexture(m_textureID);
-
-  glConst layout;
-  glConst pixelType;
-  UnpackFormat(format, layout, pixelType);
-
-  GLFunctions::glTexImage2D(m_width, m_height, layout, pixelType, data.GetRaw());
-  SetFilterParams(gl_const::GLLinear, gl_const::GLLinear);
-  SetWrapMode(gl_const::GLClampToEdge, gl_const::GLClampToEdge);
-}
-
-void Texture::SetFilterParams(glConst minFilter, glConst magFilter)
-{
-  ASSERT_ID;
-  GLFunctions::glTexParameter(gl_const::GLMinFilter, minFilter);
-  GLFunctions::glTexParameter(gl_const::GLMagFilter, magFilter);
-}
-
-void Texture::SetWrapMode(glConst sMode, glConst tMode)
-{
-  ASSERT_ID;
-  GLFunctions::glTexParameter(gl_const::GLWrapS, sMode);
-  GLFunctions::glTexParameter(gl_const::GLWrapT, tMode);
-}
-
-void Texture::UploadData(uint32_t x, uint32_t y, uint32_t width, uint32_t height,
-                         TextureFormat format, RefPointer<void> data)
-{
-  ASSERT_ID;
-  ASSERT(format == m_format, ());
-  glConst layout;
-  glConst pixelType;
-
-  UnpackFormat(format, layout, pixelType);
-
-  GLFunctions::glTexSubImage2D(x, y, width, height, layout, pixelType, data.GetRaw());
+  ASSERT(m_hwTexture != nullptr, ());
+  m_hwTexture->UploadData(context, x, y, width, height, data);
 }
 
 TextureFormat Texture::GetFormat() const
 {
-  return m_format;
+  ASSERT(m_hwTexture != nullptr, ());
+  return m_hwTexture->GetFormat();
 }
 
 uint32_t Texture::GetWidth() const
 {
-  ASSERT_ID;
-  return m_width;
+  ASSERT(m_hwTexture != nullptr, ());
+  return m_hwTexture->GetWidth();
 }
 
 uint32_t Texture::GetHeight() const
 {
-  ASSERT_ID;
-  return m_height;
+  ASSERT(m_hwTexture != nullptr, ());
+  return m_hwTexture->GetHeight();
 }
 
 float Texture::GetS(uint32_t x) const
 {
-  ASSERT_ID;
-  return x / (float)m_width;
+  ASSERT(m_hwTexture != nullptr, ());
+  return m_hwTexture->GetS(x);
 }
 
 float Texture::GetT(uint32_t y) const
 {
-  ASSERT_ID;
-  return y / (float)m_height;
+  ASSERT(m_hwTexture != nullptr, ());
+  return m_hwTexture->GetT(y);
 }
 
-void Texture::Bind() const
+uint32_t Texture::GetID() const
 {
-  ASSERT_ID;
-  GLFunctions::glBindTexture(GetID());
+  ASSERT(m_hwTexture != nullptr, ());
+  return m_hwTexture->GetID();
 }
 
-uint32_t Texture::GetMaxTextureSize()
+void Texture::Bind(ref_ptr<dp::GraphicsContext> context) const
 {
-  return GLFunctions::glGetInteger(gl_const::GLMaxTextureSize);
+  ASSERT(m_hwTexture != nullptr, ());
+  m_hwTexture->Bind(context);
 }
 
-void Texture::UnpackFormat(TextureFormat format, glConst & layout, glConst & pixelType)
+void Texture::SetFilter(TextureFilter filter)
 {
-  bool requiredFormat = GLExtensionsList::Instance().IsSupported(GLExtensionsList::RequiredInternalFormat);
-  switch (format) {
-  case RGBA8:
-    layout = requiredFormat ? gl_const::GLRGBA8 : gl_const::GLRGBA;
-    pixelType = gl_const::GL8BitOnChannel;
-    break;
-  case RGBA4:
-    layout = requiredFormat ? gl_const::GLRGBA4 : gl_const::GLRGBA;
-    pixelType = gl_const::GL4BitOnChannel;
-    break;
-  case ALPHA:
-    layout = requiredFormat ? gl_const::GLAlpha8 : gl_const::GLAlpha;
-    pixelType = gl_const::GL8BitOnChannel;
-    break;
-  default:
-    ASSERT(false, ());
-    break;
+  ASSERT(m_hwTexture != nullptr, ());
+  m_hwTexture->SetFilter(filter);
+}
+
+// static
+bool Texture::IsPowerOfTwo(uint32_t width, uint32_t height)
+{
+  return glm::isPowerOfTwo(static_cast<int>(width)) && glm::isPowerOfTwo(static_cast<int>(height));
+}
+
+void Texture::Destroy() { m_hwTexture.reset(); }
+
+bool Texture::AllocateTexture(ref_ptr<dp::GraphicsContext> context,
+                              ref_ptr<HWTextureAllocator> allocator)
+{
+  if (allocator != nullptr)
+  {
+    m_hwTexture = allocator->CreateTexture(context);
+    return true;
   }
+  return false;
 }
-
-int32_t Texture::GetID() const
+  
+ref_ptr<HWTexture> Texture::GetHardwareTexture() const
 {
-  return m_textureID;
+  return make_ref(m_hwTexture);
 }
-
-} // namespace dp
+}  // namespace dp

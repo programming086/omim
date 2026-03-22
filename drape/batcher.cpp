@@ -1,231 +1,332 @@
 #include "drape/batcher.hpp"
-#include "drape/cpu_buffer.hpp"
 #include "drape/batcher_helpers.hpp"
+#include "drape/cpu_buffer.hpp"
+#include "drape/index_storage.hpp"
 #include "drape/vertex_array_buffer.hpp"
 
 #include "base/assert.hpp"
+#include "base/stl_helpers.hpp"
 
-#include "std/bind.hpp"
+#include <utility>
 
 namespace dp
 {
-
-class Batcher::CallbacksWrapper
+class Batcher::CallbacksWrapper : public BatchCallbacks
 {
 public:
-  CallbacksWrapper(GLState const & state, RefPointer<OverlayHandle> overlay)
+  CallbacksWrapper(RenderState const & state, ref_ptr<OverlayHandle> overlay,
+                   ref_ptr<Batcher> batcher)
     : m_state(state)
     , m_overlay(overlay)
-  {
+    , m_batcher(batcher)
+  {}
 
-  }
-
-  void SetVAO(RefPointer<VertexArrayBuffer> buffer)
+  void SetVAO(ref_ptr<VertexArrayBuffer> buffer)
   {
+    // Invocation with non-null VAO will cause to invalid range of indices.
+    // It means that VAO has been changed during batching.
+    if (m_buffer != nullptr)
+      m_vaoChanged = true;
+
     m_buffer = buffer;
+    m_indicesRange.m_idxStart = m_buffer->GetIndexCount();
   }
 
-  bool IsVAOFilled() const
+  void FlushData(ref_ptr<GraphicsContext> context, BindingInfo const & info,
+                 void const * data, uint32_t count) override
   {
-    return m_buffer->IsFilled();
-  }
-
-  void FlushData(BindingInfo const & info, void const * data, uint16_t count)
-  {
-    if (!m_overlay.IsNull() && info.IsDynamic())
+    if (m_overlay != nullptr && info.IsDynamic())
     {
-      uint16_t offset = m_buffer->GetDynamicBufferOffset(info);
+      uint32_t offset = m_buffer->GetDynamicBufferOffset(info);
       m_overlay->AddDynamicAttribute(info, offset, count);
     }
-    m_buffer->UploadData(info, data, count);
+    m_buffer->UploadData(context, info, data, count);
   }
 
-  uint16_t * GetIndexStorage(uint16_t size, uint16_t & startIndex)
+  void * GetIndexStorage(uint32_t size, uint32_t & startIndex) override
   {
     startIndex = m_buffer->GetStartIndexValue();
-    if (m_overlay.IsNull())
+    if (m_overlay == nullptr || !m_overlay->IndexesRequired())
     {
-      m_indexStorage.resize(size);
-      return &m_indexStorage[0];
+      m_indexStorage.Resize(size);
+      return m_indexStorage.GetRaw();
     }
     else
+    {
       return m_overlay->IndexStorage(size);
+    }
   }
 
-  void SubmitIndexes()
+  void SubmitIndices(ref_ptr<GraphicsContext> context) override
   {
-    if (m_overlay.IsNull())
-      m_buffer->UploadIndexes(&m_indexStorage[0], m_indexStorage.size());
+    if (m_overlay == nullptr || !m_overlay->IndexesRequired())
+      m_buffer->UploadIndices(context, m_indexStorage.GetRawConst(), m_indexStorage.Size());
   }
 
-  uint16_t GetAvailableVertexCount() const
+  uint32_t GetAvailableVertexCount() const override
   {
     return m_buffer->GetAvailableVertexCount();
   }
 
-  uint16_t GetAvailableIndexCount() const
+  uint32_t GetAvailableIndexCount() const override
   {
     return m_buffer->GetAvailableIndexCount();
   }
 
-  GLState const & GetState() const
+  void ChangeBuffer(ref_ptr<GraphicsContext> context) override
+  {
+    m_batcher->ChangeBuffer(context, make_ref(this));
+  }
+
+  RenderState const & GetState() const
   {
     return m_state;
   }
 
-private:
-  GLState const & m_state;
-  RefPointer<VertexArrayBuffer> m_buffer;
-  RefPointer<OverlayHandle>     m_overlay;
-  vector<uint16_t>              m_indexStorage;
-};
+  IndicesRange const & Finish()
+  {
+    if (!m_vaoChanged)
+      m_indicesRange.m_idxCount = m_buffer->GetIndexCount() - m_indicesRange.m_idxStart;
+    else
+      m_indicesRange = IndicesRange();
 
-////////////////////////////////////////////////////////////////
+    return m_indicesRange;
+  }
+
+private:
+  RenderState const & m_state;
+  ref_ptr<OverlayHandle> m_overlay;
+  ref_ptr<Batcher> m_batcher;
+  ref_ptr<VertexArrayBuffer> m_buffer;
+  IndexStorage m_indexStorage;
+  IndicesRange m_indicesRange;
+  bool m_vaoChanged = false;
+};
 
 Batcher::Batcher(uint32_t indexBufferSize, uint32_t vertexBufferSize)
   : m_indexBufferSize(indexBufferSize)
   , m_vertexBufferSize(vertexBufferSize)
-{
-}
+{}
 
 Batcher::~Batcher()
 {
-  buckets_t::iterator it = m_buckets.begin();
-  for (; it != m_buckets.end(); ++it)
-    it->second.Destroy();
+  m_buckets.clear();
 }
 
-void Batcher::InsertTriangleList(GLState const & state, RefPointer<AttributeProvider> params)
+void Batcher::InsertTriangleList(ref_ptr<GraphicsContext> context, RenderState const & state,
+                                 ref_ptr<AttributeProvider> params)
 {
-  InsertTriangleList(state, params, MovePointer<OverlayHandle>(NULL));
+  InsertTriangleList(context, state, params, nullptr);
 }
 
-void Batcher::InsertTriangleList(GLState const & state, RefPointer<AttributeProvider> params,
-                                 TransferPointer<OverlayHandle> handle)
+IndicesRange Batcher::InsertTriangleList(ref_ptr<GraphicsContext> context,
+                                         RenderState const & state,
+                                         ref_ptr<AttributeProvider> params,
+                                         drape_ptr<OverlayHandle> && handle)
 {
-  InsertTriangles<TriangleListBatch>(state, params, handle);
+  return InsertPrimitives<TriangleListBatch>(context, state, params, std::move(handle),
+                                             0 /* vertexStride */);
 }
 
-void Batcher::InsertTriangleStrip(GLState const & state, RefPointer<AttributeProvider> params)
+void Batcher::InsertTriangleStrip(ref_ptr<GraphicsContext> context, RenderState const & state,
+                                  ref_ptr<AttributeProvider> params)
 {
-  InsertTriangleStrip(state, params, MovePointer<OverlayHandle>(NULL));
+  InsertTriangleStrip(context, state, params, nullptr);
 }
 
-void Batcher::InsertTriangleStrip(GLState const & state, RefPointer<AttributeProvider> params,
-                                  TransferPointer<OverlayHandle> handle)
+IndicesRange Batcher::InsertTriangleStrip(ref_ptr<GraphicsContext> context,
+                                          RenderState const & state,
+                                          ref_ptr<AttributeProvider> params,
+                                          drape_ptr<OverlayHandle> && handle)
 {
-  InsertTriangles<TriangleStripBatch>(state, params, handle);
+  return InsertPrimitives<TriangleStripBatch>(context, state, params, std::move(handle),
+                                              0 /* vertexStride */);
 }
 
-void Batcher::InsertTriangleFan(GLState const & state, RefPointer<AttributeProvider> params)
+void Batcher::InsertTriangleFan(ref_ptr<GraphicsContext> context, RenderState const & state,
+                                ref_ptr<AttributeProvider> params)
 {
-  InsertTriangleFan(state, params, MovePointer<OverlayHandle>(NULL));
+  InsertTriangleFan(context, state, params, nullptr);
 }
 
-void Batcher::InsertTriangleFan(GLState const & state, RefPointer<AttributeProvider> params,
-                                TransferPointer<OverlayHandle> handle)
+IndicesRange Batcher::InsertTriangleFan(ref_ptr<GraphicsContext> context, RenderState const & state,
+                                        ref_ptr<AttributeProvider> params,
+                                        drape_ptr<OverlayHandle> && handle)
 {
-  InsertTriangles<TriangleFanBatch>(state, params, handle);
+  return InsertPrimitives<TriangleFanBatch>(context, state, params, std::move(handle),
+                                            0 /* vertexStride */);
 }
 
-void Batcher::InsertListOfStrip(GLState const & state, RefPointer<AttributeProvider> params, uint8_t vertexStride)
+void Batcher::InsertListOfStrip(ref_ptr<GraphicsContext> context, RenderState const & state,
+                                ref_ptr<AttributeProvider> params, uint8_t vertexStride)
 {
-  InsertListOfStrip(state, params, MovePointer<OverlayHandle>(NULL), vertexStride);
+  InsertListOfStrip(context, state, params, nullptr, vertexStride);
 }
 
-void Batcher::InsertListOfStrip(GLState const & state, RefPointer<AttributeProvider> params,
-                       TransferPointer<OverlayHandle> handle, uint8_t vertexStride)
+IndicesRange Batcher::InsertListOfStrip(ref_ptr<GraphicsContext> context, RenderState const & state,
+                                        ref_ptr<AttributeProvider> params,
+                                        drape_ptr<OverlayHandle> && handle, uint8_t vertexStride)
 {
-  InsertTriangles<TriangleListOfStripBatch>(state, params, handle, vertexStride);
+  return InsertPrimitives<TriangleListOfStripBatch>(context, state, params, std::move(handle),
+                                                    vertexStride);
 }
 
-void Batcher::StartSession(flush_fn const & flusher)
+void Batcher::InsertLineStrip(ref_ptr<GraphicsContext> context, RenderState const & state,
+                              ref_ptr<AttributeProvider> params)
+{
+  InsertLineStrip(context, state, params, nullptr);
+}
+
+IndicesRange Batcher::InsertLineStrip(ref_ptr<GraphicsContext> context, RenderState const & state,
+                                      ref_ptr<AttributeProvider> params,
+                                      drape_ptr<OverlayHandle> && handle)
+{
+  return InsertPrimitives<LineStripBatch>(context, state, params, std::move(handle),
+                                          0 /* vertexStride */);
+}
+
+void Batcher::InsertLineRaw(ref_ptr<GraphicsContext> context, RenderState const & state,
+                            ref_ptr<AttributeProvider> params, std::vector<int> const & indices)
+{
+  InsertLineRaw(context, state, params, indices, nullptr);
+}
+
+IndicesRange Batcher::InsertLineRaw(ref_ptr<GraphicsContext> context, RenderState const & state,
+                                    ref_ptr<AttributeProvider> params, std::vector<int> const & indices,
+                                    drape_ptr<OverlayHandle> && handle)
+{
+  return InsertPrimitives<LineRawBatch>(context, state, params, std::move(handle),
+                                        0 /* vertexStride */, indices);
+}
+
+void Batcher::StartSession(TFlushFn const & flusher)
 {
   m_flushInterface = flusher;
 }
 
-void Batcher::EndSession()
+void Batcher::EndSession(ref_ptr<GraphicsContext> context)
 {
-  Flush();
-  m_flushInterface = flush_fn();
+  Flush(context);
+  m_flushInterface = TFlushFn();
 }
 
-void Batcher::ChangeBuffer(RefPointer<CallbacksWrapper> wrapper, bool checkFilledBuffer)
+void Batcher::ResetSession()
 {
-  if (wrapper->IsVAOFilled() || checkFilledBuffer == false)
-  {
-    GLState const & state = wrapper->GetState();
-    FinalizeBucket(state);
-
-    RefPointer<RenderBucket> bucket = GetBucket(state);
-    wrapper->SetVAO(bucket->GetBuffer());
-  }
+  m_flushInterface = TFlushFn();
+  m_buckets.clear();
 }
 
-RefPointer<RenderBucket> Batcher::GetBucket(GLState const & state)
+void Batcher::SetFeatureMinZoom(int minZoom)
 {
-  buckets_t::iterator it = m_buckets.find(state);
+  m_featureMinZoom = minZoom;
+
+  for (auto const & bucket : m_buckets)
+    bucket.second->SetFeatureMinZoom(m_featureMinZoom);
+}
+
+void Batcher::SetBatcherHash(uint64_t batcherHash)
+{
+  m_batcherHash = batcherHash;
+}
+
+void Batcher::ChangeBuffer(ref_ptr<GraphicsContext> context, ref_ptr<CallbacksWrapper> wrapper)
+{
+  RenderState const & state = wrapper->GetState();
+  FinalizeBucket(context, state);
+
+  CHECK(m_buckets.find(state) == m_buckets.end(), ());
+  ref_ptr<RenderBucket> bucket = GetBucket(state);
+  wrapper->SetVAO(bucket->GetBuffer());
+}
+
+ref_ptr<RenderBucket> Batcher::GetBucket(RenderState const & state)
+{
+  auto const it = m_buckets.find(state);
   if (it != m_buckets.end())
-    return it->second.GetRefPointer();
+    return make_ref(it->second);
 
-  MasterPointer<VertexArrayBuffer> vao(new VertexArrayBuffer(m_indexBufferSize, m_vertexBufferSize));
-  MasterPointer<RenderBucket> buffer(new RenderBucket(vao.Move()));
-  m_buckets.insert(make_pair(state, buffer));
-  return buffer.GetRefPointer();
+  drape_ptr<VertexArrayBuffer> vao = make_unique_dp<VertexArrayBuffer>(m_indexBufferSize,
+                                                                       m_vertexBufferSize,
+                                                                       m_batcherHash);
+  drape_ptr<RenderBucket> buffer = make_unique_dp<RenderBucket>(std::move(vao));
+  ref_ptr<RenderBucket> result = make_ref(buffer);
+  result->SetFeatureMinZoom(m_featureMinZoom);
+
+  if (!m_buckets.emplace(state, std::move(buffer)).second)
+    CHECK(false, ());
+
+  return result;
 }
 
-void Batcher::FinalizeBucket(GLState const & state)
+void Batcher::FinalizeBucket(ref_ptr<GraphicsContext> context, RenderState const & state)
 {
-  ASSERT(m_buckets.find(state) != m_buckets.end(), ("Have no bucket for finalize with given state"));
-  MasterPointer<RenderBucket> bucket = m_buckets[state];
-  m_buckets.erase(state);
-  bucket->GetBuffer()->Preflush();
-  m_flushInterface(state, bucket.Move());
+  auto const it = m_buckets.find(state);
+  CHECK(it != m_buckets.end(), ("Have no bucket for finalize with given state"));
+  drape_ptr<RenderBucket> bucket = std::move(it->second);
+  if (m_buckets.erase(state) == 0)
+    CHECK(false, ());
+
+  bucket->GetBuffer()->Preflush(context);
+  m_flushInterface(state, std::move(bucket));
 }
 
-void Batcher::Flush()
+void Batcher::Flush(ref_ptr<GraphicsContext> context)
 {
   ASSERT(m_flushInterface != NULL, ());
-  for (buckets_t::iterator it = m_buckets.begin(); it != m_buckets.end(); ++it)
+  std::for_each(m_buckets.begin(), m_buckets.end(), [this, context](TBuckets::value_type & bucket)
   {
-    it->second->GetBuffer()->Preflush();
-    m_flushInterface(it->first, it->second.Move());
-  }
+    ASSERT(bucket.second != nullptr, ());
+    bucket.second->GetBuffer()->Preflush(context);
+    m_flushInterface(bucket.first, std::move(bucket.second));
+  });
 
   m_buckets.clear();
 }
 
-template <typename TBatcher>
-void Batcher::InsertTriangles(GLState const & state,
-                              RefPointer<AttributeProvider> params,
-                              TransferPointer<OverlayHandle> transferHandle,
-                              uint8_t vertexStride)
+template <typename TBatcher, typename... TArgs>
+IndicesRange Batcher::InsertPrimitives(ref_ptr<GraphicsContext> context, RenderState const & state,
+                                       ref_ptr<AttributeProvider> params,
+                                       drape_ptr<OverlayHandle> && transferHandle,
+                                       uint8_t vertexStride, TArgs... batcherArgs)
 {
-  RefPointer<RenderBucket> bucket = GetBucket(state);
-  RefPointer<VertexArrayBuffer> vao = bucket->GetBuffer();
+  ref_ptr<VertexArrayBuffer> vao = GetBucket(state)->GetBuffer();
+  IndicesRange range;
 
-  MasterPointer<OverlayHandle> handle(transferHandle);
+  drape_ptr<OverlayHandle> handle = std::move(transferHandle);
 
   {
-    Batcher::CallbacksWrapper wrapper(state, handle.GetRefPointer());
+    Batcher::CallbacksWrapper wrapper(state, make_ref(handle), make_ref(this));
     wrapper.SetVAO(vao);
 
-    BatchCallbacks callbacks;
-    callbacks.m_flushVertex = bind(&CallbacksWrapper::FlushData, &wrapper, _1, _2, _3);
-    callbacks.m_getIndexStorage = bind(&CallbacksWrapper::GetIndexStorage, &wrapper, _1, _2);
-    callbacks.m_submitIndex = bind(&CallbacksWrapper::SubmitIndexes, &wrapper);
-    callbacks.m_getAvailableVertex = bind(&CallbacksWrapper::GetAvailableVertexCount, &wrapper);
-    callbacks.m_getAvailableIndex = bind(&CallbacksWrapper::GetAvailableIndexCount, &wrapper);
-    callbacks.m_changeBuffer = bind(&Batcher::ChangeBuffer, this, MakeStackRefPointer(&wrapper), _1);
-
-    TBatcher batch(callbacks);
-    batch.SetIsCanDevideStreams(handle.IsNull());
+    TBatcher batch(wrapper, batcherArgs ...);
+    batch.SetCanDivideStreams(handle == nullptr);
     batch.SetVertexStride(vertexStride);
-    batch.BatchData(params);
+    batch.BatchData(context, params);
+
+    range = wrapper.Finish();
   }
 
-  if (!handle.IsNull())
-    bucket->AddOverlayHandle(handle.Move());
+  if (handle != nullptr)
+    GetBucket(state)->AddOverlayHandle(std::move(handle));
+
+  return range;
 }
 
-} // namespace dp
+Batcher * BatcherFactory::GetNew() const
+{
+  return new Batcher(m_indexBufferSize, m_vertexBufferSize);
+}
+
+SessionGuard::SessionGuard(ref_ptr<GraphicsContext> context, Batcher & batcher,
+                           Batcher::TFlushFn const & flusher)
+  : m_context(context)
+  , m_batcher(batcher)
+{
+  m_batcher.StartSession(flusher);
+}
+
+SessionGuard::~SessionGuard()
+{
+  m_batcher.EndSession(m_context);
+}
+}  // namespace dp

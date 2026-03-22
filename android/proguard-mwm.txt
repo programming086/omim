@@ -12,8 +12,22 @@
 -dontwarn okio.**
 -dontwarn com.facebook.**
 
+# pushwoosh
+-keep class com.pushwoosh.** { *; }
+-keep class com.arellomobile.** { *; }
+-dontwarn com.pushwoosh.**
+-dontwarn com.arellomobile.**
+
+# appsFlyer
+-keep class com.appsflyer.** { *; }
+-dontwarn com.appsflyer.**
+-dontwarn com.android.installreferrer
+
 # myTarget
--dontwarn ru.mail.android.mytarget.**
+# Remove this dontwarn when MyTarget is updated to 4.6.15
+-dontwarn com.my.target.nativeads.mediation.**
+# Remove this dontwarn when MyTarget is updated to 4.6.16
+-dontwarn com.my.target.core.net.cookie.**
 -dontwarn com.mopub.**
 
 -dontoptimize
@@ -34,3 +48,10 @@
 -keepclassmembers class * implements com.mapswithme.util.Gsonable {
   <init>(...);
 }
+
+-dontwarn com.google.android.material.**
+-keep class com.google.android.material.** { *; }
+
+-dontwarn androidx.**
+-keep class androidx.** { *; }
+-keep interface androidx.** { *; }

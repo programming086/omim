@@ -2,6 +2,12 @@
 
 #include "routing/road_graph.hpp"
 
+#include "routing_common/maxspeed_conversion.hpp"
+#include "routing_common/vehicle_model.hpp"
+
+#include <utility>
+#include <vector>
+
 namespace routing_test
 {
 
@@ -13,18 +19,19 @@ public:
   inline size_t GetRoadCount() const { return m_roads.size(); }
 
   // routing::IRoadGraph overrides:
-  RoadInfo GetRoadInfo(FeatureID const & featureId) const override;
-  double GetSpeedKMPH(FeatureID const & featureId) const override;
-  double GetMaxSpeedKMPH() const override;
+  RoadInfo GetRoadInfo(FeatureID const & f, routing::SpeedParams const & speedParams) const override;
+  double GetSpeedKMpH(FeatureID const & featureId,
+                      routing::SpeedParams const & speedParams) const override;
+  double GetMaxSpeedKMpH() const override;
   void ForEachFeatureClosestToCross(m2::PointD const & cross,
-                                    CrossEdgesLoader & edgeLoader) const override;
-  void FindClosestEdges(m2::PointD const & point, uint32_t count,
-                        vector<pair<routing::Edge, m2::PointD>> & vicinities) const override;
+                                    ICrossEdgesLoader & edgeLoader) const override;
   void GetFeatureTypes(FeatureID const & featureId, feature::TypesHolder & types) const override;
-  void GetJunctionTypes(routing::Junction const & junction, feature::TypesHolder & types) const override;
+  void GetJunctionTypes(geometry::PointWithAltitude const & junction,
+                        feature::TypesHolder & types) const override;
+  routing::IRoadGraph::Mode GetMode() const override;
 
 private:
-  vector<RoadInfo> m_roads;
+  std::vector<RoadInfo> m_roads;
 };
 
 FeatureID MakeTestFeatureID(uint32_t offset);

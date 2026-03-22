@@ -1,197 +1,188 @@
 #pragma once
 
+#include "generator/generate_info.hpp"
 #include "generator/intermediate_elements.hpp"
 
-#include "coding/file_name_utils.hpp"
 #include "coding/file_reader.hpp"
 #include "coding/file_writer.hpp"
 #include "coding/mmap_reader.hpp"
 
+#include "base/assert.hpp"
+#include "base/control_flow.hpp"
+#include "base/file_name_utils.hpp"
 #include "base/logging.hpp"
 
-#include "std/algorithm.hpp"
-#include "std/deque.hpp"
-#include "std/exception.hpp"
-#include "std/limits.hpp"
-#include "std/utility.hpp"
-#include "std/vector.hpp"
-
-#include "std/fstream.hpp"
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "defines.hpp"
 
-/// Classes for reading and writing any data in file with map of offsets for
-/// fast searching in memory by some key.
+// Classes for reading and writing any data in file with map of offsets for
+// fast searching in memory by some key.
+namespace generator
+{
 namespace cache
 {
+using Key = uint64_t;
+static_assert(std::is_integral<Key>::value, "Key must be an integral type");
 
-enum class EMode { Write = true, Read = false };
-
-namespace detail
+// Used to store all world nodes inside temporary index file.
+// To find node by id, just calculate offset inside index file:
+// offset_in_file = sizeof(LatLon) * node_ID
+struct LatLon
 {
-template <class TFile, class TValue>
-class IndexFile
+  int32_t m_lat = 0;
+  int32_t m_lon = 0;
+};
+static_assert(sizeof(LatLon) == 8, "Invalid structure size");
+static_assert(std::is_trivially_copyable<LatLon>::value, "");
+
+struct LatLonPos
 {
-  using TKey = uint64_t;
-  static_assert(is_integral<TKey>::value, "TKey is not integral type");
-  using TElement = pair<TKey, TValue>;
-  using TContainer = vector<TElement>;
+  uint64_t m_pos = 0;
+  int32_t m_lat = 0;
+  int32_t m_lon = 0;
+};
+static_assert(sizeof(LatLonPos) == 16, "Invalid structure size");
+static_assert(std::is_trivially_copyable<LatLonPos>::value, "");
 
-  TContainer m_elements;
-  TFile m_file;
+class PointStorageWriterInterface
+{
+public:
+  virtual ~PointStorageWriterInterface() {}
+  virtual void AddPoint(uint64_t id, double lat, double lon) = 0;
+  virtual uint64_t GetNumProcessedPoints() const = 0;
+};
 
-  static size_t constexpr kFlushCount = 1024;
+class PointStorageReaderInterface
+{
+public:
+  virtual ~PointStorageReaderInterface() {}
+  virtual bool GetPoint(uint64_t id, double & lat, double & lon) const = 0;
+};
+
+class IndexFileReader
+{
+public:
+  using Value = uint64_t;
+
+  IndexFileReader() = default;
+  explicit IndexFileReader(std::string const & name);
+
+  bool GetValueByKey(Key key, Value & value) const;
+
+  template <typename ToDo>
+  void ForEachByKey(Key k, ToDo && toDo) const
+  {
+    auto range = std::equal_range(m_elements.begin(), m_elements.end(), k, ElementComparator());
+    for (; range.first != range.second; ++range.first)
+    {
+      if (toDo((*range.first).second) == base::ControlFlow::Break)
+        break;
+    }
+  }
+
+private:
+  using Element = std::pair<Key, Value>;
 
   struct ElementComparator
   {
-    bool operator()(TElement const & r1, TElement const & r2) const
+    bool operator()(Element const & r1, Element const & r2) const
     {
       return ((r1.first == r2.first) ? r1.second < r2.second : r1.first < r2.first);
     }
-    bool operator()(TElement const & r1, TKey r2) const { return (r1.first < r2); }
-    bool operator()(TKey r1, TElement const & r2) const { return (r1 < r2.first); }
+    bool operator()(Element const & r1, Key r2) const { return (r1.first < r2); }
+    bool operator()(Key r1, Element const & r2) const { return (r1 < r2.first); }
   };
 
-  static size_t CheckedCast(uint64_t v)
-  {
-    ASSERT_LESS(v, numeric_limits<size_t>::max(), ("Value too long for memory address : ", v));
-    return static_cast<size_t>(v);
-  }
-
-public:
-  explicit IndexFile(string const & name) : m_file(name.c_str()) {}
-
-  string GetFileName() const { return m_file.GetName(); }
-
-  void WriteAll()
-  {
-    if (m_elements.empty())
-      return;
-
-    m_file.Write(&m_elements[0], m_elements.size() * sizeof(TElement));
-    m_elements.clear();
-  }
-
-  void ReadAll()
-  {
-    m_elements.clear();
-    size_t fileSize = m_file.Size();
-    if (fileSize == 0)
-      return;
-
-    LOG_SHORT(LINFO, ("Offsets reading is started for file ", GetFileName()));
-    CHECK_EQUAL(0, fileSize % sizeof(TElement), ("Damaged file."));
-
-    try
-    {
-      m_elements.resize(CheckedCast(fileSize / sizeof(TElement)));
-    }
-    catch (exception const &)  // bad_alloc
-    {
-      LOG(LCRITICAL, ("Insufficient memory for required offset map"));
-    }
-
-    m_file.Read(0, &m_elements[0], CheckedCast(fileSize));
-
-    sort(m_elements.begin(), m_elements.end(), ElementComparator());
-
-    LOG_SHORT(LINFO, ("Offsets reading is finished"));
-  }
-
-  void Add(TKey k, TValue const & v)
-  {
-    if (m_elements.size() > kFlushCount)
-      WriteAll();
-
-    m_elements.push_back(make_pair(k, v));
-  }
-
-  bool GetValueByKey(TKey key, TValue & value) const
-  {
-    auto it = lower_bound(m_elements.begin(), m_elements.end(), key, ElementComparator());
-    if ((it != m_elements.end()) && ((*it).first == key))
-    {
-      value = (*it).second;
-      return true;
-    }
-    return false;
-  }
-
-  template <class ToDo>
-  void ForEachByKey(TKey k, ToDo && toDo) const
-  {
-    auto range = equal_range(m_elements.begin(), m_elements.end(), k, ElementComparator());
-    for (; range.first != range.second; ++range.first)
-    {
-      if (toDo((*range.first).second))
-        return;
-    }
-  }
+  std::vector<Element> m_elements;
 };
-} // namespace detail
 
-template <EMode TMode>
-class OSMElementCache
+
+class IndexFileWriter
 {
 public:
-  using TKey = uint64_t;
-  using TStorage = typename conditional<TMode == EMode::Write, FileWriter, FileReader>::type;
-  using TOffsetFile = typename conditional<TMode == EMode::Write, FileWriter, FileReader>::type;
+  using Value = uint64_t;
 
-protected:
-  using TBuffer = vector<uint8_t>;
-  TStorage m_storage;
-  detail::IndexFile<TOffsetFile, uint64_t> m_offsets;
-  string m_name;
-  TBuffer m_data;
-  bool m_preload = false;
+  explicit IndexFileWriter(std::string const & name);
 
+  void WriteAll();
+  void Add(Key k, Value const & v);
+
+private:
+  using Element = std::pair<Key, Value>;
+
+  std::vector<Element> m_elements;
+  FileWriter m_fileWriter;
+};
+
+class OSMElementCacheReaderInterface
+{
 public:
-  OSMElementCache(string const & name, bool preload = false)
-  : m_storage(name)
-  , m_offsets(name + OFFSET_EXT)
-  , m_name(name)
-  , m_preload(preload)
+  virtual ~OSMElementCacheReaderInterface() = default;
+
+  virtual bool Read(Key id, WayElement & value) = 0;
+  virtual bool Read(Key id, RelationElement & value) = 0;
+};
+
+class IntermediateDataObjectsCache
+{
+public:
+  // It's thread-safe class (All public methods are thread-safe).
+  class AllocatedObjects
   {
-    InitStorage<TMode>();
-  }
+  public:
+    explicit AllocatedObjects(std::unique_ptr<PointStorageReaderInterface> storageReader)
+     : m_storageReader(std::move(storageReader))
+   {
+   }
 
-  template <EMode T>
-  typename enable_if<T == EMode::Write, void>::type InitStorage() {}
+   PointStorageReaderInterface const & GetPointStorageReader() const { return *m_storageReader; }
 
-  template <EMode T>
-  typename enable_if<T == EMode::Read, void>::type InitStorage()
-  {
-    if (!m_preload)
-      return;
-    size_t sz = m_storage.Size();
-    m_data.resize(sz);
-    m_storage.Read(0, m_data.data(), sz);
-  }
+   IndexFileReader const & GetOrCreateIndexReader(std::string const & name);
 
-  template <class TValue, EMode T = TMode>
-  typename enable_if<T == EMode::Write, void>::type Write(TKey id, TValue const & value)
-  {
-    m_offsets.Add(id, m_storage.Pos());
-    m_data.clear();
-    MemWriter<TBuffer> w(m_data);
+  private:
+    std::unique_ptr<PointStorageReaderInterface> m_storageReader;
+    std::unordered_map<std::string, IndexFileReader> m_fileReaders;
+  };
 
-    value.Write(w);
+  // It's thread-safe method.
+  AllocatedObjects & GetOrCreatePointStorageReader(feature::GenerateInfo::NodeStorageType type,
+                                                   std::string const & name);
 
-    // write buffer
-    ASSERT_LESS(m_data.size(), numeric_limits<uint32_t>::max(), ());
-    uint32_t sz = static_cast<uint32_t>(m_data.size());
-    m_storage.Write(&sz, sizeof(sz));
-    m_storage.Write(m_data.data(), sz * sizeof(TBuffer::value_type));
-  }
+  void Clear();
 
-  template <class TValue, EMode T = TMode>
-  typename enable_if<T == EMode::Read, bool>::type Read(TKey id, TValue & value)
+private:
+  std::unordered_map<std::string, AllocatedObjects> m_objects;
+};
+
+class OSMElementCacheReader : public OSMElementCacheReaderInterface
+{
+public:
+  explicit OSMElementCacheReader(IntermediateDataObjectsCache::AllocatedObjects & allocatedObjects,
+                                 std::string const & name, bool preload = false);
+
+  // OSMElementCacheReaderInterface overrides:
+  bool Read(Key id, WayElement & value) override { return Read<>(id, value); }
+  bool Read(Key id, RelationElement & value) override { return Read<>(id, value); }
+
+private:
+  template <class Value>
+  bool Read(Key id, Value & value)
   {
     uint64_t pos = 0;
-    if (!m_offsets.GetValueByKey(id, pos))
+    if (!m_offsetsReader.GetValueByKey(id, pos))
     {
-      LOG_SHORT(LWARNING, ("Can't find offset in file", m_offsets.GetFileName(), "by id", id));
+      LOG_SHORT(LWARNING, ("Can't find offset in file", m_name + OFFSET_EXT, "by id", id));
       return false;
     }
 
@@ -201,9 +192,9 @@ public:
     if (!m_preload)
     {
       // in case not-in-memory work we read buffer
-      m_storage.Read(pos, &valueSize, sizeof(valueSize));
+      m_fileReader.Read(pos, &valueSize, sizeof(valueSize));
       m_data.resize(valueSize);
-      m_storage.Read(pos + sizeof(valueSize), m_data.data(), valueSize);
+      m_fileReader.Read(pos + sizeof(valueSize), m_data.data(), valueSize);
       offset = 0;
     }
 
@@ -212,217 +203,194 @@ public:
     return true;
   }
 
-  inline void SaveOffsets() { m_offsets.WriteAll(); }
-  inline void LoadOffsets() { m_offsets.ReadAll(); }
+  FileReader m_fileReader;
+  IndexFileReader const & m_offsetsReader;
+  std::string m_name;
+  std::vector<uint8_t> m_data;
+  bool m_preload = false;
 };
 
-/// Used to store all world nodes inside temporary index file.
-/// To find node by id, just calculate offset inside index file:
-/// offset_in_file = sizeof(LatLon) * node_ID
-class PointStorage
+class OSMElementCacheWriter
 {
-  size_t m_processedPoint = 0;
-
 public:
-  struct LatLon
+  explicit OSMElementCacheWriter(std::string const & name);
+
+  template <typename Value>
+  void Write(Key id, Value const & value)
   {
-    int32_t lat;
-    int32_t lon;
+    m_offsets.Add(id, m_fileWriter.Pos());
+    m_data.clear();
+    MemWriter<decltype(m_data)> w(m_data);
+
+    value.Write(w);
+
+    ASSERT_LESS(m_data.size(), std::numeric_limits<uint32_t>::max(), ());
+    uint32_t sz = static_cast<uint32_t>(m_data.size());
+    m_fileWriter.Write(&sz, sizeof(sz));
+    m_fileWriter.Write(m_data.data(), sz);
+  }
+
+  void SaveOffsets();
+
+private:
+  FileWriter m_fileWriter;
+  IndexFileWriter m_offsets;
+  std::string m_name;
+  std::vector<uint8_t> m_data;
+};
+
+class IntermediateDataReaderInterface
+{
+public:
+  using ForEachRelationFn = std::function<base::ControlFlow(uint64_t, OSMElementCacheReaderInterface &)>;
+
+  virtual ~IntermediateDataReaderInterface() = default;
+
+  virtual bool GetNode(Key id, double & lat, double & lon) const = 0;
+  virtual bool GetWay(Key id, WayElement & e) = 0;
+  virtual bool GetRelation(Key id, RelationElement & e) = 0;
+
+  virtual void ForEachRelationByNodeCached(Key /* id */, ForEachRelationFn & /* toDo */) {}
+  virtual void ForEachRelationByWayCached(Key /* id */, ForEachRelationFn & /* toDo */) {}
+  virtual void ForEachRelationByRelationCached(Key /* id */, ForEachRelationFn & /* toDo */) {}
+};
+
+class IntermediateDataReader : public IntermediateDataReaderInterface
+{
+public:
+  // Constructs IntermediateDataReader.
+  // objs - intermediate allocated objects. It's used for control allocated objects.
+  // info - information about the generation.
+  IntermediateDataReader(IntermediateDataObjectsCache::AllocatedObjects & objs,
+                         feature::GenerateInfo const & info);
+
+  // IntermediateDataReaderInterface overrides:
+  // TODO |GetNode()|, |lat|, |lon| are used as y, x in real.
+  bool GetNode(Key id, double & lat, double & lon) const override
+  {
+    return m_nodes.GetPoint(id, lat, lon);
+  }
+  
+  bool GetWay(Key id, WayElement & e) override { return m_ways.Read(id, e); }
+  bool GetRelation(Key id, RelationElement & e) override { return m_relations.Read(id, e); }
+
+  void ForEachRelationByWayCached(Key id, ForEachRelationFn & toDo) override
+  {
+    CachedRelationProcessor<ForEachRelationFn> processor(m_relations, toDo);
+    m_wayToRelations.ForEachByKey(id, processor);
+  }
+
+  void ForEachRelationByNodeCached(Key id, ForEachRelationFn & toDo) override
+  {
+    CachedRelationProcessor<ForEachRelationFn> processor(m_relations, toDo);
+    m_nodeToRelations.ForEachByKey(id, processor);
+  }
+
+  void ForEachRelationByRelationCached(Key id, ForEachRelationFn & toDo) override
+  {
+    CachedRelationProcessor<ForEachRelationFn> processor(m_relations, toDo);
+    m_relationToRelations.ForEachByKey(id, processor);
+  }
+
+private:
+  using CacheReader = cache::OSMElementCacheReader;
+
+  template <typename Element, typename ToDo>
+  class ElementProcessorBase
+  {
+  public:  
+    ElementProcessorBase(CacheReader & reader, ToDo & toDo)
+      : m_reader(reader)
+      , m_toDo(toDo)
+    {
+    }
+
+    base::ControlFlow operator()(uint64_t id)
+    {
+      Element e;
+      return m_reader.Read(id, e) ? m_toDo(id, e) : base::ControlFlow::Break;
+    }
+
+  protected:
+    CacheReader & m_reader;
+    ToDo & m_toDo;
   };
-  static_assert(sizeof(LatLon) == 8, "Invalid structure size");
 
-  struct LatLonPos
+
+  template <typename ToDo>
+  struct CachedRelationProcessor : public ElementProcessorBase<RelationElement, ToDo>
   {
-    uint64_t pos;
-    int32_t lat;
-    int32_t lon;
+    using Base = ElementProcessorBase<RelationElement, ToDo>;
+
+    CachedRelationProcessor(CacheReader & reader, ToDo & toDo)
+      : Base(reader, toDo)
+    {
+    }
+
+    base::ControlFlow operator()(uint64_t id) { return this->m_toDo(id, this->m_reader); }
   };
-  static_assert(sizeof(LatLonPos) == 16, "Invalid structure size");
 
-  inline size_t GetProcessedPoint() const { return m_processedPoint; }
-  inline void IncProcessedPoint() { ++m_processedPoint; }
+  PointStorageReaderInterface const & m_nodes;
+  cache::OSMElementCacheReader m_ways;
+  cache::OSMElementCacheReader m_relations;
+  cache::IndexFileReader const & m_nodeToRelations;
+  cache::IndexFileReader const & m_wayToRelations;
+  cache::IndexFileReader const & m_relationToRelations;
 };
 
-template <EMode TMode>
-class RawFilePointStorage : public PointStorage
+class IntermediateDataWriter
 {
-#ifdef OMIM_OS_WINDOWS
-  using TFileReader = FileReader;
-#else
-  using TFileReader = MmapReader;
-#endif
-
-  typename conditional<TMode == EMode::Write, FileWriter, TFileReader>::type m_file;
-
-  constexpr static double const kValueOrder = 1E+7;
-
 public:
-  explicit RawFilePointStorage(string const & name) : m_file(name) {}
+  IntermediateDataWriter(PointStorageWriterInterface & nodes, feature::GenerateInfo const & info);
 
-  template <EMode T = TMode>
-  typename enable_if<T == EMode::Write, void>::type AddPoint(uint64_t id, double lat, double lng)
+  void AddNode(Key id, double lat, double lon) { m_nodes.AddPoint(id, lat, lon); }
+  void AddWay(Key id, WayElement const & e) { m_ways.Write(id, e); }
+
+  void AddRelation(Key id, RelationElement const & e);
+  void SaveIndex();
+
+  static void AddToIndex(cache::IndexFileWriter & index, Key relationId, std::vector<uint64_t> const & values)
   {
-    int64_t const lat64 = lat * kValueOrder;
-    int64_t const lng64 = lng * kValueOrder;
-
-    LatLon ll;
-    ll.lat = static_cast<int32_t>(lat64);
-    ll.lon = static_cast<int32_t>(lng64);
-    CHECK_EQUAL(static_cast<int64_t>(ll.lat), lat64, ("Latitude is out of 32bit boundary!"));
-    CHECK_EQUAL(static_cast<int64_t>(ll.lon), lng64, ("Longtitude is out of 32bit boundary!"));
-
-    m_file.Seek(id * sizeof(ll));
-    m_file.Write(&ll, sizeof(ll));
-
-    IncProcessedPoint();
+    for (auto const v : values)
+      index.Add(v, relationId);
   }
 
-  template <EMode T = TMode>
-  typename enable_if<T == EMode::Read, bool>::type GetPoint(uint64_t id, double & lat,
-                                                            double & lng) const
+private:
+  template <typename Container>
+  static void AddToIndex(cache::IndexFileWriter & index, Key relationId, Container const & values)
   {
-    LatLon ll;
-    m_file.Read(id * sizeof(ll), &ll, sizeof(ll));
-
-    // assume that valid coordinate is not (0, 0)
-    if (ll.lat != 0.0 || ll.lon != 0.0)
-    {
-      lat = static_cast<double>(ll.lat) / kValueOrder;
-      lng = static_cast<double>(ll.lon) / kValueOrder;
-      return true;
-    }
-    LOG(LERROR, ("Node with id = ", id, " not found!"));
-    return false;
+    for (auto const & v : values)
+      index.Add(v.first, relationId);
   }
+
+  PointStorageWriterInterface & m_nodes;
+  cache::OSMElementCacheWriter m_ways;
+  cache::OSMElementCacheWriter m_relations;
+  cache::IndexFileWriter m_nodeToRelations;
+  cache::IndexFileWriter m_wayToRelations;
+  cache::IndexFileWriter m_relationToRelations;
 };
 
-template <EMode TMode>
-class RawMemPointStorage : public PointStorage
+std::unique_ptr<PointStorageReaderInterface>
+CreatePointStorageReader(feature::GenerateInfo::NodeStorageType type, std::string const & name);
+
+std::unique_ptr<PointStorageWriterInterface>
+CreatePointStorageWriter(feature::GenerateInfo::NodeStorageType type, std::string const & name);
+
+class IntermediateData
 {
-  typename conditional<TMode == EMode::Write, FileWriter, FileReader>::type m_file;
-
-  constexpr static double const kValueOrder = 1E+7;
-
-  vector<LatLon> m_data;
-
 public:
-  explicit RawMemPointStorage(string const & name) : m_file(name), m_data((size_t)0xFFFFFFFF)
-  {
-    InitStorage<TMode>();
-  }
+  explicit IntermediateData(IntermediateDataObjectsCache & objectsCache,
+                            feature::GenerateInfo const & info);
+  std::shared_ptr<IntermediateDataReader> const & GetCache() const;
+  std::shared_ptr<IntermediateData> Clone() const;
 
-  ~RawMemPointStorage() { DoneStorage<TMode>(); }
+private:
+  IntermediateDataObjectsCache & m_objectsCache;
+  feature::GenerateInfo const & m_info;
+  std::shared_ptr<IntermediateDataReader> m_reader;
 
-  template <EMode T>
-  typename enable_if<T == EMode::Write, void>::type InitStorage() {}
-
-  template <EMode T>
-  typename enable_if<T == EMode::Read, void>::type InitStorage()
-  {
-    m_file.Read(0, m_data.data(), m_data.size() * sizeof(LatLon));
-  }
-
-  template <EMode T>
-  typename enable_if<T == EMode::Write, void>::type DoneStorage()
-  {
-    m_file.Write(m_data.data(), m_data.size() * sizeof(LatLon));
-  }
-
-  template <EMode T>
-  typename enable_if<T == EMode::Read, void>::type DoneStorage() {}
-
-  template <EMode T = TMode>
-  typename enable_if<T == EMode::Write, void>::type AddPoint(uint64_t id, double lat, double lng)
-  {
-    int64_t const lat64 = lat * kValueOrder;
-    int64_t const lng64 = lng * kValueOrder;
-
-    LatLon & ll = m_data[id];
-    ll.lat = static_cast<int32_t>(lat64);
-    ll.lon = static_cast<int32_t>(lng64);
-    CHECK_EQUAL(static_cast<int64_t>(ll.lat), lat64, ("Latitude is out of 32bit boundary!"));
-    CHECK_EQUAL(static_cast<int64_t>(ll.lon), lng64, ("Longtitude is out of 32bit boundary!"));
-
-    IncProcessedPoint();
-  }
-
-  template <EMode T = TMode>
-  typename enable_if<T == EMode::Read, bool>::type GetPoint(uint64_t id, double & lat,
-                                                            double & lng) const
-  {
-    LatLon const & ll = m_data[id];
-    // assume that valid coordinate is not (0, 0)
-    if (ll.lat != 0.0 || ll.lon != 0.0)
-    {
-      lat = static_cast<double>(ll.lat) / kValueOrder;
-      lng = static_cast<double>(ll.lon) / kValueOrder;
-      return true;
-    }
-    LOG(LERROR, ("Node with id = ", id, " not found!"));
-    return false;
-  }
+  DISALLOW_COPY(IntermediateData);
 };
-
-template <EMode TMode>
-class MapFilePointStorage : public PointStorage
-{
-  typename conditional<TMode == EMode::Write, FileWriter, FileReader>::type m_file;
-  unordered_map<uint64_t, pair<int32_t, int32_t>> m_map;
-
-  constexpr static double const kValueOrder = 1E+7;
-
-public:
-  explicit MapFilePointStorage(string const & name) : m_file(name + ".short") { InitStorage<TMode>(); }
-
-  template <EMode T>
-  typename enable_if<T == EMode::Write, void>::type InitStorage() {}
-
-  template <EMode T>
-  typename enable_if<T == EMode::Read, void>::type InitStorage()
-  {
-    LOG(LINFO, ("Nodes reading is started"));
-
-    uint64_t const count = m_file.Size();
-
-    uint64_t pos = 0;
-    while (pos < count)
-    {
-      LatLonPos ll;
-      m_file.Read(pos, &ll, sizeof(ll));
-
-      m_map.emplace(make_pair(ll.pos, make_pair(ll.lat, ll.lon)));
-
-      pos += sizeof(ll);
-    }
-
-    LOG(LINFO, ("Nodes reading is finished"));
-  }
-
-  void AddPoint(uint64_t id, double lat, double lng)
-  {
-    int64_t const lat64 = lat * kValueOrder;
-    int64_t const lng64 = lng * kValueOrder;
-
-    LatLonPos ll;
-    ll.pos = id;
-    ll.lat = static_cast<int32_t>(lat64);
-    ll.lon = static_cast<int32_t>(lng64);
-    CHECK_EQUAL(static_cast<int64_t>(ll.lat), lat64, ("Latitude is out of 32bit boundary!"));
-    CHECK_EQUAL(static_cast<int64_t>(ll.lon), lng64, ("Longtitude is out of 32bit boundary!"));
-    m_file.Write(&ll, sizeof(ll));
-
-    IncProcessedPoint();
-  }
-
-  bool GetPoint(uint64_t id, double & lat, double & lng) const
-  {
-    auto i = m_map.find(id);
-    if (i == m_map.end())
-      return false;
-    lat = static_cast<double>(i->second.first) / kValueOrder;
-    lng = static_cast<double>(i->second.second) / kValueOrder;
-    return true;
-  }
-};
-
 }  // namespace cache
+}  // namespace generator

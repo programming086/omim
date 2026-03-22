@@ -1,44 +1,42 @@
 #import "DownloadIndicatorProtocol.h"
-#import "MapsObservers.h"
-#import "NavigationController.h"
-
-#include "indexer/map_style.hpp"
+#import "MWMMyTarget.h"
+#import "MWMNavigationController.h"
 
 @class MapViewController;
-@class LocationManager;
+@class MWMCarPlayService;
 
-typedef NS_ENUM(NSUInteger, MWMRoutingPlaneMode)
-{
-  MWMRoutingPlaneModeNone,
-  MWMRoutingPlaneModePlacePage,
-  MWMRoutingPlaneModeSearchSource,
-  MWMRoutingPlaneModeSearchDestination
-};
+NS_ASSUME_NONNULL_BEGIN
 
-@interface MapsAppDelegate : UIResponder<UIApplicationDelegate, UIAlertViewDelegate,
-                                         ActiveMapsObserverProtocol, DownloadIndicatorProtocol>
+@interface MapsAppDelegate : UIResponder<UIApplicationDelegate, DownloadIndicatorProtocol>
 {
   NSInteger m_activeDownloadsCounter;
   UIBackgroundTaskIdentifier m_backgroundTask;
-  UIAlertView * m_loadingAlertView;
 }
 
-@property (nonatomic) UIWindow * window;
-@property (nonatomic) MWMRoutingPlaneMode routingPlaneMode;
+@property(nonatomic) UIWindow * window;
 
-@property (nonatomic, readonly) MapViewController * mapViewController;
-@property (nonatomic, readonly) LocationManager * m_locationManager;
+@property(nonatomic, readonly) MWMCarPlayService *carplayService API_AVAILABLE(ios(12.0));
+@property(nonatomic, readonly) MapViewController * mapViewController;
+@property(nonatomic, readonly) BOOL isDrapeEngineCreated;
+
+@property(nonatomic) MWMMyTarget * myTarget;
 
 + (MapsAppDelegate *)theApp;
 
 - (void)enableStandby;
 - (void)disableStandby;
 
++ (void)customizeAppearance;
++ (void)customizeAppearanceForNavigationBar:(UINavigationBar *)navigationBar;
+
 - (void)disableDownloadIndicator;
 - (void)enableDownloadIndicator;
 
 - (void)showMap;
+- (void)showAlertIfRequired;
 
-- (void)setMapStyle:(MapStyle)mapStyle;
+- (NSUInteger)badgeNumber;
 
 @end
+
+NS_ASSUME_NONNULL_END

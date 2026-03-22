@@ -4,23 +4,27 @@
 
 #include "indexer/classificator_loader.hpp"
 #include "indexer/data_header.hpp"
+#include "indexer/data_source.hpp"
 #include "indexer/ftypes_matcher.hpp"
-#include "indexer/index.hpp"
 #include "indexer/scales.hpp"
-
-#include "platform/platform.hpp"
+#include "indexer/search_string_utils.hpp"
 
 #include "platform/local_country_file.hpp"
 #include "platform/local_country_file_utils.hpp"
+#include "platform/platform.hpp"
 
 #include "geometry/distance_on_sphere.hpp"
 
 #include "base/logging.hpp"
 
-#include "std/iostream.hpp"
-#include "std/fstream.hpp"
+#include <algorithm>
+#include <cstddef>
+#include <fstream>
+#include <map>
+#include <string>
+#include <vector>
 
-
+using namespace std;
 using platform::LocalCountryFile;
 
 class StreetIDsByName
@@ -30,9 +34,9 @@ class StreetIDsByName
 public:
   vector<string> streetNames;
 
-  void operator() (FeatureType const & f)
+  void operator()(FeatureType & f)
   {
-    if (f.GetFeatureType() == feature::GEOM_LINE)
+    if (f.GetGeomType() == feature::GeomType::Line)
     {
       string name;
       if (f.GetName(0, name) &&
@@ -57,7 +61,7 @@ class CollectStreetIDs
   static bool GetKey(string const & name, string & key)
   {
     TEST(!name.empty(), ());
-    search::GetStreetNameAsKey(name, key);
+    key = strings::ToUtf8(search::GetStreetNameAsKey(name, false /* ignoreStreetSynonyms */));
 
     if (key.empty())
     {
@@ -67,17 +71,17 @@ class CollectStreetIDs
     return true;
   }
 
-  typedef map<string, vector<FeatureID> > ContT;
-  ContT m_ids;
+  using Cont = map<string, vector<FeatureID>>;
+  Cont m_ids;
   vector<FeatureID> m_empty;
 
 public:
-  void operator() (FeatureType const & f)
+  void operator()(FeatureType & f)
   {
-    if (f.GetFeatureType() == feature::GEOM_LINE)
+    if (f.GetGeomType() == feature::GeomType::Line)
     {
       string name;
-      if (f.GetName(0, name) && ftypes::IsStreetChecker::Instance()(f))
+      if (f.GetName(0, name) && ftypes::IsWayChecker::Instance()(f))
       {
         string key;
         if (GetKey(name, key))
@@ -88,28 +92,28 @@ public:
 
   void Finish()
   {
-    for (ContT::iterator i = m_ids.begin(); i != m_ids.end(); ++i)
+    for (Cont::iterator i = m_ids.begin(); i != m_ids.end(); ++i)
       sort(i->second.begin(), i->second.end());
   }
 
   vector<FeatureID> const & Get(string const & key) const
   {
-    ContT::const_iterator i = m_ids.find(key);
+    Cont::const_iterator i = m_ids.find(key);
     return (i == m_ids.end() ? m_empty : i->second);
   }
 };
 
 UNIT_TEST(HS_ParseNumber)
 {
-  typedef search::ParsedNumber NumberT;
+  using Number = search::ParsedNumber;
 
   {
-    NumberT n("135");
+    Number n("135");
     TEST(n.IsOdd(), ());
     TEST_EQUAL(n.GetIntNumber(), 135, ());
 
-    NumberT n1("133");
-    NumberT n2("137");
+    Number n1("133");
+    Number n2("137");
     TEST(n.IsIntersect(n1, 2), ());
     TEST(!n.IsIntersect(n1, 1), ());
     TEST(n.IsIntersect(n2, 2), ());
@@ -117,69 +121,69 @@ UNIT_TEST(HS_ParseNumber)
   }
 
   {
-    NumberT n("135 1к/2");
+    Number n("135 1к/2");
     TEST(n.IsOdd(), ());
     TEST_EQUAL(n.GetIntNumber(), 135, ());
 
-    TEST(!n.IsIntersect(NumberT("134")), ());
-    TEST(!n.IsIntersect(NumberT("136")), ());
+    TEST(!n.IsIntersect(Number("134")), ());
+    TEST(!n.IsIntersect(Number("136")), ());
   }
 
   {
-    NumberT n("135A");
+    Number n("135A");
     TEST(n.IsOdd(), ());
     TEST_EQUAL(n.GetIntNumber(), 135, ());
 
-    TEST(!n.IsIntersect(NumberT("134")), ());
-    TEST(!n.IsIntersect(NumberT("136")), ());
+    TEST(!n.IsIntersect(Number("134")), ());
+    TEST(!n.IsIntersect(Number("136")), ());
   }
 
   {
-    NumberT n("135-к1", false);
+    Number n("135-к1", false);
     TEST(n.IsOdd(), ());
     TEST_EQUAL(n.GetIntNumber(), 135, ());
 
-    TEST(!n.IsIntersect(NumberT("134")), ());
-    TEST(!n.IsIntersect(NumberT("136")), ());
+    TEST(!n.IsIntersect(Number("134")), ());
+    TEST(!n.IsIntersect(Number("136")), ());
   }
 
   {
-    NumberT n("135-12", false);
+    Number n("135-12", false);
     TEST(n.IsOdd(), ());
     TEST_EQUAL(n.GetIntNumber(), 135, ());
 
-    TEST(!n.IsIntersect(NumberT("134")), ());
-    TEST(!n.IsIntersect(NumberT("136")), ());
+    TEST(!n.IsIntersect(Number("134")), ());
+    TEST(!n.IsIntersect(Number("136")), ());
   }
 
 
   {
-    NumberT n("135-24", true);
+    Number n("135-24", true);
     TEST(!n.IsOdd(), ());
     TEST_EQUAL(n.GetIntNumber(), 13524, ());
   }
 
   {
-    NumberT n("135;133;131");
+    Number n("135;133;131");
     TEST(n.IsOdd(), ());
     TEST_EQUAL(n.GetIntNumber(), 131, ());
 
     for (int i = 131; i <= 135; ++i)
-      TEST(n.IsIntersect(NumberT(strings::to_string(i))), ());
-    TEST(!n.IsIntersect(NumberT("130")), ());
-    TEST(!n.IsIntersect(NumberT("136")), ());
+      TEST(n.IsIntersect(Number(strings::to_string(i))), ());
+    TEST(!n.IsIntersect(Number("130")), ());
+    TEST(!n.IsIntersect(Number("136")), ());
   }
 
   {
-    NumberT n("6-10", false);
+    Number n("6-10", false);
     TEST(!n.IsOdd(), ());
     TEST_EQUAL(n.GetIntNumber(), 6, ());
 
     for (int i = 6; i <= 10; ++i)
-      TEST(n.IsIntersect(NumberT(strings::to_string(i))), ());
+      TEST(n.IsIntersect(Number(strings::to_string(i))), ());
 
-    TEST(!n.IsIntersect(NumberT("5")), ());
-    TEST(!n.IsIntersect(NumberT("11")), ());
+    TEST(!n.IsIntersect(Number("5")), ());
+    TEST(!n.IsIntersect(Number("11")), ());
   }
 }
 
@@ -187,80 +191,83 @@ UNIT_TEST(HS_StreetsMerge)
 {
   classificator::Load();
 
-  Index index;
+  FrozenDataSource dataSource;
   LocalCountryFile localFile(LocalCountryFile::MakeForTesting("minsk-pass"));
   // Clean indexes to avoid jenkins errors.
   platform::CountryIndexes::DeleteFromDisk(localFile);
 
-  auto const p = index.Register(localFile);
+  auto const p = dataSource.Register(localFile);
   TEST(p.first.IsAlive(), ());
   TEST_EQUAL(MwmSet::RegResult::Success, p.second, ());
 
   {
-    search::HouseDetector houser(&index);
+    search::HouseDetector houser(dataSource);
     StreetIDsByName toDo;
     toDo.streetNames.push_back("улица Володарского");
-    index.ForEachInScale(toDo, scales::GetUpperScale());
+    dataSource.ForEachInScale([&toDo](FeatureType & ft) { toDo(ft); }, scales::GetUpperScale());
     houser.LoadStreets(toDo.GetFeatureIDs());
     TEST_EQUAL(houser.MergeStreets(), 1, ());
   }
 
   {
-    search::HouseDetector houser(&index);
+    search::HouseDetector houser(dataSource);
     StreetIDsByName toDo;
     toDo.streetNames.push_back("Московская улица");
-    index.ForEachInScale(toDo, scales::GetUpperScale());
+    dataSource.ForEachInScale([&toDo](FeatureType & ft) { toDo(ft); }, scales::GetUpperScale());
     houser.LoadStreets(toDo.GetFeatureIDs());
+    TEST_GREATER_OR_EQUAL(houser.MergeStreets(), 1, ());
     TEST_LESS_OR_EQUAL(houser.MergeStreets(), 3, ());
   }
 
   {
-    search::HouseDetector houser(&index);
+    search::HouseDetector houser(dataSource);
     StreetIDsByName toDo;
     toDo.streetNames.push_back("проспект Независимости");
     toDo.streetNames.push_back("Московская улица");
-    index.ForEachInScale(toDo, scales::GetUpperScale());
+    dataSource.ForEachInScale([&toDo](FeatureType & ft) { toDo(ft); }, scales::GetUpperScale());
     houser.LoadStreets(toDo.GetFeatureIDs());
+    TEST_GREATER_OR_EQUAL(houser.MergeStreets(), 1, ());
     TEST_LESS_OR_EQUAL(houser.MergeStreets(), 5, ());
   }
 
   {
-    search::HouseDetector houser(&index);
+    search::HouseDetector houser(dataSource);
     StreetIDsByName toDo;
     toDo.streetNames.push_back("проспект Независимости");
     toDo.streetNames.push_back("Московская улица");
     toDo.streetNames.push_back("Вишнёвый переулок");
     toDo.streetNames.push_back("Студенческий переулок");
     toDo.streetNames.push_back("Полоцкий переулок");
-    index.ForEachInScale(toDo, scales::GetUpperScale());
+    dataSource.ForEachInScale([&toDo](FeatureType & ft) { toDo(ft); }, scales::GetUpperScale());
     houser.LoadStreets(toDo.GetFeatureIDs());
+    TEST_GREATER_OR_EQUAL(houser.MergeStreets(), 1, ());
     TEST_LESS_OR_EQUAL(houser.MergeStreets(), 8, ());
   }
 
   {
-    search::HouseDetector houser(&index);
+    search::HouseDetector houser(dataSource);
     StreetIDsByName toDo;
     toDo.streetNames.push_back("проспект Независимости");
     toDo.streetNames.push_back("Московская улица");
     toDo.streetNames.push_back("улица Кирова");
     toDo.streetNames.push_back("улица Городской Вал");
-    index.ForEachInScale(toDo, scales::GetUpperScale());
+    dataSource.ForEachInScale([&toDo](FeatureType & ft) { toDo(ft); }, scales::GetUpperScale());
     houser.LoadStreets(toDo.GetFeatureIDs());
+    TEST_GREATER_OR_EQUAL(houser.MergeStreets(), 1, ());
     TEST_LESS_OR_EQUAL(houser.MergeStreets(), 10, ());
   }
 }
 
 namespace
 {
-
-m2::PointD FindHouse(Index & index, vector<string> const & streets,
+m2::PointD FindHouse(DataSource & dataSource, vector<string> const & streets,
                      string const & houseName, double offset)
 {
-  search::HouseDetector houser(&index);
+  search::HouseDetector houser(dataSource);
 
   StreetIDsByName toDo;
   toDo.streetNames = streets;
-  index.ForEachInScale(toDo, scales::GetUpperScale());
+  dataSource.ForEachInScale([&toDo](FeatureType & ft) { toDo(ft); }, scales::GetUpperScale());
 
   if (houser.LoadStreets(toDo.GetFeatureIDs()) > 0)
     TEST_GREATER(houser.MergeStreets(), 0, ());
@@ -280,29 +287,29 @@ UNIT_TEST(HS_FindHouseSmoke)
 {
   classificator::Load();
 
-  Index index;
-  auto const p = index.Register(LocalCountryFile::MakeForTesting("minsk-pass"));
+  FrozenDataSource dataSource;
+  auto const p = dataSource.Register(LocalCountryFile::MakeForTesting("minsk-pass"));
   TEST(p.first.IsAlive(), ());
   TEST_EQUAL(MwmSet::RegResult::Success, p.second, ());
 
   {
     vector<string> streetName(1, "Московская улица");
-    TEST_ALMOST_EQUAL_ULPS(FindHouse(index, streetName, "7", 100),
+    TEST_ALMOST_EQUAL_ULPS(FindHouse(dataSource, streetName, "7", 100),
                       m2::PointD(27.539850827603416406, 64.222406776416349317), ());
   }
   {
     vector<string> streetName(1, "проспект Независимости");
-    TEST_ALMOST_EQUAL_ULPS(FindHouse(index, streetName, "10", 40),
+    TEST_ALMOST_EQUAL_ULPS(FindHouse(dataSource, streetName, "10", 40),
                       m2::PointD(27.551428582902474318, 64.234707387050306693), ());
   }
   {
     vector<string> streetName(1, "улица Ленина");
 
     /// @todo This cases doesn't work, but should in new search algorithms.
-    //m2::PointD pt = FindHouse(index, streetName, "28", 50);
-    //m2::PointD pt = FindHouse(index, streetName, "30", 50);
+    //m2::PointD pt = FindHouse(dataSource, streetName, "28", 50);
+    //m2::PointD pt = FindHouse(dataSource, streetName, "30", 50);
 
-    m2::PointD pt = FindHouse(index, streetName, "21", 50);
+    m2::PointD pt = FindHouse(dataSource, streetName, "21", 50);
     TEST_ALMOST_EQUAL_ULPS(pt, m2::PointD(27.56477391395549148, 64.234502198059132638), ());
   }
 }
@@ -331,28 +338,23 @@ UNIT_TEST(HS_StreetsCompare)
 
 namespace
 {
-
 string GetStreetKey(string const & name)
 {
-  string res;
-  search::GetStreetNameAsKey(name, res);
-  return res;
+  return strings::ToUtf8(search::GetStreetNameAsKey(name, false /* ignoreStreetSynonyms */));
 }
-
-}
+}  // namespace
 
 UNIT_TEST(HS_StreetKey)
 {
-  TEST_EQUAL("крупской", GetStreetKey("улица Крупской"), ());
-  TEST_EQUAL("уручская", GetStreetKey("Уручская ул."), ());
-  TEST_EQUAL("газетыправда", GetStreetKey("Пр. Газеты Правда"), ());
-  TEST_EQUAL("якупалы", GetStreetKey("улица Я. Купалы"), ());
-  TEST_EQUAL("францискаскорины", GetStreetKey("Франциска Скорины Тракт"), ());
+  TEST_EQUAL("улицакрупскои", GetStreetKey("улица Крупской"), ());
+  TEST_EQUAL("уручскаяул", GetStreetKey("Уручская ул."), ());
+  TEST_EQUAL("пргазетыправда", GetStreetKey("Пр. Газеты Правда"), ());
+  TEST_EQUAL("улицаякупалы", GetStreetKey("улица Я. Купалы"), ());
+  TEST_EQUAL("францискаскоринытракт", GetStreetKey("Франциска Скорины Тракт"), ());
 }
 
 namespace
 {
-
 struct Address
 {
   string m_streetKey;
@@ -369,8 +371,7 @@ void swap(Address & a1, Address & a2)
   std::swap(a1.m_lat, a2.m_lat);
   std::swap(a1.m_lon, a2.m_lon);
 }
-
-}
+}  // namespace
 
 UNIT_TEST(HS_MWMSearch)
 {
@@ -385,8 +386,8 @@ UNIT_TEST(HS_MWMSearch)
     return;
   }
 
-  Index index;
-  auto p = index.Register(LocalCountryFile::MakeForTesting(country));
+  FrozenDataSource dataSource;
+  auto p = dataSource.Register(LocalCountryFile::MakeForTesting(country));
   if (p.second != MwmSet::RegResult::Success)
   {
     LOG(LWARNING, ("MWM file not found"));
@@ -395,7 +396,7 @@ UNIT_TEST(HS_MWMSearch)
   TEST(p.first.IsAlive(), ());
 
   CollectStreetIDs streetIDs;
-  index.ForEachInScale(streetIDs, scales::GetUpperScale());
+  dataSource.ForEachInScale(streetIDs, scales::GetUpperScale());
   streetIDs.Finish();
 
   string line;
@@ -407,7 +408,7 @@ UNIT_TEST(HS_MWMSearch)
       continue;
 
     vector<string> v;
-    strings::Tokenize(line, "|", MakeBackInsertFunctor(v));
+    strings::Tokenize(line, "|", base::MakeBackInsertFunctor(v));
 
     string key = GetStreetKey(v[0]);
     if (key.empty())
@@ -430,7 +431,7 @@ UNIT_TEST(HS_MWMSearch)
 
   sort(addresses.begin(), addresses.end());
 
-  search::HouseDetector detector(&index);
+  search::HouseDetector detector(dataSource);
   size_t all = 0, matched = 0, notMatched = 0;
 
   size_t const percent = max(size_t(1), addresses.size() / 100);
@@ -468,8 +469,8 @@ UNIT_TEST(HS_MWMSearch)
     {
       search::House const * h = houses[j].m_house;
       m2::PointD p = h->GetPosition();
-      p.x = MercatorBounds::XToLon(p.x);
-      p.y = MercatorBounds::YToLat(p.y);
+      p.x = mercator::XToLon(p.x);
+      p.y = mercator::YToLat(p.y);
 
       //double const eps = 3.0E-4;
       //if (fabs(p.x - a.m_lon) < eps && fabs(p.y - a.m_lat) < eps)

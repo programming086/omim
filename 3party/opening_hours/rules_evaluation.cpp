@@ -33,7 +33,7 @@ int CompareMonthDayTimeTuple(osmoh::MonthDay const & monthDay, std::tm const & d
   if (monthDay.HasYear())
   {
     if (monthDay.GetYear() != date.tm_year + kTMYearOrigin)
-      return monthDay.GetYear() != date.tm_year + kTMYearOrigin;
+      return static_cast<int>(monthDay.GetYear()) - (date.tm_year + kTMYearOrigin);
   }
 
   if (monthDay.HasMonth())
@@ -45,7 +45,7 @@ int CompareMonthDayTimeTuple(osmoh::MonthDay const & monthDay, std::tm const & d
   if (monthDay.HasDayNum())
   {
     if (monthDay.GetDayNum() != date.tm_mday)
-      return monthDay.GetDayNum() - date.tm_mday;
+      return static_cast<int>(monthDay.GetDayNum()) - date.tm_mday;
   }
 
   return 0;
@@ -91,15 +91,6 @@ uint8_t GetWeekNumber(std::tm const & date)
   std::stringstream sstr(buff);
   sstr >> weekNumber;
   return weekNumber;
-}
-
-bool IsBetweenLooped(osmoh::Weekday const start,
-                     osmoh::Weekday const end,
-                     osmoh::Weekday const p)
-{
-  if (start <= end)
-    return start <= p && p <= end;
-  return p >= end || start <= p;
 }
 
 osmoh::RuleState ModifierToRuleState(osmoh::RuleSequence::Modifier const modifier)
@@ -153,12 +144,24 @@ osmoh::TTimespans SplitExtendedHours(osmoh::Timespan span)
   return result;
 }
 
+// Spans can be of three different types:
+//   1. Normal span - start time is less then end time and end time is less then 24h. Spans of this
+//      type will be added into |originalNormalizedSpans| as is, |additionalSpan| will be empty.
+//   2. Extended span - start time is greater or equal to end time and end time is not equal to
+//      00:00 (for ex. 08:00-08:00 or 08:00-03:00), this span will be split into two normal spans
+//      first will be added into |originalNormalizedSpans| and second will be saved into
+//      |additionalSpan|. We don't handle more than one occurence of extended span since it is an
+//      invalid situation.
+//   3. Special case - end time is equal to 00:00 (for ex. 08:00-00:00), span of this type will be
+//      normalized and added into |originalNormalizedSpans|, |additionalSpan| will be empty.
+//
+// TODO(mgsergio): interpret 00:00 at the end of the span as normal, not extended hours.
 void SplitExtendedHours(osmoh::TTimespans const & spans,
                         osmoh::TTimespans & originalNormalizedSpans,
                         osmoh::Timespan & additionalSpan)
 {
-  // We don't handle more than one occurence of extended span
-  // since it is an invalid situation.
+  originalNormalizedSpans.clear();
+  additionalSpan = {};
 
   auto it = begin(spans);
   for (; it != end(spans) && !it->HasExtendedHours(); ++it)
@@ -169,7 +172,9 @@ void SplitExtendedHours(osmoh::TTimespans const & spans,
 
   auto const splittedSpans = SplitExtendedHours(*it);
   originalNormalizedSpans.push_back(splittedSpans[0]);
-  additionalSpan = splittedSpans[1];
+  // if a span remains extended after normalization, then it will be split into two different spans.
+  if (splittedSpans.size() > 1)
+    additionalSpan = splittedSpans[1];
 
   ++it;
   std::copy(it, end(spans), back_inserter(originalNormalizedSpans));
@@ -196,12 +201,16 @@ std::tm MakeTimetuple(time_t const timestamp)
 
 namespace osmoh
 {
-bool IsActive(Timespan const & span, std::tm const & time)
+// ADL shadows ::operator==.
+using ::operator==;
+
+bool IsActive(Timespan span, std::tm const & time)
 {
   // Timespan with e.h. should be split into parts with no e.h.
   // before calling IsActive().
   // TODO(mgsergio): set assert(!span.HasExtendedHours())
 
+  span.ExpandPlus();
   if (span.HasStart() && span.HasEnd())
   {
     THourMinutes start;
@@ -236,10 +245,7 @@ bool IsActive(WeekdayRange const & range, std::tm const & date)
   if (wday == Weekday::None)
     return false;
 
-  if (range.HasEnd())
-    return IsBetweenLooped(range.GetStart(), range.GetEnd(), wday);
-
-  return range.GetStart() == wday;
+  return range.HasWday(wday);
 }
 
 bool IsActive(Holiday const & holiday, std::tm const & date)
@@ -268,8 +274,12 @@ bool IsActive(MonthdayRange const & range, std::tm const & date)
 
   if (range.HasEnd())
   {
-    return range.GetStart() <= date &&
-           date <= NormalizeEnd(range.GetStart(), range.GetEnd());
+    auto const & start = range.GetStart();
+    auto const end = NormalizeEnd(range.GetStart(), range.GetEnd());
+    if (start <= end)
+      return start <= date && date <= end;
+    else
+      return start <= date || date <= end;
   }
 
   return range.GetStart() == date;
@@ -340,7 +350,6 @@ bool IsActive(RuleSequence const & rule, time_t const timestamp)
 
   if (checkIsActive(rule, dateTimeTMShifted) &&
       IsActive(additionalSpan, dateTimeTMShifted))
-
   {
     return true;
   }

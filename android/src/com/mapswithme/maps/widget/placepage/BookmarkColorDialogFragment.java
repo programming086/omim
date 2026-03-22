@@ -1,14 +1,15 @@
 package com.mapswithme.maps.widget.placepage;
 
 import android.app.Dialog;
-import android.content.DialogInterface;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.v7.app.AlertDialog;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.GridView;
+
+import java.util.List;
 
 import com.mapswithme.maps.R;
 import com.mapswithme.maps.base.BaseMwmDialogFragment;
@@ -16,13 +17,11 @@ import com.mapswithme.maps.bookmarks.IconsAdapter;
 import com.mapswithme.maps.bookmarks.data.BookmarkManager;
 import com.mapswithme.maps.bookmarks.data.Icon;
 
-import java.util.List;
-
 public class BookmarkColorDialogFragment extends BaseMwmDialogFragment
 {
   public static final String ICON_TYPE = "ExtraIconType";
 
-  private String mIconType;
+  private int mIconColor;
 
   interface OnBookmarkColorChangeListener
   {
@@ -38,19 +37,13 @@ public class BookmarkColorDialogFragment extends BaseMwmDialogFragment
   public Dialog onCreateDialog(Bundle savedInstanceState)
   {
     if (getArguments() != null)
-      mIconType = getArguments().getString(ICON_TYPE);
+      mIconColor = getArguments().getInt(ICON_TYPE);
 
-    final AlertDialog.Builder builder = new AlertDialog.Builder(getActivity()).setView(buildView()).
-        setTitle(R.string.bookmark_color).
-        setNegativeButton(getString(R.string.cancel), new DialogInterface.OnClickListener()
-        {
-          @Override
-          public void onClick(DialogInterface dialog, int which)
-          {
-          }
-        });
-
-    return builder.create();
+    return new AlertDialog.Builder(getActivity())
+                          .setView(buildView())
+                          .setTitle(R.string.bookmark_color)
+                          .setNegativeButton(getString(R.string.cancel), null)
+                          .create();
   }
 
   public void setOnColorSetListener(OnBookmarkColorChangeListener listener)
@@ -60,9 +53,9 @@ public class BookmarkColorDialogFragment extends BaseMwmDialogFragment
 
   private View buildView()
   {
-    final List<Icon> icons = BookmarkManager.getIcons();
+    final List<Icon> icons = BookmarkManager.ICONS;
     final IconsAdapter adapter = new IconsAdapter(getActivity(), icons);
-    adapter.chooseItem(mIconType);
+    adapter.chooseItem(mIconColor);
 
     final GridView gView = (GridView) LayoutInflater.from(getActivity()).inflate(R.layout.fragment_color_grid, null);
     gView.setAdapter(adapter);

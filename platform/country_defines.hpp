@@ -1,23 +1,20 @@
 #pragma once
 
-#include "std/string.hpp"
+#include <cstdint>
+#include <string>
+#include <utility>
 
-enum class MapOptions : uint8_t
+// Note: new values must be added before MapFileType::Count.
+enum class MapFileType : uint8_t
 {
-  Nothing = 0x0,
-  Map = 0x1,
-  CarRouting = 0x2,
-  MapWithCarRouting = 0x3
+  Map,
+  Diff,
+
+  Count
 };
 
-bool HasOptions(MapOptions mask, MapOptions options);
+using MwmCounter = uint32_t;
+using MwmSize = uint64_t;
+using LocalAndRemoteSize = std::pair<MwmSize, MwmSize>;
 
-MapOptions IntersectOptions(MapOptions lhs, MapOptions rhs);
-
-MapOptions SetOptions(MapOptions mask, MapOptions options);
-
-MapOptions UnsetOptions(MapOptions mask, MapOptions options);
-
-MapOptions LeastSignificantOption(MapOptions mask);
-
-string DebugPrint(MapOptions options);
+std::string DebugPrint(MapFileType type);

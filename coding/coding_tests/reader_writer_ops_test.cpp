@@ -1,5 +1,3 @@
-#include "base/SRC_FIRST.hpp"
-
 #include "testing/testing.hpp"
 
 #include "coding/reader_writer_ops.hpp"
@@ -8,8 +6,13 @@
 #include "coding/read_write_utils.hpp"
 #include "coding/byte_stream.hpp"
 
-#include "std/algorithm.hpp"
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <random>
+#include <vector>
 
+using namespace std;
 
 namespace
 {
@@ -61,9 +64,8 @@ UNIT_TEST(Reverse_Smoke)
     TEST(equal(arr, arr + ARRAY_SIZE(arr), buffer.begin()), ());
   }
 
-  char const * tmpFile = "random_file.tmp";
-
   {
+    char const * tmpFile = "random_file.tmp";
     {
       FillRandFile(tmpFile, 10 * 1024 + 527);
       FileReader reader(tmpFile);

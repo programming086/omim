@@ -1,9 +1,16 @@
 #pragma once
-#include "feature.hpp"
-#include "feature_loader_base.hpp"
+
+#include "indexer/dat_section_header.hpp"
+#include "indexer/feature.hpp"
+#include "indexer/meta_idx.hpp"
+#include "indexer/metadata_serdes.hpp"
+#include "indexer/shared_load_info.hpp"
 
 #include "coding/var_record_reader.hpp"
 
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 namespace feature { class FeaturesOffsetsTable; }
 
@@ -16,39 +23,80 @@ class FeaturesVector
 public:
   FeaturesVector(FilesContainerR const & cont, feature::DataHeader const & header,
                  feature::FeaturesOffsetsTable const * table)
-    : m_LoadInfo(cont, header), m_RecordReader(m_LoadInfo.GetDataReader(), 256), m_table(table)
+    : m_loadInfo(cont, header), m_table(table)
   {
+    if (m_loadInfo.GetMWMFormat() >= version::Format::v11)
+    {
+      FilesContainerR::TReader reader = m_loadInfo.GetDataReader();
+
+      feature::DatSectionHeader header;
+      header.Read(*reader.GetPtr());
+      CHECK(header.m_version == feature::DatSectionHeader::Version::V0,
+            (base::Underlying(header.m_version)));
+      m_recordReader = std::make_unique<RecordReader>(
+          reader.SubReader(header.m_featuresOffset, header.m_featuresSize));
+
+      auto metaReader = m_loadInfo.GetMetadataReader();
+      m_metaDeserializer = indexer::MetadataDeserializer::Load(*metaReader.GetPtr());
+      CHECK(m_metaDeserializer, ());
+    }
+    else if (m_loadInfo.GetMWMFormat() == version::Format::v10)
+    {
+      FilesContainerR::TReader reader = m_loadInfo.GetDataReader();
+
+      feature::DatSectionHeader header;
+      header.Read(*reader.GetPtr());
+      CHECK(header.m_version == feature::DatSectionHeader::Version::V0,
+            (base::Underlying(header.m_version)));
+      m_recordReader = std::make_unique<RecordReader>(
+          reader.SubReader(header.m_featuresOffset, header.m_featuresSize));
+
+      auto metaIdxReader = m_loadInfo.GetMetadataIndexReader();
+      m_metaidx = feature::MetadataIndex::Load(*metaIdxReader.GetPtr());
+      CHECK(m_metaidx, ());
+    }
+    else
+    {
+      m_recordReader = std::make_unique<RecordReader>(m_loadInfo.GetDataReader());
+    }
+    CHECK(m_recordReader, ());
   }
 
-  void GetByIndex(uint32_t index, FeatureType & ft) const;
+  std::unique_ptr<FeatureType> GetByIndex(uint32_t index) const;
+
+  size_t GetNumFeatures() const;
 
   template <class ToDo> void ForEach(ToDo && toDo) const
   {
     uint32_t index = 0;
-    m_RecordReader.ForEachRecord([&] (uint32_t pos, char const * data, uint32_t /*size*/)
-    {
-      FeatureType ft;
-      ft.Deserialize(m_LoadInfo.GetLoader(), data);
+    m_recordReader->ForEachRecord([&](uint32_t pos, std::vector<uint8_t> && data) {
+      FeatureType ft(&m_loadInfo, std::move(data), m_metaidx.get(), m_metaDeserializer.get());
+
+      // We can't properly set MwmId here, because FeaturesVector
+      // works with FileContainerR, not with MwmId/MwmHandle/MwmValue.
+      // But it's OK to set at least feature's index, because it can
+      // be used later for Metadata loading.
+      ft.SetID(FeatureID(MwmSet::MwmId(), index));
       toDo(ft, m_table ? index++ : pos);
     });
   }
 
   template <class ToDo> static void ForEachOffset(ModelReaderPtr reader, ToDo && toDo)
   {
-    VarRecordReader<ModelReaderPtr, &VarRecordSizeReaderVarint> recordReader(reader, 256);
-    recordReader.ForEachRecord([&] (uint32_t pos, char const * /*data*/, uint32_t /*size*/)
-    {
-      toDo(pos);
-    });
+    RecordReader recordReader(reader);
+    recordReader.ForEachRecord(
+        [&](uint32_t pos, std::vector<uint8_t> && /* data */) { toDo(pos); });
   }
 
 private:
   friend class FeaturesVectorTest;
+  using RecordReader = VarRecordReader<FilesContainerR::TReader>;
 
-  feature::SharedLoadInfo m_LoadInfo;
-  VarRecordReader<FilesContainerR::ReaderT, &VarRecordSizeReaderVarint> m_RecordReader;
-  mutable vector<char> m_buffer;
+  feature::SharedLoadInfo m_loadInfo;
+  std::unique_ptr<RecordReader> m_recordReader;
   feature::FeaturesOffsetsTable const * m_table;
+  std::unique_ptr<feature::MetadataIndex> m_metaidx;
+  std::unique_ptr<indexer::MetadataDeserializer> m_metaDeserializer;
 };
 
 /// Test features vector (reader) that combines all the needed data for stand-alone work.
@@ -62,7 +110,7 @@ class FeaturesVectorTest
   FeaturesVector m_vector;
 
 public:
-  explicit FeaturesVectorTest(string const & filePath);
+  explicit FeaturesVectorTest(std::string const & filePath);
   explicit FeaturesVectorTest(FilesContainerR const & cont);
   ~FeaturesVectorTest();
 

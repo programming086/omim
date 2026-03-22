@@ -1,32 +1,26 @@
 #pragma once
+
 #include "coding/internal/file64_api.hpp"
 
 #include "base/base.hpp"
+#include "base/macros.hpp"
 
-#include "std/string.hpp"
 #include "std/target_os.hpp"
-#include "std/noncopyable.hpp"
 
-#ifdef OMIM_OS_TIZEN
-namespace Tizen
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <string>
+
+namespace base
 {
-  namespace Io
-  {
-    class File;
-  }
-}
-#endif
-
-
-namespace my {
-
-class FileData: private noncopyable
+class FileData
 {
 public:
   /// @note Do not change order (@see FileData::FileData).
   enum Op { OP_READ = 0, OP_WRITE_TRUNCATE, OP_WRITE_EXISTING, OP_APPEND };
 
-  FileData(string const & fileName, Op op);
+  FileData(std::string const & fileName, Op op);
   ~FileData();
 
   uint64_t Size() const;
@@ -40,26 +34,31 @@ public:
   void Flush();
   void Truncate(uint64_t sz);
 
-  string const & GetName() const { return m_FileName; }
+  std::string const & GetName() const { return m_FileName; }
 
 private:
-
-#ifdef OMIM_OS_TIZEN
-  Tizen::Io::File * m_File;
-#else
   FILE * m_File;
-#endif
-  string m_FileName;
+  std::string m_FileName;
   Op m_Op;
 
-  string GetErrorProlog() const;
+  std::string GetErrorProlog() const;
+
+  DISALLOW_COPY(FileData);
 };
 
-bool GetFileSize(string const & fName, uint64_t & sz);
-bool DeleteFileX(string const & fName);
-bool RenameFileX(string const & fOld, string const & fNew);
-/// @return false if copy fails. DO NOT THROWS exceptions
-bool CopyFileX(string const & fOld, string const & fNew);
-bool IsEqualFiles(string const & firstFile, string const & secondFile);
+bool GetFileSize(std::string const & fName, uint64_t & sz);
+bool DeleteFileX(std::string const & fName);
+bool RenameFileX(std::string const & fOld, std::string const & fNew);
 
-}
+/// Write to temp file and rename it to dest. Delete temp on failure.
+/// @param write function that writes to file with a given name, returns true on success.
+bool WriteToTempAndRenameToFile(std::string const & dest,
+                                std::function<bool(std::string const &)> const & write,
+                                std::string const & tmp = "");
+
+void AppendFileToFile(std::string const & fromFilename, std::string const & toFilename);
+
+/// @return false if copy fails. DO NOT THROWS exceptions
+bool CopyFileX(std::string const & fOld, std::string const & fNew);
+bool IsEqualFiles(std::string const & firstFile, std::string const & secondFile);
+}  // namespace base

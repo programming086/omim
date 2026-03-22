@@ -1,80 +1,182 @@
 #include "drape/batcher_helpers.hpp"
 #include "drape/attribute_provider.hpp"
 #include "drape/cpu_buffer.hpp"
+#include "drape/index_storage.hpp"
 
 #include "base/assert.hpp"
+#include "base/math.hpp"
 
-#include "std/algorithm.hpp"
+#include <algorithm>
 
 namespace dp
 {
-
 namespace
 {
+template <typename T>
+T CyclicClamp(T const x, T const xmin, T const xmax)
+{
+  if (x > xmax)
+    return xmin;
+  if (x < xmin)
+    return xmax;
+  return x;
+}
 
-bool IsEnoughMemory(uint16_t avVertex, uint16_t existVertex, uint16_t avIndex, uint16_t existIndex)
+bool IsEnoughMemory(uint32_t avVertex, uint32_t existVertex, uint32_t avIndex, uint32_t existIndex)
 {
   return avVertex >= existVertex && avIndex >= existIndex;
+}
+
+template<typename TGenerator>
+void GenerateIndices(void * indexStorage, uint32_t count, uint32_t startIndex)
+{
+  GenerateIndices<TGenerator>(indexStorage, count, TGenerator(startIndex));
+}
+
+template<typename TGenerator>
+void GenerateIndices(void * indexStorage, uint32_t count, TGenerator const & generator)
+{
+  if (dp::IndexStorage::IsSupported32bit())
+  {
+    auto pIndexStorage = static_cast<uint32_t *>(indexStorage);
+    std::generate(pIndexStorage, pIndexStorage + count, generator);
+  }
+  else
+  {
+    auto pIndexStorage = static_cast<uint16_t *>(indexStorage);
+    std::generate(pIndexStorage, pIndexStorage + count, generator);
+  }
 }
 
 class IndexGenerator
 {
 public:
-  IndexGenerator(uint16_t startIndex) : m_startIndex(startIndex) , m_counter(0) {}
+  explicit IndexGenerator(uint32_t startIndex)
+    : m_startIndex(startIndex)
+    , m_counter(0)
+    , m_minStripCounter(0) {}
 
 protected:
-  uint16_t GetCounter() { return m_counter++; }
-  void ResetCounter() { m_counter = 0; }
-  uint16_t const m_startIndex;
+  uint32_t GetCounter() { return m_counter++; }
+
+  void ResetCounter()
+  {
+    m_counter = 0;
+    m_minStripCounter = 0;
+  }
+
+  uint32_t const m_startIndex;
+
+  int16_t GetCWNormalizer()
+  {
+    int16_t tmp = m_minStripCounter;
+    m_minStripCounter = static_cast<uint8_t>(CyclicClamp(m_minStripCounter + 1, 0, 5));
+    switch (tmp)
+    {
+      case 4: return 1;
+      case 5: return -1;
+      default: return 0;
+    }
+  }
 
 private:
-  uint16_t m_counter;
+  uint32_t m_counter;
+  uint8_t m_minStripCounter;
 };
 
 class ListIndexGenerator : public IndexGenerator
 {
 public:
-  ListIndexGenerator(uint16_t startIndex) : IndexGenerator(startIndex) {}
-  uint16_t operator()() { return m_startIndex + GetCounter(); }
+  explicit ListIndexGenerator(uint32_t startIndex)
+    : IndexGenerator(startIndex)
+  {}
+  uint32_t operator()() { return m_startIndex + GetCounter(); }
 };
 
 class StripIndexGenerator : public IndexGenerator
 {
 public:
-  StripIndexGenerator(uint16_t startIndex) : IndexGenerator(startIndex) {}
-  uint16_t operator()()
+  explicit StripIndexGenerator(uint32_t startIndex)
+    : IndexGenerator(startIndex)
+  {}
+
+  uint32_t operator()()
   {
-    uint16_t const counter = GetCounter();
-    return m_startIndex + counter - 2 * (counter / 3);
+    uint32_t const counter = GetCounter();
+    return m_startIndex + counter - 2 * (counter / 3) + GetCWNormalizer();
   }
+};
+
+class LineStripIndexGenerator : public IndexGenerator
+{
+public:
+  explicit LineStripIndexGenerator(uint32_t startIndex)
+    : IndexGenerator(startIndex)
+  {}
+
+  uint32_t operator()()
+  {
+    uint32_t const counter = GetCounter();
+    uint32_t const result = m_startIndex + m_counter;
+    if (counter % 2 == 0)
+      m_counter++;
+
+    return result;
+  }
+
+private:
+  uint32_t m_counter = 0;
+};
+
+class LineRawIndexGenerator : public IndexGenerator
+{
+public:
+  LineRawIndexGenerator(uint32_t startIndex, std::vector<int> const & indices)
+    : IndexGenerator(startIndex)
+    , m_indices(indices)
+  {}
+
+  uint32_t operator()()
+  {
+    uint32_t const counter = GetCounter();
+    ASSERT_LESS(counter, m_indices.size(), ());
+    return static_cast<uint32_t>(m_startIndex + m_indices[counter]);
+  }
+
+private:
+  std::vector<int> const & m_indices;
 };
 
 class FanIndexGenerator : public IndexGenerator
 {
 public:
-  FanIndexGenerator(uint16_t startIndex) : IndexGenerator(startIndex) {}
-  uint16_t operator()()
+  explicit FanIndexGenerator(uint32_t startIndex)
+    : IndexGenerator(startIndex)
+  {}
+
+  uint32_t operator()()
   {
-    uint16_t const counter = GetCounter();
+    uint32_t const counter = GetCounter();
     if ((counter % 3) == 0)
       return m_startIndex;
     return m_startIndex + counter - 2 * (counter / 3);
   }
 };
 
-class ListOfStriptGenerator : public IndexGenerator
+class ListOfStripGenerator : public IndexGenerator
 {
 public:
-  ListOfStriptGenerator(uint16_t startIndex, uint16_t vertexStride, uint16_t indexPerStrip)
+  ListOfStripGenerator(uint32_t startIndex, uint32_t vertexStride, uint32_t indexPerStrip)
     : IndexGenerator(startIndex)
     , m_vertexStride(vertexStride)
     , m_indexPerStrip(indexPerStrip)
-    , m_base(0) {}
+    , m_base(0)
+  {}
 
-  uint16_t operator()()
+  uint32_t operator()()
   {
-    uint16_t const counter = GetCounter();
-    uint16_t const result = m_startIndex + m_base + counter - 2 * (counter / 3);
+    uint32_t const counter = GetCounter();
+    uint32_t const result = m_startIndex + m_base + counter - 2 * (counter / 3) + GetCWNormalizer();
     if (counter + 1 == m_indexPerStrip)
     {
       m_base += m_vertexStride;
@@ -85,163 +187,245 @@ public:
   }
 
 private:
-  uint16_t m_vertexStride;
-  uint16_t m_indexPerStrip;
-  uint16_t m_base;
+  uint32_t m_vertexStride;
+  uint32_t m_indexPerStrip;
+  uint32_t m_base;
 };
+}  // namespace
 
-} // namespace
-
-TriangleBatch::TriangleBatch(BatchCallbacks const & callbacks)
+UniversalBatch::UniversalBatch(BatchCallbacks & callbacks, uint8_t minVerticesCount,
+                               uint8_t minIndicesCount)
   : m_callbacks(callbacks)
-  , m_canDevideStreams(true)
+  , m_canDivideStreams(true)
+  , m_minVerticesCount(minVerticesCount)
+  , m_minIndicesCount(minIndicesCount)
+{}
+
+void UniversalBatch::SetCanDivideStreams(bool canDivide)
 {
+  m_canDivideStreams = canDivide;
 }
 
-void TriangleBatch::SetIsCanDevideStreams(bool canDevide)
+bool UniversalBatch::CanDivideStreams() const
 {
-  m_canDevideStreams = canDevide;
+  return m_canDivideStreams;
 }
 
-bool TriangleBatch::IsCanDevideStreams() const
-{
-  return m_canDevideStreams;
-}
-
-void TriangleBatch::SetVertexStride(uint8_t vertexStride)
+void UniversalBatch::SetVertexStride(uint8_t vertexStride)
 {
   m_vertexStride = vertexStride;
 }
 
-void TriangleBatch::FlushData(RefPointer<AttributeProvider> streams, uint16_t vertexVount) const
+void UniversalBatch::FlushData(ref_ptr<GraphicsContext> context, ref_ptr<AttributeProvider> streams,
+                               uint32_t vertexCount) const
 {
   for (uint8_t i = 0; i < streams->GetStreamCount(); ++i)
-    FlushData(streams->GetBindingInfo(i), streams->GetRawPointer(i), vertexVount);
+    FlushData(context, streams->GetBindingInfo(i), streams->GetRawPointer(i), vertexCount);
 }
 
-void TriangleBatch::FlushData(BindingInfo const & info, void const * data, uint16_t elementCount) const
+void UniversalBatch::FlushData(ref_ptr<GraphicsContext> context, BindingInfo const & info,
+                               void const * data, uint32_t elementCount) const
 {
-  ASSERT(m_callbacks.m_flushVertex != NULL, ());
-  return m_callbacks.m_flushVertex(info, data, elementCount);
+  m_callbacks.FlushData(context, info, data, elementCount);
 }
 
-uint16_t * TriangleBatch::GetIndexStorage(uint16_t indexCount, uint16_t & startIndex)
+void * UniversalBatch::GetIndexStorage(uint32_t indexCount, uint32_t & startIndex)
 {
-  ASSERT(m_callbacks.m_getIndexStorage, ());
-  return m_callbacks.m_getIndexStorage(indexCount, startIndex);
+  return m_callbacks.GetIndexStorage(indexCount, startIndex);
 }
 
-void TriangleBatch::SubmitIndex()
+void UniversalBatch::SubmitIndices(ref_ptr<GraphicsContext> context)
 {
-  ASSERT(m_callbacks.m_submitIndex, ());
-  m_callbacks.m_submitIndex();
+  m_callbacks.SubmitIndices(context);
 }
 
-uint16_t TriangleBatch::GetAvailableVertexCount() const
+uint32_t UniversalBatch::GetAvailableVertexCount() const
 {
-  ASSERT(m_callbacks.m_getAvailableVertex!= NULL, ());
-  return m_callbacks.m_getAvailableVertex();
+  return m_callbacks.GetAvailableVertexCount();
 }
 
-uint16_t TriangleBatch::GetAvailableIndexCount() const
+uint32_t UniversalBatch::GetAvailableIndexCount() const
 {
-  ASSERT(m_callbacks.m_getAvailableIndex != NULL, ());
-  return m_callbacks.m_getAvailableIndex();
+  return m_callbacks.GetAvailableIndexCount();
 }
 
-void TriangleBatch::ChangeBuffer(bool checkFilled) const
+void UniversalBatch::ChangeBuffer(ref_ptr<GraphicsContext> context) const
 {
-  ASSERT(m_callbacks.m_changeBuffer != NULL, ());
-  m_callbacks.m_changeBuffer(checkFilled);
+  return m_callbacks.ChangeBuffer(context);
 }
 
-uint8_t TriangleBatch::GetVertexStride() const
+uint8_t UniversalBatch::GetVertexStride() const
 {
   return m_vertexStride;
 }
 
-TriangleListBatch::TriangleListBatch(BatchCallbacks const & callbacks) : TBase(callbacks) {}
+bool UniversalBatch::IsBufferFilled(uint32_t availableVerticesCount,
+                                    uint32_t availableIndicesCount) const
+{
+  return availableVerticesCount < m_minVerticesCount ||
+         availableIndicesCount < m_minIndicesCount;
+}
 
-void TriangleListBatch::BatchData(RefPointer<AttributeProvider> streams)
+
+TriangleListBatch::TriangleListBatch(BatchCallbacks & callbacks)
+  : TBase(callbacks, 3 /* minVerticesCount */, 3 /* minIndicesCount */)
+{}
+
+void TriangleListBatch::BatchData(ref_ptr<GraphicsContext> context,
+                                  ref_ptr<AttributeProvider> streams)
 {
   while (streams->IsDataExists())
   {
-    uint16_t avVertex = GetAvailableVertexCount();
-    uint16_t avIndex  = GetAvailableIndexCount();
-    uint16_t vertexCount = streams->GetVertexCount();
+    if (IsBufferFilled(GetAvailableVertexCount(), GetAvailableIndexCount()))
+      ChangeBuffer(context);
 
-    if (IsCanDevideStreams())
+    uint32_t avVertex = GetAvailableVertexCount();
+    uint32_t avIndex  = GetAvailableIndexCount();
+    uint32_t vertexCount = streams->GetVertexCount();
+
+    if (CanDivideStreams())
     {
-      vertexCount = min(vertexCount, avVertex);
-      vertexCount = min(vertexCount, avIndex);
+      vertexCount = std::min(vertexCount, avVertex);
+      vertexCount = std::min(vertexCount, avIndex);
       ASSERT(vertexCount >= 3, ());
       vertexCount -= vertexCount % 3;
     }
     else if (!IsEnoughMemory(avVertex, vertexCount, avIndex, vertexCount))
     {
-      ChangeBuffer(false);
+      ChangeBuffer(context);
       avVertex = GetAvailableVertexCount();
       avIndex  = GetAvailableIndexCount();
       ASSERT(IsEnoughMemory(avVertex, vertexCount, avIndex, vertexCount), ());
       ASSERT(vertexCount % 3 == 0, ());
     }
 
-    uint16_t startIndex = 0;
-    uint16_t * pIndexStorage = GetIndexStorage(vertexCount, startIndex);
-    generate(pIndexStorage, pIndexStorage + vertexCount, ListIndexGenerator(startIndex));
-    SubmitIndex();
+    uint32_t startIndex = 0;
+    void * indicesStorage = GetIndexStorage(vertexCount, startIndex);
+    GenerateIndices<ListIndexGenerator>(indicesStorage, vertexCount, startIndex);
+    SubmitIndices(context);
 
-    FlushData(streams, vertexCount);
+    FlushData(context, streams, vertexCount);
     streams->Advance(vertexCount);
-    ChangeBuffer(true);
   }
 }
 
+LineStripBatch::LineStripBatch(BatchCallbacks & callbacks)
+  : TBase(callbacks, 2 /* minVerticesCount */, 2 /* minIndicesCount */)
+{}
 
-FanStripHelper::FanStripHelper(BatchCallbacks const & callbacks)
-  : TBase(callbacks)
-  , m_isFullUploaded(false)
+void LineStripBatch::BatchData(ref_ptr<GraphicsContext> context,
+                               ref_ptr<AttributeProvider> streams)
 {
+  while (streams->IsDataExists())
+  {
+    if (IsBufferFilled(GetAvailableVertexCount(), GetAvailableIndexCount()))
+      ChangeBuffer(context);
+
+    uint32_t avVertex = GetAvailableVertexCount();
+    uint32_t avIndex = GetAvailableIndexCount();
+    uint32_t vertexCount = streams->GetVertexCount();
+    ASSERT_GREATER_OR_EQUAL(vertexCount, 2, ());
+    uint32_t indexCount = (vertexCount - 1) * 2;
+
+    if (!IsEnoughMemory(avVertex, vertexCount, avIndex, indexCount))
+    {
+      ChangeBuffer(context);
+      avVertex = GetAvailableVertexCount();
+      avIndex = GetAvailableIndexCount();
+      ASSERT(IsEnoughMemory(avVertex, vertexCount, avIndex, indexCount), ());
+    }
+
+    uint32_t startIndex = 0;
+    void * indicesStorage = GetIndexStorage(indexCount, startIndex);
+    GenerateIndices<LineStripIndexGenerator>(indicesStorage, indexCount, startIndex);
+    SubmitIndices(context);
+
+    FlushData(context, streams, vertexCount);
+    streams->Advance(vertexCount);
+  }
 }
 
-uint16_t FanStripHelper::BatchIndexes(uint16_t vertexCount)
-{
-  uint16_t avVertex = GetAvailableVertexCount();
-  uint16_t avIndex  = GetAvailableIndexCount();
+LineRawBatch::LineRawBatch(BatchCallbacks & callbacks, std::vector<int> const & indices)
+  : TBase(callbacks, 2 /* minVerticesCount */, 2 /* minIndicesCount */)
+  , m_indices(indices)
+{}
 
-  uint16_t batchVertexCount = 0;
-  uint16_t batchIndexCount = 0;
+void LineRawBatch::BatchData(ref_ptr<GraphicsContext> context, ref_ptr<AttributeProvider> streams)
+{
+  while (streams->IsDataExists())
+  {
+    if (IsBufferFilled(GetAvailableVertexCount(), GetAvailableIndexCount()))
+      ChangeBuffer(context);
+
+    uint32_t avVertex = GetAvailableVertexCount();
+    uint32_t avIndex = GetAvailableIndexCount();
+    uint32_t vertexCount = streams->GetVertexCount();
+    CHECK_GREATER_OR_EQUAL(vertexCount, 2, (vertexCount));
+    auto const indexCount = static_cast<uint32_t>(m_indices.size());
+
+    if (!IsEnoughMemory(avVertex, vertexCount, avIndex, indexCount))
+    {
+      ChangeBuffer(context);
+      avVertex = GetAvailableVertexCount();
+      avIndex = GetAvailableIndexCount();
+      CHECK(IsEnoughMemory(avVertex, vertexCount, avIndex, indexCount),
+            (avVertex, vertexCount, avIndex, indexCount));
+    }
+
+    uint32_t startIndex = 0;
+    void * indicesStorage = GetIndexStorage(indexCount, startIndex);
+    LineRawIndexGenerator generator(startIndex, m_indices);
+    GenerateIndices(indicesStorage, indexCount, generator);
+    SubmitIndices(context);
+
+    FlushData(context, streams, vertexCount);
+    streams->Advance(vertexCount);
+  }
+}
+
+FanStripHelper::FanStripHelper(BatchCallbacks & callbacks)
+  : TBase(callbacks, 3 /* minVerticesCount */, 3 /* minIndicesCount */)
+  , m_isFullUploaded(false)
+{}
+
+uint32_t FanStripHelper::BatchIndexes(ref_ptr<GraphicsContext> context, uint32_t vertexCount)
+{
+  uint32_t avVertex = GetAvailableVertexCount();
+  uint32_t avIndex  = GetAvailableIndexCount();
+
+  uint32_t batchVertexCount = 0;
+  uint32_t batchIndexCount = 0;
   CalcBatchPortion(vertexCount, avVertex, avIndex, batchVertexCount, batchIndexCount);
 
-  if (!IsFullUploaded() && !IsCanDevideStreams())
+  if (!IsFullUploaded() && !CanDivideStreams())
   {
-    ChangeBuffer(false);
+    ChangeBuffer(context);
     avVertex = GetAvailableVertexCount();
     avIndex  = GetAvailableIndexCount();
     CalcBatchPortion(vertexCount, avVertex, avIndex, batchVertexCount, batchIndexCount);
     ASSERT(IsFullUploaded(), ());
   }
 
-  uint16_t startIndex = 0;
-  uint16_t * pIndexStorage = GetIndexStorage(batchIndexCount, startIndex);
+  uint32_t startIndex = 0;
+  void * pIndexStorage = GetIndexStorage(batchIndexCount, startIndex);
   GenerateIndexes(pIndexStorage, batchIndexCount, startIndex);
-  SubmitIndex();
+  SubmitIndices(context);
 
   return batchVertexCount;
 }
 
-void FanStripHelper::CalcBatchPortion(uint16_t vertexCount, uint16_t avVertex, uint16_t avIndex,
-                                      uint16_t & batchVertexCount, uint16_t & batchIndexCount)
+void FanStripHelper::CalcBatchPortion(uint32_t vertexCount, uint32_t avVertex, uint32_t avIndex,
+                                      uint32_t & batchVertexCount, uint32_t & batchIndexCount)
 {
-  uint16_t const indexCount = VtoICount(vertexCount);
+  uint32_t const indexCount = VtoICount(vertexCount);
   batchVertexCount = vertexCount;
   batchIndexCount = indexCount;
   m_isFullUploaded = true;
 
   if (vertexCount > avVertex || indexCount > avIndex)
   {
-    uint16_t alignedAvVertex = AlignVCount(avVertex);
-    uint16_t alignedAvIndex = AlignICount(avIndex);
+    uint32_t alignedAvVertex = AlignVCount(avVertex);
+    uint32_t alignedAvIndex = AlignICount(avIndex);
     uint32_t indexCountForAvailableVertexCount = VtoICount(alignedAvVertex);
     if (indexCountForAvailableVertexCount <= alignedAvIndex)
     {
@@ -262,52 +446,53 @@ bool FanStripHelper::IsFullUploaded() const
   return m_isFullUploaded;
 }
 
-uint16_t FanStripHelper::VtoICount(uint16_t vCount) const
+uint32_t FanStripHelper::VtoICount(uint32_t vCount) const
 {
   return 3 * (vCount - 2);
 }
 
-uint16_t FanStripHelper::ItoVCount(uint16_t iCount) const
+uint32_t FanStripHelper::ItoVCount(uint32_t iCount) const
 {
   return iCount / 3 + 2;
 }
 
-uint16_t FanStripHelper::AlignVCount(uint16_t vCount) const
+uint32_t FanStripHelper::AlignVCount(uint32_t vCount) const
 {
   return vCount;
 }
 
-uint16_t FanStripHelper::AlignICount(uint16_t iCount) const
+uint32_t FanStripHelper::AlignICount(uint32_t iCount) const
 {
   return iCount - iCount % 3;
 }
 
-void FanStripHelper::GenerateIndexes(uint16_t * indexStorage, uint16_t count, uint16_t startIndex) const
-{
-  generate(indexStorage, indexStorage + count, StripIndexGenerator(startIndex));
-}
-
-TriangleStripBatch::TriangleStripBatch(BatchCallbacks const & callbacks)
+TriangleStripBatch::TriangleStripBatch(BatchCallbacks & callbacks)
  : TBase(callbacks)
-{
-}
+{}
 
-void TriangleStripBatch::BatchData(RefPointer<AttributeProvider> streams)
+void TriangleStripBatch::BatchData(ref_ptr<GraphicsContext> context,
+                                   ref_ptr<AttributeProvider> streams)
 {
   while (streams->IsDataExists())
   {
-    uint16_t const batchVertexCount = BatchIndexes(streams->GetVertexCount());
-    FlushData(streams, batchVertexCount);
+    if (IsBufferFilled(GetAvailableVertexCount(), GetAvailableIndexCount()))
+      ChangeBuffer(context);
 
-    uint16_t const advanceCount = IsFullUploaded() ? batchVertexCount : (batchVertexCount - 2);
+    uint32_t const batchVertexCount = BatchIndexes(context, streams->GetVertexCount());
+    FlushData(context, streams, batchVertexCount);
+
+    uint32_t const advanceCount = IsFullUploaded() ? batchVertexCount : (batchVertexCount - 2);
     streams->Advance(advanceCount);
 
-    ChangeBuffer(true);
   }
 }
 
-TriangleFanBatch::TriangleFanBatch(BatchCallbacks const & callbacks) : TBase(callbacks) {}
+void TriangleStripBatch::GenerateIndexes(void * indexStorage, uint32_t count, uint32_t startIndex) const
+{
+  GenerateIndices<StripIndexGenerator>(indexStorage, count, startIndex);
+}
 
+TriangleFanBatch::TriangleFanBatch(BatchCallbacks & callbacks) : TBase(callbacks) {}
 
 /*
  * What happens here
@@ -327,17 +512,21 @@ TriangleFanBatch::TriangleFanBatch(BatchCallbacks const & callbacks) : TBase(cal
  * second part of data. But to avoid 2 separate call of glBufferSubData we at first do a copy of
  * data from params to cpuBuffer and than copy continuous block of memory from cpuBuffer
  */
-void TriangleFanBatch::BatchData(RefPointer<AttributeProvider> streams)
+void TriangleFanBatch::BatchData(ref_ptr<GraphicsContext> context,
+                                 ref_ptr<AttributeProvider> streams)
 {
-  vector<CPUBuffer> cpuBuffers;
+  std::vector<CPUBuffer> cpuBuffers;
   while (streams->IsDataExists())
   {
-    uint16_t vertexCount = streams->GetVertexCount();
-    uint16_t batchVertexCount = BatchIndexes(vertexCount);
+    if (IsBufferFilled(GetAvailableVertexCount(), GetAvailableIndexCount()))
+      ChangeBuffer(context);
+
+    uint32_t vertexCount = streams->GetVertexCount();
+    uint32_t batchVertexCount = BatchIndexes(context, vertexCount);
 
     if (!cpuBuffers.empty())
     {
-      // if cpuBuffers not empty than on previous interation we not move data on gpu
+      // if cpuBuffers not empty than on previous iteration we not move data on gpu
       // and in cpuBuffers stored first vertex of fan.
       // To avoid two separate call of glBufferSubData
       // (for first vertex and for next part of data)
@@ -352,14 +541,10 @@ void TriangleFanBatch::BatchData(RefPointer<AttributeProvider> streams)
         // now in cpuBuffer we have correct "fan" created from second part of data
         // first vertex of cpuBuffer if the first vertex of params, second vertex is
         // the last vertex of previous uploaded data. We copy this data on GPU.
-        FlushData(streams->GetBindingInfo(i), cpuBuffer.Data(), batchVertexCount + 1);
-
-        // Move cpu buffer cursor on second element of buffer.
-        // On next iteration first vertex of fan will be also available
-        cpuBuffer.Seek(1);
+        FlushData(context, streams->GetBindingInfo(i), cpuBuffer.Data(), batchVertexCount + 1);
       }
 
-      uint16_t advanceCount = batchVertexCount;
+      uint32_t advanceCount = batchVertexCount;
       if (!IsFullUploaded())
       {
         // not all data was moved on gpu and last vertex of fan
@@ -374,7 +559,7 @@ void TriangleFanBatch::BatchData(RefPointer<AttributeProvider> streams)
       if (IsFullUploaded())
       {
         // We can upload all input data as one peace. For upload we need only one iteration
-        FlushData(streams, batchVertexCount);
+        FlushData(context, streams, batchVertexCount);
         streams->Advance(batchVertexCount);
       }
       else
@@ -387,14 +572,18 @@ void TriangleFanBatch::BatchData(RefPointer<AttributeProvider> streams)
         {
           const BindingInfo & binding = streams->GetBindingInfo(i);
           const void * rawDataPointer = streams->GetRawPointer(i);
-          FlushData(binding, rawDataPointer, batchVertexCount);
+          FlushData(context, binding, rawDataPointer, batchVertexCount);
 
-          /// "(vertexCount + 1) - batchVertexCount" we allocate CPUBuffer on all remaining data
-          /// + first vertex of fan, that must be duplicate in nex buffer
-          /// + last vertex of currently uploaded data.
-          cpuBuffers.push_back(CPUBuffer(binding.GetElementSize(), (vertexCount + 2) - batchVertexCount));
+          // "(vertexCount + 1) - batchVertexCount" we allocate CPUBuffer on all remaining data
+          // + first vertex of fan, that must be duplicate in the next buffer
+          // + last vertex of currently uploaded data.
+          cpuBuffers.emplace_back(binding.GetElementSize(), (vertexCount + 2) - batchVertexCount);
           CPUBuffer & cpuBuffer = cpuBuffers.back();
           cpuBuffer.UploadData(rawDataPointer, 1);
+
+          // Move cpu buffer cursor on second element of buffer.
+          // On next iteration first vertex of fan will be also available
+          cpuBuffer.Seek(1);
         }
 
         // advance on uploadVertexCount - 1 to copy last vertex also into next VAO with
@@ -402,40 +591,53 @@ void TriangleFanBatch::BatchData(RefPointer<AttributeProvider> streams)
         streams->Advance(batchVertexCount - 1);
       }
     }
-
-    ChangeBuffer(true);
   }
 }
 
-
-TriangleListOfStripBatch::TriangleListOfStripBatch(BatchCallbacks const & callbacks)
- : TBase(callbacks)
+void TriangleFanBatch::GenerateIndexes(void * indexStorage, uint32_t count, uint32_t startIndex) const
 {
+  GenerateIndices<FanIndexGenerator>(indexStorage, count, startIndex);
 }
 
-void TriangleListOfStripBatch::BatchData(RefPointer<AttributeProvider> streams)
+TriangleListOfStripBatch::TriangleListOfStripBatch(BatchCallbacks & callbacks)
+ : TBase(callbacks)
+{}
+
+void TriangleListOfStripBatch::BatchData(ref_ptr<GraphicsContext> context,
+                                         ref_ptr<AttributeProvider> streams)
 {
   while (streams->IsDataExists())
   {
-    uint16_t const batchVertexCount = BatchIndexes(streams->GetVertexCount());
-    FlushData(streams, batchVertexCount);
-    streams->Advance(batchVertexCount);
+    if (IsBufferFilled(GetAvailableVertexCount(), GetAvailableIndexCount()))
+      ChangeBuffer(context);
 
-    ChangeBuffer(true);
+    uint32_t const batchVertexCount = BatchIndexes(context, streams->GetVertexCount());
+    FlushData(context, streams, batchVertexCount);
+    streams->Advance(batchVertexCount);
   }
 }
 
-uint16_t TriangleListOfStripBatch::VtoICount(uint16_t vCount) const
+bool TriangleListOfStripBatch::IsBufferFilled(uint32_t availableVerticesCount,
+                                              uint32_t availableIndicesCount) const
+{
+  uint8_t const vertexStride = GetVertexStride();
+  ASSERT_GREATER_OR_EQUAL(vertexStride, 4, ());
+
+  uint32_t const indicesPerStride = TBase::VtoICount(vertexStride);
+  return availableVerticesCount < vertexStride || availableIndicesCount < indicesPerStride;
+}
+
+uint32_t TriangleListOfStripBatch::VtoICount(uint32_t vCount) const
 {
   uint8_t const vertexStride = GetVertexStride();
   ASSERT_GREATER_OR_EQUAL(vertexStride, 4, ());
   ASSERT_EQUAL(vCount % vertexStride, 0, ());
 
-  uint16_t const striptCount = vCount / vertexStride;
+  uint32_t const striptCount = vCount / vertexStride;
   return striptCount * TBase::VtoICount(vertexStride);
 }
 
-uint16_t TriangleListOfStripBatch::ItoVCount(uint16_t iCount) const
+uint32_t TriangleListOfStripBatch::ItoVCount(uint32_t iCount) const
 {
   uint8_t const vertexStride = GetVertexStride();
   ASSERT_GREATER_OR_EQUAL(vertexStride, 4, ());
@@ -444,15 +646,23 @@ uint16_t TriangleListOfStripBatch::ItoVCount(uint16_t iCount) const
   return vertexStride * iCount / TBase::VtoICount(vertexStride);
 }
 
-uint16_t TriangleListOfStripBatch::AlignVCount(uint16_t vCount) const
+uint32_t TriangleListOfStripBatch::AlignVCount(uint32_t vCount) const
 {
   return vCount - vCount % GetVertexStride();
 }
 
-void TriangleListOfStripBatch::GenerateIndexes(uint16_t * indexStorage, uint16_t count, uint16_t startIndex) const
+uint32_t TriangleListOfStripBatch::AlignICount(uint32_t iCount) const
 {
   uint8_t const vertexStride = GetVertexStride();
-  generate(indexStorage, indexStorage + count, ListOfStriptGenerator(startIndex, vertexStride, VtoICount(vertexStride)));
+  ASSERT_GREATER_OR_EQUAL(vertexStride, 4, ());
+
+  uint32_t const indicesPerStride = TBase::VtoICount(vertexStride);
+  return iCount - iCount % indicesPerStride;
 }
 
-} // namespace dp
+void TriangleListOfStripBatch::GenerateIndexes(void * indexStorage, uint32_t count, uint32_t startIndex) const
+{
+  uint8_t const vertexStride = GetVertexStride();
+  GenerateIndices(indexStorage, count, ListOfStripGenerator(startIndex, vertexStride, VtoICount(vertexStride)));
+}
+}  // namespace dp

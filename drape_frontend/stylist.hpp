@@ -1,11 +1,15 @@
 #pragma once
 
 #include "indexer/feature_data.hpp"
+#include "indexer/ftypes_matcher.hpp"
+#include "indexer/drawing_rule_def.hpp"
 
 #include "base/buffer_vector.hpp"
 
-#include "std/function.hpp"
-#include "std/string.hpp"
+#include <cstdint>
+#include <functional>
+#include <string>
+#include <utility>
 
 class FeatureType;
 
@@ -13,35 +17,42 @@ namespace drule { class BaseRule; }
 
 namespace df
 {
+class IsBuildingHasPartsChecker : public ftypes::BaseChecker
+{
+  IsBuildingHasPartsChecker();
+public:
+  DECLARE_CHECKER_INSTANCE(IsBuildingHasPartsChecker);
+};
+
+class IsHatchingTerritoryChecker : public ftypes::BaseChecker
+{
+  IsHatchingTerritoryChecker();
+public:
+  DECLARE_CHECKER_INSTANCE(IsHatchingTerritoryChecker);
+};
 
 struct CaptionDescription
 {
-  CaptionDescription();
+  void Init(FeatureType & f, int8_t deviceLang, int const zoomLevel, feature::GeomType const type,
+            drule::text_type_t const mainTextType, bool const auxCaptionExists);
 
-  void Init(FeatureType const & f,
-            int const zoomLevel);
-
-  void FormatCaptions(FeatureType const & f,
-                      feature::EGeomType type,
-                      bool auxCaptionExists);
-
-  string const & GetMainText() const;
-  string const & GetAuxText() const;
-  string const & GetRoadNumber() const;
-  string GetPathName() const;
-  double GetPopulationRank() const;
+  std::string const & GetMainText() const;
+  std::string const & GetAuxText() const;
+  std::string const & GetRoadNumber() const;
   bool IsNameExists() const;
+  bool IsHouseNumberInMainText() const { return m_isHouseNumberInMainText; }
 
 private:
-  void SwapCaptions(int const zoomLevel);
-  void DiscardLongCaption(int const zoomLevel);
+  // Clear aux name on high zoom and clear long main name on low zoom.
+  void ProcessZoomLevel(int const zoomLevel);
+  // Try to use house number as name of the object.
+  void ProcessMainTextType(drule::text_type_t const & mainTextType);
 
-private:
-  string m_mainText;
-  string m_auxText;
-  string m_roadNumber;
-  string m_houseNumber;
-  double m_populationRank;
+  std::string m_mainText;
+  std::string m_auxText;
+  std::string m_roadNumber;
+  std::string m_houseNumber;
+  bool m_isHouseNumberInMainText = false;
 };
 
 class Stylist
@@ -56,16 +67,15 @@ public:
 
   CaptionDescription const & GetCaptionDescription() const;
 
-  typedef pair<drule::BaseRule const *, double> rule_wrapper_t;
-  typedef function<void (rule_wrapper_t const &)> rule_callback_t;
-  void ForEachRule(rule_callback_t const & fn);
+  using TRuleWrapper = std::pair<drule::BaseRule const *, double>;
+  using TRuleCallback = std::function<void(TRuleWrapper const &)>;
+  void ForEachRule(TRuleCallback const & fn) const;
 
   bool IsEmpty() const;
 
 private:
-  friend bool InitStylist(FeatureType const &,
-                          int const,
-                          Stylist &);
+  friend bool InitStylist(FeatureType & f, int8_t deviceLang, int const zoomLevel, bool buildings3d,
+                          Stylist & s);
 
   void RaiseCoastlineFlag();
   void RaiseAreaStyleFlag();
@@ -75,15 +85,15 @@ private:
   CaptionDescription & GetCaptionDescriptionImpl();
 
 private:
-  typedef buffer_vector<rule_wrapper_t, 8> rules_t;
+  typedef buffer_vector<TRuleWrapper, 8> rules_t;
   rules_t m_rules;
 
   uint8_t m_state;
   CaptionDescription m_captionDescriptor;
 };
 
-bool InitStylist(FeatureType const & f,
-                 int const zoomLevel,
+bool InitStylist(FeatureType & f, int8_t deviceLang, int const zoomLevel, bool buildings3d,
                  Stylist & s);
 
-} // namespace df
+double GetFeaturePriority(FeatureType & f, int const zoomLevel);
+}  // namespace df

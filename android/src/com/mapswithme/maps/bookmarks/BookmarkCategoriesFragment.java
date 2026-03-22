@@ -1,132 +1,105 @@
 package com.mapswithme.maps.bookmarks;
 
 import android.content.Intent;
-import android.os.Bundle;
-import android.support.annotation.LayoutRes;
-import android.support.v7.widget.RecyclerView;
-import android.view.MenuItem;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.FragmentManager;
 import android.view.View;
+
 import com.cocosw.bottomsheet.BottomSheet;
 import com.mapswithme.maps.R;
-import com.mapswithme.maps.base.BaseMwmRecyclerFragment;
+import com.mapswithme.maps.auth.Authorizer;
+import com.mapswithme.maps.auth.TargetFragmentCallback;
 import com.mapswithme.maps.bookmarks.data.BookmarkCategory;
 import com.mapswithme.maps.bookmarks.data.BookmarkManager;
-import com.mapswithme.maps.dialog.EditTextDialogFragment;
-import com.mapswithme.maps.widget.recycler.RecyclerClickListener;
-import com.mapswithme.maps.widget.recycler.RecyclerLongClickListener;
-import com.mapswithme.util.BottomSheetHelper;
+import com.mapswithme.maps.bookmarks.data.BookmarkSharingResult;
+import com.mapswithme.maps.widget.BookmarkBackupView;
+import com.mapswithme.util.UiUtils;
 import com.mapswithme.util.sharing.SharingHelper;
 
-public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment
-                                     implements EditTextDialogFragment.OnTextSaveListener,
-                                                MenuItem.OnMenuItemClickListener,
-                                                RecyclerClickListener,
-                                                RecyclerLongClickListener
+public class BookmarkCategoriesFragment extends BaseBookmarkCategoriesFragment
+    implements TargetFragmentCallback, AuthCompleteListener, BookmarkManager.BookmarksSharingListener
 {
-  private int mSelectedPosition;
+  @Nullable
+  private BookmarkBackupController mBackupController;
 
   @Override
-  protected @LayoutRes int getLayoutRes()
+  protected void onPrepareControllers(@NonNull View view)
   {
-    return R.layout.recycler_default;
+    Authorizer authorizer = new Authorizer(this);
+    BookmarkBackupView backupView = view.findViewById(R.id.backup);
+
+    mBackupController = new BookmarkBackupController(requireActivity(), backupView, authorizer,
+                                                     this);
   }
 
   @Override
-  protected RecyclerView.Adapter createAdapter()
+  public void onPreparedFileForSharing(@NonNull BookmarkSharingResult result)
   {
-    return new BookmarkCategoriesAdapter(getActivity());
+    SharingHelper.INSTANCE.onPreparedFileForSharing(requireActivity(), result);
   }
 
   @Override
-  protected BookmarkCategoriesAdapter getAdapter()
+  public void onStart()
   {
-    return (BookmarkCategoriesAdapter)super.getAdapter();
+    super.onStart();
+    BookmarkManager.INSTANCE.addSharingListener(this);
+    if (mBackupController != null)
+      mBackupController.onStart();
   }
 
   @Override
-  public void onViewCreated(View view, Bundle savedInstanceState)
+  protected void updateLoadingPlaceholder()
   {
-    super.onViewCreated(view, savedInstanceState);
-
-    getAdapter().setOnClickListener(this);
-    getAdapter().setOnLongClickListener(this);
+    super.updateLoadingPlaceholder();
+    boolean isLoading = BookmarkManager.INSTANCE.isAsyncBookmarksLoadingInProgress();
+    UiUtils.showIf(!isLoading, getView(), R.id.backup, R.id.recycler);
   }
 
   @Override
-  public void onResume()
+  public void onStop()
   {
-    super.onResume();
-    getAdapter().notifyDataSetChanged();
+    super.onStop();
+    BookmarkManager.INSTANCE.removeSharingListener(this);
+    if (mBackupController != null)
+      mBackupController.onStop();
   }
 
   @Override
-  public void onPause()
+  public void onTargetFragmentResult(int resultCode, @Nullable Intent data)
   {
-    super.onPause();
-    BottomSheetHelper.free();
+    if (mBackupController != null)
+      mBackupController.onTargetFragmentResult(resultCode, data);
   }
 
   @Override
-  public void onSaveText(String text)
+  public boolean isTargetAdded()
   {
-    final BookmarkCategory category = BookmarkManager.INSTANCE.getCategoryById(mSelectedPosition);
-    category.setName(text);
-    getAdapter().notifyDataSetChanged();
+    return isAdded();
   }
 
   @Override
-  public boolean onMenuItemClick(MenuItem item)
+  protected void prepareBottomMenuItems(@NonNull BottomSheet bottomSheet)
   {
-    switch (item.getItemId())
-    {
-    case R.id.set_show:
-      BookmarkManager.INSTANCE.toggleCategoryVisibility(mSelectedPosition);
-      getAdapter().notifyDataSetChanged();
-      break;
+    boolean isMultipleItems = getAdapter().getBookmarkCategories().size() > 1;
+    setEnableForMenuItem(R.id.delete, bottomSheet, isMultipleItems);
+    setEnableForMenuItem(R.id.sharing_options, bottomSheet,
+                         getSelectedCategory().isSharingOptionsAllowed());
+  }
 
-    case R.id.set_share:
-      SharingHelper.shareBookmarksCategory(getActivity(), mSelectedPosition);
-      break;
-
-    case R.id.set_delete:
-      BookmarkManager.INSTANCE.deleteCategory(mSelectedPosition);
-      getAdapter().notifyDataSetChanged();
-      break;
-
-    case R.id.set_edit:
-      EditTextDialogFragment.show(getString(R.string.bookmark_set_name),
-                                  BookmarkManager.INSTANCE.getCategoryById(mSelectedPosition).getName(),
-                                  getString(R.string.rename), getString(R.string.cancel), this);
-      break;
-    }
-
-    return true;
+  @NonNull
+  @Override
+  protected BookmarkCategory.Type getType()
+  {
+    return BookmarkCategory.Type.PRIVATE;
   }
 
   @Override
-  public void onLongItemClick(View v, int position)
+  public void onAuthCompleted()
   {
-    mSelectedPosition = position;
-
-    BookmarkCategory category = BookmarkManager.INSTANCE.getCategoryById(mSelectedPosition);
-    BottomSheet bs = BottomSheetHelper.create(getActivity())
-        .title(category.getName())
-        .sheet(R.menu.menu_bookmark_categories)
-        .listener(this)
-        .build();
-
-    MenuItem show = bs.getMenu().getItem(0);
-    show.setIcon(category.isVisible() ? R.drawable.ic_hide
-                                      : R.drawable.ic_show);
-    show.setTitle(category.isVisible() ? R.string.hide
-                                       : R.string.show);
-    bs.show();
-  }
-
-  @Override
-  public void onItemClick(View v, int position)
-  {
-    startActivity(new Intent(getActivity(), BookmarkListActivity.class)
-                      .putExtra(ChooseBookmarkCategoryFragment.CATEGORY_ID, position));
+    FragmentManager fm = requireActivity().getSupportFragmentManager();
+    BookmarkCategoriesPagerFragment pagerFragment =
+        (BookmarkCategoriesPagerFragment) fm.findFragmentByTag(BookmarkCategoriesPagerFragment.class.getName());
+    pagerFragment.onAuthCompleted();
   }
 }

@@ -1,13 +1,13 @@
 #include "testing/testing.hpp"
 #include "geometry/latlon.hpp"
 #include "geometry/point2d.hpp"
-#include "indexer/mercator.hpp"
+#include "geometry/mercator.hpp"
 
 UNIT_TEST(LatLonPointConstructorTest)
 {
   m2::PointD basePoint(39.123, 42.456);
-  ms::LatLon wgsPoint = MercatorBounds::ToLatLon(basePoint);
-  m2::PointD resultPoint = MercatorBounds::FromLatLon(wgsPoint);
+  ms::LatLon wgsPoint = mercator::ToLatLon(basePoint);
+  m2::PointD resultPoint = mercator::FromLatLon(wgsPoint);
   TEST_ALMOST_EQUAL_ULPS(basePoint.x, resultPoint.x, ());
   TEST_ALMOST_EQUAL_ULPS(basePoint.y, resultPoint.y, ());
 }

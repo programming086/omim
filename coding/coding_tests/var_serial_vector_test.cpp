@@ -1,18 +1,20 @@
-#include "coding/var_serial_vector.hpp"
-
 #include "testing/testing.hpp"
 
 #include "coding/byte_stream.hpp"
 #include "coding/hex.hpp"
 #include "coding/reader.hpp"
+#include "coding/var_serial_vector.hpp"
 #include "coding/writer.hpp"
 
 #include "base/macros.hpp"
 
-#include "std/random.hpp"
-#include "std/string.hpp"
-#include "std/vector.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <random>
+#include <string>
+#include <vector>
 
+using namespace std;
 
 char const kHexSerial[] = "03000000" "01000000" "04000000" "06000000" "616263646566";
 
@@ -107,5 +109,5 @@ UNIT_TEST(EncodeDecode)
   VarSerialVectorReader<MemReader> reader(memSource);
 
   for (size_t i = 0; i < elements.size(); ++i)
-    TEST_EQUAL(reader.Read(i), elements[i], ());
+    TEST_EQUAL(reader.Read(static_cast<uint32_t>(i)), elements[i], ());
 }

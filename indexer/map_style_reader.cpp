@@ -1,65 +1,136 @@
 #include "map_style_reader.hpp"
 
-#include "base/logging.hpp"
-
-#include "coding/file_name_utils.hpp"
-
 #include "platform/platform.hpp"
 
-#include "std/string.hpp"
+#include "base/file_name_utils.hpp"
+#include "base/logging.hpp"
 
 namespace
 {
+std::string const kSuffixDark = "_dark";
+std::string const kSuffixClear = "_clear";
+std::string const kSuffixVehicleDark = "_vehicle_dark";
+std::string const kSuffixVehicleClear = "_vehicle_clear";
 
-const char * const kSuffixLegacyLight = "";
-const char * const kSuffixLegacyDark = "_dark";
-const char * const kSuffixModernClear = "_clear";
+std::string const kStylesOverrideDir = "styles";
 
-string GetStyleSuffix(MapStyle mapStyle)
+#ifdef BUILD_DESIGNER
+std::string const kSuffixDesignTool = "_design";
+#endif // BUILD_DESIGNER
+
+std::string GetStyleRulesSuffix(MapStyle mapStyle)
 {
+#ifdef BUILD_DESIGNER
+  return kSuffixDesignTool;
+#else
   switch (mapStyle)
   {
-  case MapStyleLight:
-    return kSuffixLegacyLight;
-   case MapStyleDark:
-    return kSuffixLegacyDark;
+  case MapStyleDark:
+    return kSuffixDark;
   case MapStyleClear:
-    return kSuffixModernClear;
+    return kSuffixClear;
+  case MapStyleVehicleDark:
+    return kSuffixVehicleDark;
+  case MapStyleVehicleClear:
+    return kSuffixVehicleClear;
+  case MapStyleMerged:
+    return std::string();
 
   case MapStyleCount:
     break;
   }
   LOG(LWARNING, ("Unknown map style", mapStyle));
-  return kSuffixModernClear;
+  return kSuffixClear;
+#endif // BUILD_DESIGNER
 }
 
+std::string GetStyleResourcesSuffix(MapStyle mapStyle)
+{
+#ifdef BUILD_DESIGNER
+  return kSuffixDesignTool;
+#else
+  // We use the same resources for default and vehicle styles
+  // to avoid textures duplication and package size increasing.
+  switch (mapStyle)
+  {
+  case MapStyleDark:
+  case MapStyleVehicleDark:
+    return kSuffixDark;
+  case MapStyleClear:
+  case MapStyleVehicleClear:
+    return kSuffixClear;
+  case MapStyleMerged:
+    return std::string();
+
+  case MapStyleCount:
+    break;
+  }
+  LOG(LWARNING, ("Unknown map style", mapStyle));
+  return kSuffixClear;
+#endif // BUILD_DESIGNER
+}
 }  // namespace
 
 StyleReader::StyleReader()
-  : m_mapStyle(MapStyleLight)
-{
-}
+  : m_mapStyle(kDefaultMapStyle)
+{}
 
 void StyleReader::SetCurrentStyle(MapStyle mapStyle)
 {
   m_mapStyle = mapStyle;
 }
 
-MapStyle StyleReader::GetCurrentStyle()
+MapStyle StyleReader::GetCurrentStyle() const
 {
   return m_mapStyle;
 }
 
-ReaderPtr<Reader> StyleReader::GetDrawingRulesReader()
+bool StyleReader::IsCarNavigationStyle() const
 {
-  string const rulesFile = string("drules_proto") + GetStyleSuffix(GetCurrentStyle()) + ".bin";
-  return GetPlatform().GetReader(rulesFile);
+  return m_mapStyle == MapStyle::MapStyleVehicleClear ||
+         m_mapStyle == MapStyle::MapStyleVehicleDark;
 }
 
-ReaderPtr<Reader> StyleReader::GetResourceReader(string const & file, string const & density)
+ReaderPtr<Reader> StyleReader::GetDrawingRulesReader() const
 {
-  string const resourceDir = string("resources-") + density + GetStyleSuffix(GetCurrentStyle());
-  return GetPlatform().GetReader(my::JoinFoldersToPath(resourceDir, file));
+  std::string rulesFile =
+      std::string("drules_proto") + GetStyleRulesSuffix(GetCurrentStyle()) + ".bin";
+
+  auto overriddenRulesFile =
+      base::JoinPath(GetPlatform().WritableDir(), kStylesOverrideDir, rulesFile);
+  if (GetPlatform().IsFileExistsByFullPath(overriddenRulesFile))
+    rulesFile = overriddenRulesFile;
+
+#ifdef BUILD_DESIGNER
+  // For Designer tool we have to look first into the resource folder.
+  return GetPlatform().GetReader(rulesFile, "rwf");
+#else
+  return GetPlatform().GetReader(rulesFile);
+#endif
+}
+
+ReaderPtr<Reader> StyleReader::GetResourceReader(std::string const & file,
+                                                 std::string const & density) const
+{
+  std::string const resourceDir =
+      std::string("resources-") + density + GetStyleResourcesSuffix(GetCurrentStyle());
+  std::string resFile = base::JoinPath(resourceDir, file);
+
+  auto overriddenResFile = base::JoinPath(GetPlatform().WritableDir(), kStylesOverrideDir, resFile);
+  if (GetPlatform().IsFileExistsByFullPath(overriddenResFile))
+    resFile = overriddenResFile;
+
+#ifdef BUILD_DESIGNER
+  // For Designer tool we have to look first into the resource folder.
+  return GetPlatform().GetReader(resFile, "rwf");
+#else
+  return GetPlatform().GetReader(resFile);
+#endif
+}
+
+ReaderPtr<Reader> StyleReader::GetDefaultResourceReader(std::string const & file) const
+{
+  return GetPlatform().GetReader(base::JoinPath("resources-default", file));
 }
 
 StyleReader & GetStyleReader()

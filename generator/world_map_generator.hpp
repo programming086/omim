@@ -1,15 +1,30 @@
 #pragma once
 
+#include "generator/feature_maker_base.hpp"
 #include "generator/feature_merger.hpp"
+#include "generator/filter_world.hpp"
 #include "generator/generate_info.hpp"
+#include "generator/popular_places_section_builder.hpp"
+
+#include "search/utils.hpp"
+
+#include "indexer/classificator.hpp"
+#include "indexer/scales.hpp"
+
+#include "coding/point_coding.hpp"
 
 #include "geometry/polygon.hpp"
 #include "geometry/region2d.hpp"
 #include "geometry/tree4d.hpp"
 
-#include "indexer/scales.hpp"
-
 #include "base/logging.hpp"
+
+#include <algorithm>
+#include <cstdint>
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #include "defines.hpp"
 
@@ -17,8 +32,6 @@ namespace
 {
 class WaterBoundaryChecker
 {
-  uint32_t m_boundaryType;
-
   struct RegionTraits
   {
     m2::RectD const & LimitRect(m2::RegionD const & r) const { return r.GetRect(); }
@@ -31,11 +44,9 @@ class WaterBoundaryChecker
   size_t m_selectedPolygons = 0;
 
 public:
-  WaterBoundaryChecker(feature::GenerateInfo const & info)
+  WaterBoundaryChecker(std::string const & rawGeometryFileName)
   {
-    m_boundaryType = classif().GetTypeByPath({"boundary", "administrative"});
-    LoadWaterGeometry(
-        info.GetIntermediateFileName(WORLD_COASTS_FILE_NAME, RAW_GEOM_FILE_EXTENSION));
+    LoadWaterGeometry(rawGeometryFileName);
   }
 
   ~WaterBoundaryChecker()
@@ -44,7 +55,7 @@ public:
                 "borders skipped:", m_skippedBorders, "selected polygons:", m_selectedPolygons));
   }
 
-  void LoadWaterGeometry(string const & rawGeometryFileName)
+  void LoadWaterGeometry(std::string const & rawGeometryFileName)
   {
     LOG_SHORT(LINFO, ("Loading water geometry:", rawGeometryFileName));
     FileReader reader(rawGeometryFileName);
@@ -66,7 +77,7 @@ public:
         uint64_t numPoints = 0;
         file.Read(&numPoints, sizeof(numPoints));
 
-        vector<m2::PointD> points(numPoints);
+        std::vector<m2::PointD> points(numPoints);
         file.Read(points.data(), sizeof(m2::PointD) * numPoints);
         m_tree.Add(m2::RegionD(move(points)));
       }
@@ -74,55 +85,114 @@ public:
     LOG_SHORT(LINFO, ("Load", total, "water geometries"));
   }
 
-  bool IsWaterBoundaries(FeatureBuilder1 const & fb)
+  bool IsBoundaries(feature::FeatureBuilder const & fb)
   {
     ++m_totalFeatures;
 
-    if (fb.FindType(m_boundaryType, 2) == ftype::GetEmptyValue())
+    auto static const kBoundaryType = classif().GetTypeByPath({"boundary", "administrative"});
+    if (fb.FindType(kBoundaryType, 2) == ftype::GetEmptyValue())
       return false;
 
     ++m_totalBorders;
 
-    array<m2::PointD, 3> pts = {{{0, 0}, {0, 0}, {0, 0}}};
-    array<size_t, 3> hits = {{0, 0, 0}};
+    return true;
+  }
 
-    // For check we select first, last and middle point in line.
-    auto const & line = fb.GetGeometry().front();
-    pts[0] = line.front();
-    pts[1] = *(line.cbegin() + line.size() / 2);
-    pts[2] = line.back();
+  enum class ProcessState
+  {
+    Initial,
+    Water,
+    Earth
+  };
+
+  void ProcessBoundary(feature::FeatureBuilder const & boundary, std::vector<feature::FeatureBuilder> & parts)
+  {
+    auto const & line = boundary.GetGeometry().front();
 
     double constexpr kExtension = 0.01;
+    ProcessState state = ProcessState::Initial;
 
-    for (size_t i = 0; i < pts.size(); ++i)
+    feature::FeatureBuilder::PointSeq points;
+
+    for (size_t i = 0; i < line.size(); ++i)
     {
-      m2::PointD const & p = pts[i];
+      m2::PointD const & p = line[i];
       m2::RectD r(p.x - kExtension, p.y - kExtension, p.x + kExtension, p.y + kExtension);
+      size_t hits = 0;
       m_tree.ForEachInRect(r, [&](m2::RegionD const & rgn)
       {
         ++m_selectedPolygons;
-        hits[i] += rgn.Contains(p) ? 1 : 0;
+        hits += rgn.Contains(p) ? 1 : 0;
       });
+
+      bool inWater = (hits & 0x01) == 1;
+
+      switch (state)
+      {
+      case ProcessState::Initial:
+      {
+        if (inWater)
+        {
+          state = ProcessState::Water;
+        }
+        else
+        {
+          points.push_back(p);
+          state = ProcessState::Earth;
+        }
+        break;
+      }
+      case ProcessState::Water:
+      {
+        if (inWater)
+        {
+          // do nothing
+        }
+        else
+        {
+          points.push_back(p);
+          state = ProcessState::Earth;
+        }
+        break;
+      }
+      case ProcessState::Earth:
+      {
+        if (inWater)
+        {
+          if (points.size() > 1)
+          {
+            parts.push_back(boundary);
+            parts.back().ResetGeometry();
+            for (auto const & pt : points)
+              parts.back().AddPoint(pt);
+          }
+          points.clear();
+          state = ProcessState::Water;
+        }
+        else
+        {
+          points.push_back(p);
+        }
+        break;
+      }
+      }
     }
 
-    size_t const state = (hits[0] & 0x01) + (hits[1] & 0x01) + (hits[2] & 0x01);
-
-    // whole border on water
-    if (state == 3)
+    if (points.size() > 1)
     {
-      LOG_SHORT(LINFO, ("Boundary", (state == 3 ? "deleted." : "kept."), "Hits:", hits,
-                  DebugPrint(fb.GetParams()), fb.GetOsmIdsString()));
-      ++m_skippedBorders;
-      return true;
+      parts.push_back(boundary);
+      parts.back().ResetGeometry();
+      for (auto const & pt : points)
+        parts.back().AddPoint(pt);
     }
 
-    // state == 0 whole border on land, else partial intersection
-    return false;
+    if (parts.empty())
+      m_skippedBorders++;
   }
 };
-}
+} // namespace
 
-/// Process FeatureBuilder1 for world map. Main functions:
+/// Process FeatureBuilder for world map. Main functions:
 /// - check for visibility in world map
 /// - merge linear features
 template <class FeatureOutT>
@@ -131,28 +201,28 @@ class WorldMapGenerator
   class EmitterImpl : public FeatureEmitterIFace
   {
     FeatureOutT m_output;
-    map<uint32_t, size_t> m_mapTypes;
+    std::map<uint32_t, size_t> m_mapTypes;
 
   public:
-    explicit EmitterImpl(feature::GenerateInfo const & info)
-      : m_output(info.GetTmpFileName(WORLD_FILE_NAME))
+    explicit EmitterImpl(std::string const & worldFilename)
+      : m_output(worldFilename)
     {
-      LOG_SHORT(LINFO, ("Output World file:", info.GetTmpFileName(WORLD_FILE_NAME)));
+      LOG_SHORT(LINFO, ("Output World file:", worldFilename));
     }
 
     ~EmitterImpl() override
     {
       Classificator const & c = classif();
       
-      stringstream ss;
-      ss << endl;
+      std::stringstream ss;
+      ss << std::endl;
       for (auto const & p : m_mapTypes)
-        ss << c.GetReadableObjectName(p.first) << " : " <<  p.second << endl;
+        ss << c.GetReadableObjectName(p.first) << " : " <<  p.second << std::endl;
       LOG_SHORT(LINFO, ("World types:", ss.str()));
     }
 
     /// This function is called after merging linear features.
-    void operator()(FeatureBuilder1 const & fb) override
+    void operator()(feature::FeatureBuilder const & fb) override
     {
       // do additional check for suitable size of feature
       if (NeedPushToWorld(fb) &&
@@ -160,31 +230,37 @@ class WorldMapGenerator
         PushSure(fb);
     }
 
-    void CalcStatistics(FeatureBuilder1 const & fb)
+    void CalcStatistics(feature::FeatureBuilder const & fb)
     {
       for (uint32_t type : fb.GetTypes())
         ++m_mapTypes[type];
     }
 
-    bool NeedPushToWorld(FeatureBuilder1 const & fb) const
+    bool NeedPushToWorld(feature::FeatureBuilder const & fb) const
     {
-      // GetMinFeatureDrawScale also checks suitable size for AREA features
-      return (scales::GetUpperWorldScale() >= fb.GetMinFeatureDrawScale());
+      return generator::FilterWorld::IsGoodScale(fb);
     }
 
-    void PushSure(FeatureBuilder1 const & fb) { m_output(fb); }
+    void PushSure(feature::FeatureBuilder const & fb)
+    {
+      CalcStatistics(fb);
+      m_output.Collect(fb);
+    }
   };
 
   EmitterImpl m_worldBucket;
   FeatureTypesProcessor m_typesCorrector;
   FeatureMergeProcessor m_merger;
   WaterBoundaryChecker m_boundaryChecker;
+  std::string m_popularPlacesFilename;
 
 public:
-  explicit WorldMapGenerator(feature::GenerateInfo const & info)
-      : m_worldBucket(info),
-        m_merger(POINT_COORD_BITS - (scales::GetUpperScale() - scales::GetUpperWorldScale()) / 2),
-        m_boundaryChecker(info)
+  explicit WorldMapGenerator(std::string const & worldFilename, std::string const & rawGeometryFileName,
+                             std::string const & popularPlacesFilename)
+    : m_worldBucket(worldFilename)
+    , m_merger(kPointCoordBits - (scales::GetUpperScale() - scales::GetUpperWorldScale()) / 2)
+    , m_boundaryChecker(rawGeometryFileName)
+    , m_popularPlacesFilename(popularPlacesFilename)
   {
     // Do not strip last types for given tags,
     // for example, do not cut 'admin_level' in  'boundary-administrative-XXX'.
@@ -197,60 +273,105 @@ public:
 
     char const * arr2[] = {"boundary", "administrative", "4", "state"};
     m_typesCorrector.SetDontNormalizeType(arr2);
+
+    if (popularPlacesFilename.empty())
+      LOG(LWARNING, ("popular_places_data option not set. Popular atractions will not be added to World.mwm"));
   }
 
-  void operator()(FeatureBuilder1 fb)
+  void Process(feature::FeatureBuilder & fb)
   {
-    if (!m_worldBucket.NeedPushToWorld(fb))
+    auto const forcePushToWorld = generator::FilterWorld::IsPopularAttraction(fb, m_popularPlacesFilename) ||
+                                  generator::FilterWorld::IsInternationalAirport(fb);
+
+    if (!m_worldBucket.NeedPushToWorld(fb) && !forcePushToWorld)
       return;
 
-    m_worldBucket.CalcStatistics(fb);
+    if (!m_boundaryChecker.IsBoundaries(fb))
+    {
+      // Save original feature iff we need to force push it before PushFeature(fb) modifies fb.
+      auto originalFeature = forcePushToWorld ? fb : feature::FeatureBuilder();
 
-    // skip visible water boundary
-    if (m_boundaryChecker.IsWaterBoundaries(fb))
+      if (PushFeature(fb) || !forcePushToWorld)
+        return;
+
+      // We push Point with all the same tags, names and center instead of GEOM_WAY/Area
+      // because we do not need geometry for invisible features (just search index and placepage
+      // data) and want to avoid size checks applied to areas.
+      if (originalFeature.GetGeomType() != feature::GeomType::Point)
+        generator::TransformToPoint(originalFeature);
+
+      m_worldBucket.PushSure(originalFeature);
       return;
+    }
 
+    std::vector<feature::FeatureBuilder> boundaryParts;
+    m_boundaryChecker.ProcessBoundary(fb, boundaryParts);
+    for (auto & f : boundaryParts)
+      PushFeature(f);
+  }
+
+  bool PushFeature(feature::FeatureBuilder & fb)
+  {
     switch (fb.GetGeomType())
     {
-      case feature::GEOM_LINE:
-      {
-        MergedFeatureBuilder1 * p = m_typesCorrector(fb);
-        if (p)
-          m_merger(p);
-        return;
-      }
-      case feature::GEOM_AREA:
-      {
-        // This constant is set according to size statistics.
-        // Added approx 4Mb of data to the World.mwm
-        auto const & geometry = fb.GetOuterGeometry();
-        if (GetPolygonArea(geometry.begin(), geometry.end()) < 0.01)
-          return;
-      }
-      default:
-        break;
+    case feature::GeomType::Line:
+    {
+      MergedFeatureBuilder * p = m_typesCorrector(fb);
+      if (p)
+        m_merger(p);
+      return false;
+    }
+    case feature::GeomType::Area:
+    {
+      // This constant is set according to size statistics.
+      // Added approx 4Mb of data to the World.mwm
+      auto const & geometry = fb.GetOuterGeometry();
+      if (GetPolygonArea(geometry.begin(), geometry.end()) < 0.01)
+        return false;
+    }
+    default:
+      break;
     }
 
     if (feature::PreprocessForWorldMap(fb))
+    {
       m_worldBucket.PushSure(fb);
+      return true;
+    }
+
+    return false;
   }
 
   void DoMerge() { m_merger.DoMerge(m_worldBucket); }
 };
 
-template <class FeatureOutT>
-class CountryMapGenerator
+template <class FeatureOut>
+class SimpleCountryMapGenerator
 {
-  FeatureOutT m_bucket;
-
 public:
-  explicit CountryMapGenerator(feature::GenerateInfo const & info) : m_bucket(info) {}
+  SimpleCountryMapGenerator(feature::GenerateInfo const & info) : m_bucket(info) {}
 
-  void operator()(FeatureBuilder1 fb)
+  void operator()(feature::FeatureBuilder & fb)
   {
-    if (feature::PreprocessForCountryMap(fb))
       m_bucket(fb);
   }
 
-  inline FeatureOutT const & Parent() const { return m_bucket; }
+  FeatureOut & Parent() { return m_bucket; }
+
+private:
+  FeatureOut m_bucket;
+};
+
+template <class FeatureOut>
+class CountryMapGenerator : public SimpleCountryMapGenerator<FeatureOut>
+{
+public:
+  CountryMapGenerator(feature::GenerateInfo const & info) :
+    SimpleCountryMapGenerator<FeatureOut>(info) {}
+
+  void Process(feature::FeatureBuilder fb)
+  {
+    if (feature::PreprocessForCountryMap(fb))
+      SimpleCountryMapGenerator<FeatureOut>::operator()(fb);
+  }
 };

@@ -1,110 +1,67 @@
 #pragma once
 #include "indexer/cell_id.hpp"
+#include "indexer/feature_altitude.hpp"
 #include "indexer/feature_data.hpp"
+#include "indexer/meta_idx.hpp"
 
 #include "geometry/point2d.hpp"
 #include "geometry/rect2d.hpp"
 
 #include "base/buffer_vector.hpp"
+#include "base/macros.hpp"
 
-#include "std/string.hpp"
-
+#include <array>
+#include <cstdint>
+#include <functional>
+#include <iterator>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace feature
 {
-  class LoaderBase;
-  class LoaderCurrent;
+class SharedLoadInfo;
 }
 
-namespace old_101 { namespace feature
+namespace osm
 {
-  class LoaderImpl;
-}}
+class MapObject;
+}
 
-
-/// Base feature class for storing common data (without geometry).
-class FeatureBase
+// Lazy feature loader. Loads needed data and caches it.
+class FeatureType
 {
-  static const int m_maxTypesCount = feature::max_types_count;
-
 public:
+  using GeometryOffsets = buffer_vector<uint32_t, feature::DataHeader::kMaxScalesCount>;
 
-  using TBuffer = char const *;
+  FeatureType(feature::SharedLoadInfo const * loadInfo, std::vector<uint8_t> && buffer,
+              feature::MetadataIndex const * metadataIndex,
+              indexer::MetadataDeserializer * metadataDeserializer);
+  FeatureType(osm::MapObject const & emo);
 
-  void Deserialize(feature::LoaderBase * pLoader, TBuffer buffer);
+  feature::GeomType GetGeomType() const;
+  FeatureParamsBase & GetParams() { return m_params; }
 
-  /// @name Parse functions. Do simple dispatching to m_pLoader.
-  //@{
-  void ParseTypes() const;
-  void ParseCommon() const;
-  //@}
+  uint8_t GetTypesCount() const { return (m_header & feature::HEADER_MASK_TYPE) + 1; }
 
-  feature::EGeomType GetFeatureType() const;
+  bool HasName() const { return (m_header & feature::HEADER_MASK_HAS_NAME) != 0; }
+  StringUtf8Multilang const & GetNames();
 
-  inline uint8_t GetTypesCount() const
-  {
-    return ((Header() & feature::HEADER_TYPE_MASK) + 1);
-  }
-
-  inline int8_t GetLayer() const
-  {
-    if (!(Header() & feature::HEADER_HAS_LAYER))
-      return 0;
-
-    ParseCommon();
-    return m_params.layer;
-  }
-
-  inline bool HasName() const
-  {
-    return (Header() & feature::HEADER_HAS_NAME) != 0;
-  }
-
-  // Array with 64 strings ??? Use ForEachName instead!
-  /*
-  class GetNamesFn
-  {
-  public:
-    string m_names[64];
-    char m_langs[64];
-    size_t m_size;
-
-    GetNamesFn() : m_size(0) {}
-    bool operator() (char lang, string const & name)
-    {
-      m_names[m_size++] = name;
-      m_langs[m_size] = lang;
-      return true;
-    }
-  };
-  */
+  m2::PointD GetCenter();
 
   template <class T>
-  inline bool ForEachNameRef(T & functor) const
+  bool ForEachName(T && fn)
   {
     if (!HasName())
       return false;
 
     ParseCommon();
-    m_params.name.ForEachRef(functor);
+    m_params.name.ForEach(std::forward<T>(fn));
     return true;
   }
 
-  inline m2::RectD GetLimitRect() const
-  {
-    ASSERT ( m_limitRect.IsValid(), () );
-    return m_limitRect;
-  }
-
-  inline m2::PointD GetCenter() const
-  {
-    ASSERT_EQUAL ( GetFeatureType(), feature::GEOM_POINT, () );
-    ParseCommon();
-    return m_center;
-  }
-
   template <typename ToDo>
-  void ForEachType(ToDo f) const
+  void ForEachType(ToDo && f)
   {
     ParseTypes();
 
@@ -113,78 +70,36 @@ public:
       f(m_types[i]);
   }
 
-protected:
-  /// @name Need for FeatureBuilder.
-  //@{
-  friend class FeatureBuilder1;
-  inline void SetHeader(uint8_t h) { m_header = h; }
-  //@}
+  int8_t GetLayer();
 
-  string DebugString() const;
+  std::vector<m2::PointD> GetTrianglesAsPoints(int scale);
 
-  inline uint8_t Header() const { return m_header; }
+  void SetID(FeatureID const & id) { m_id = id; }
+  FeatureID const & GetID() const { return m_id; }
 
-protected:
-  feature::LoaderBase * m_pLoader;
-
-  uint8_t m_header;
-
-  mutable uint32_t m_types[m_maxTypesCount];
-
-  mutable FeatureParamsBase m_params;
-
-  mutable m2::PointD m_center;
-
-  mutable m2::RectD m_limitRect;
-
-  mutable bool m_bTypesParsed, m_bCommonParsed;
-
-  friend class feature::LoaderCurrent;
-  friend class old_101::feature::LoaderImpl;
-};
-
-/// Working feature class with geometry.
-class FeatureType : public FeatureBase
-{
-  typedef FeatureBase base_type;
-
-  FeatureID m_id;
-
-public:
-  void Deserialize(feature::LoaderBase * pLoader, TBuffer buffer);
-
-  inline void SetID(FeatureID const & id) { m_id = id; }
-  inline FeatureID GetID() const { return m_id; }
-
-  /// @name Parse functions. Do simple dispatching to m_pLoader.
-  //@{
-  void ParseHeader2() const;
-
-  void ResetGeometry() const;
-  uint32_t ParseGeometry(int scale) const;
-  uint32_t ParseTriangles(int scale) const;
-
-  void ParseMetadata() const;
+  void ResetGeometry();
+  uint32_t ParseGeometry(int scale);
+  uint32_t ParseTriangles(int scale);
   //@}
 
   /// @name Geometry.
   //@{
-  /// This constant values should be equal with feature::LoaderBase implementation.
+  /// This constant values should be equal with feature::FeatureLoader implementation.
   enum { BEST_GEOMETRY = -1, WORST_GEOMETRY = -2 };
 
-  m2::RectD GetLimitRect(int scale) const;
+  m2::RectD GetLimitRect(int scale);
 
-  bool IsEmptyGeometry(int scale) const;
+  bool IsEmptyGeometry(int scale);
 
-  template <typename FunctorT>
-  void ForEachPointRef(FunctorT & f, int scale) const
+  template <typename Functor>
+  void ForEachPoint(Functor && f, int scale)
   {
     ParseGeometry(scale);
 
     if (m_points.empty())
     {
       // it's a point feature
-      if (GetFeatureType() == feature::GEOM_POINT)
+      if (GetGeomType() == feature::GeomType::Point)
         f(m_center);
     }
     else
@@ -194,26 +109,12 @@ public:
     }
   }
 
-  inline size_t GetPointsCount() const
-  {
-    ASSERT(m_bPointsParsed, ());
-    return m_points.size();
-  }
-  inline m2::PointD const & GetPoint(size_t i) const
-  {
-    ASSERT_LESS(i, m_points.size(), ());
-    ASSERT(m_bPointsParsed, ());
-    return m_points[i];
-  }
+  size_t GetPointsCount() const;
 
-  template <typename FunctorT>
-  void ForEachPoint(FunctorT f, int scale) const
-  {
-    ForEachPointRef(f, scale);
-  }
+  m2::PointD const & GetPoint(size_t i) const;
 
-  template <typename FunctorT>
-  void ForEachTriangleRef(FunctorT & f, int scale) const
+  template <typename TFunctor>
+  void ForEachTriangle(TFunctor && f, int scale)
   {
     ParseTriangles(scale);
 
@@ -224,60 +125,51 @@ public:
     }
   }
 
-  template <typename FunctorT>
-  void ForEachTriangle(FunctorT f, int scale) const
-  {
-    ForEachTriangleRef(f, scale);
-  }
-
-  template <typename FunctorT>
-  void ForEachTriangleExRef(FunctorT & f, int scale) const
+  template <typename Functor>
+  void ForEachTriangleEx(Functor && f, int scale)
   {
     f.StartPrimitive(m_triangles.size());
-    ForEachTriangleRef(f, scale);
+    ForEachTriangle(std::forward<Functor>(f), scale);
     f.EndPrimitive();
   }
   //@}
 
-  /// For test cases only.
-  string DebugString(int scale) const;
-  friend string DebugPrint(FeatureType const & ft);
+  std::string DebugString(int scale);
 
-  string GetHouseNumber() const;
+  std::string GetHouseNumber();
 
   /// @name Get names for feature.
   /// @param[out] defaultName corresponds to osm tag "name"
   /// @param[out] intName optionally choosen from tags "name:<lang_code>" by the algorithm
   //@{
   /// Just get feature names.
-  void GetPreferredNames(string & defaultName, string & intName) const;
+  void GetPreferredNames(std::string & defaultName, std::string & intName);
+  void GetPreferredNames(bool allowTranslit, int8_t deviceLang, std::string & defaultName,
+                         std::string & intName);
   /// Get one most suitable name for user.
-  void GetReadableName(string & name) const;
+  void GetReadableName(std::string & name);
+  void GetReadableName(bool allowTranslit, int8_t deviceLang, std::string & name);
 
-  static int8_t const DEFAULT_LANG = StringUtf8Multilang::DEFAULT_CODE;
-  bool GetName(int8_t lang, string & name) const;
+  bool GetName(int8_t lang, std::string & name);
   //@}
 
-  uint8_t GetRank() const;
-  uint32_t GetPopulation() const;
-  string GetRoadNumber() const;
-  bool HasInternet() const;
+  uint8_t GetRank();
+  uint64_t GetPopulation();
+  std::string GetRoadNumber();
 
-  inline feature::Metadata const & GetMetadata() const { return m_metadata; }
-  inline feature::Metadata & GetMetadata() { return m_metadata; }
+  feature::Metadata const & GetMetadata();
 
-  double GetDistance(m2::PointD const & pt, int scale) const;
+  // Gets single metadata string. Does not parse all metadata.
+  std::string GetMetadata(feature::Metadata::EType type);
+  bool HasMetadata(feature::Metadata::EType type);
 
   /// @name Statistic functions.
   //@{
-  inline void ParseBeforeStatistic() const
-  {
-    ParseHeader2();
-  }
+  void ParseBeforeStatistic() { ParseHeader2(); }
 
-  struct inner_geom_stat_t
+  struct InnerGeomStat
   {
-    uint32_t m_points, m_strips, m_size;
+    uint32_t m_points = 0, m_strips = 0, m_size = 0;
 
     void MakeZero()
     {
@@ -285,63 +177,89 @@ public:
     }
   };
 
-  inner_geom_stat_t GetInnerStatistic() const { return m_innerStats; }
+  InnerGeomStat GetInnerStatistic() const { return m_innerStats; }
 
-  struct geom_stat_t
+  struct GeomStat
   {
-    uint32_t m_size, m_count;
+    uint32_t m_size = 0, m_count = 0;
 
-    geom_stat_t(uint32_t sz, size_t count)
-      : m_size(sz), m_count(static_cast<uint32_t>(count))
-    {
-    }
-
-    geom_stat_t() : m_size(0), m_count(0) {}
+    GeomStat(uint32_t sz, size_t count) : m_size(sz), m_count(static_cast<uint32_t>(count)) {}
   };
 
-  geom_stat_t GetGeometrySize(int scale) const;
-  geom_stat_t GetTrianglesSize(int scale) const;
+  GeomStat GetGeometrySize(int scale);
+  GeomStat GetTrianglesSize(int scale);
   //@}
 
-  void SwapGeometry(FeatureType & r);
-
-  inline void SwapPoints(buffer_vector<m2::PointD, 32> & points) const
-  {
-    ASSERT(m_bPointsParsed, ());
-    return m_points.swap(points);
-  }
-
 private:
-  void ParseAll(int scale) const;
+  struct ParsedFlags
+  {
+    bool m_types = false;
+    bool m_common = false;
+    bool m_header2 = false;
+    bool m_points = false;
+    bool m_triangles = false;
+    bool m_metadata = false;
+    bool m_metaIds = false;
+
+    void Reset()
+    {
+      m_types = m_common = m_header2 = m_points = m_triangles = m_metadata = m_metaIds = false;
+    }
+  };
+
+  struct Offsets
+  {
+    uint32_t m_common = 0;
+    uint32_t m_header2 = 0;
+    GeometryOffsets m_pts;
+    GeometryOffsets m_trg;
+
+    void Reset()
+    {
+      m_common = m_header2 = 0;
+      m_pts.clear();
+      m_trg.clear();
+    }
+  };
+
+  void ParseTypes();
+  void ParseCommon();
+  void ParseHeader2();
+  void ParseMetadata();
+  void ParseMetaIds();
+  void ParseGeometryAndTriangles(int scale);
+
+  uint8_t m_header = 0;
+  std::array<uint32_t, feature::kMaxTypesCount> m_types = {};
+
+  FeatureID m_id;
+  FeatureParamsBase m_params;
+
+  m2::PointD m_center;
+  m2::RectD m_limitRect;
 
   // For better result this value should be greater than 17
   // (number of points in inner triangle-strips).
-  static const size_t static_buffer = 32;
+  static const size_t kStaticBufferSize = 32;
+  using Points = buffer_vector<m2::PointD, kStaticBufferSize>;
+  Points m_points, m_triangles;
+  feature::Metadata m_metadata;
+  indexer::MetadataDeserializer::MetaIds m_metaIds;
 
-  typedef buffer_vector<m2::PointD, static_buffer> points_t;
-  mutable points_t m_points, m_triangles;
-  mutable feature::Metadata m_metadata;
+  // Non-owning pointer to shared load info. SharedLoadInfo created once per FeaturesVector.
+  feature::SharedLoadInfo const * m_loadInfo = nullptr;
+  std::vector<uint8_t> m_data;
 
-  mutable bool m_bHeader2Parsed, m_bPointsParsed, m_bTrianglesParsed, m_bMetadataParsed;
+  // Pointer to shared metadata index. Must be set for mwm format == Format::v10
+  feature::MetadataIndex const * m_metadataIndex = nullptr;
+  // Pointer to shared metedata deserializer. Must be set for mwm format >= Format::v11
+  indexer::MetadataDeserializer * m_metadataDeserializer = nullptr;
 
-  mutable inner_geom_stat_t m_innerStats;
+  ParsedFlags m_parsed;
+  Offsets m_offsets;
+  uint32_t m_ptsSimpMask = 0;
 
-  friend class feature::LoaderCurrent;
-  friend class old_101::feature::LoaderImpl;
+  InnerGeomStat m_innerStats;
+
+  DISALLOW_COPY_AND_MOVE(FeatureType);
 };
-
-namespace feature
-{
-  template <class IterT>
-  void CalcRect(IterT b, IterT e, m2::RectD & rect)
-  {
-    while (b != e)
-      rect.Add(*b++);
-  }
-
-  template <class TCont>
-  void CalcRect(TCont const & points, m2::RectD & rect)
-  {
-    CalcRect(points.begin(), points.end(), rect);
-  }
-}

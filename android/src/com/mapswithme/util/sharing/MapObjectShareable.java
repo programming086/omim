@@ -2,43 +2,45 @@ package com.mapswithme.util.sharing;
 
 import android.app.Activity;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import android.text.TextUtils;
+
 import com.mapswithme.maps.Framework;
 import com.mapswithme.maps.R;
 import com.mapswithme.maps.bookmarks.data.MapObject;
-import com.mapswithme.util.statistics.Statistics;
+import com.mapswithme.maps.widget.placepage.Sponsored;
 
-public class MapObjectShareable extends BaseShareable
+import java.util.Arrays;
+
+class MapObjectShareable extends BookmarkInfoShareable<MapObject>
 {
-  protected final MapObject mMapObject;
-
-  public MapObjectShareable(Activity context, MapObject mapObject)
+  MapObjectShareable(Activity context, @NonNull MapObject mapObject, @Nullable Sponsored sponsored)
   {
-    super(context);
-    mMapObject = mapObject;
+    super(context, mapObject, sponsored);
 
-    final Activity activity = getActivity();
-    final String ge0Url = Framework.nativeGetGe0Url(mMapObject.getLat(), mMapObject.getLon(), mMapObject.getScale(), mMapObject.getName());
-    final String httpUrl = Framework.getHttpGe0Url(mMapObject.getLat(), mMapObject.getLon(), mMapObject.getScale(), mMapObject.getName());
-    final String address = Framework.nativeGetNameAndAddress4Point(mMapObject.getLat(), mMapObject.getLon());
-    final int textId = mMapObject.getType() == MapObject.MapObjectType.MY_POSITION ?
-        R.string.my_position_share_email : R.string.bookmark_share_email;
-    final int subjectId = mMapObject.getType() == MapObject.MapObjectType.MY_POSITION ?
-        R.string.my_position_share_email_subject : R.string.bookmark_share_email_subject;
-
-    setText(activity.getString(textId, address, ge0Url, httpUrl));
-    setSubject(activity.getString(subjectId));
+    if (MapObject.isOfType(MapObject.MY_POSITION, mapObject))
+    {
+      setSubject(R.string.my_position_share_email_subject);
+      String text = makeMyPositionEmailBodyContent();
+      setText(text);
+    }
   }
 
-  @Override
-  public void share(SharingTarget target)
+  @NonNull
+  private String makeMyPositionEmailBodyContent()
   {
-    super.share(target);
-    Statistics.INSTANCE.trackPlaceShared(target.name);
+    return getActivity().getString(R.string.my_position_share_email,
+                                   Framework.nativeGetAddress(getProvider().getLat(),
+                                                              getProvider().getLon()),
+                                   getGeoUrl(), getHttpUrl());
   }
 
+  @NonNull
   @Override
-  public String getMimeType()
+  protected Iterable<String> getEmailBodyContent()
   {
-    return null;
+    return Arrays.asList(getProvider().getName(), getProvider().getSubtitle(), getProvider().getAddress(),
+                         getGeoUrl(), getHttpUrl());
   }
 }
